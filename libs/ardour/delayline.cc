@@ -196,6 +196,11 @@ DelayLine::run (BufferSet& bufs, framepos_t start_frame, framepos_t end_frame, p
 void
 DelayLine::set_delay(framecnt_t signal_delay)
 {
+	if (signal_delay < 0) {
+		signal_delay = 0;
+		cerr << "WARNING: latency compensation is not possible.\n";
+	}
+
 	const framecnt_t rbs = signal_delay + 1;
 
 	DEBUG_TRACE (DEBUG::LatencyCompensation,
@@ -240,6 +245,8 @@ DelayLine::configure_io (ChanCount in, ChanCount out)
 	if (out != in) { // always 1:1
 		return false;
 	}
+
+	// TODO realloc buffers if channel count changes..
 
 	DEBUG_TRACE (DEBUG::LatencyCompensation,
 			string_compose ("configure IO: %1 Ain: %2 Aout: %3 Min: %4 Mout: %5\n",

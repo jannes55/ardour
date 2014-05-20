@@ -1247,6 +1247,32 @@ IO::latency () const
 	return max_latency;
 }
 
+framecnt_t
+IO::pub_latency () const
+{
+	framecnt_t max_latency;
+	framecnt_t latency;
+
+	max_latency = 0;
+
+	/* io lock not taken - must be protected by other means */
+
+	for (PortSet::const_iterator i = _ports.begin(); i != _ports.end(); ++i) {
+		if ((latency = i->public_latency_range (_direction == Output).max) > max_latency) {
+                        DEBUG_TRACE (DEBUG::Latency, string_compose ("port %1 has %2 latency of %3 - use\n",
+                                                                     name(),
+                                                                     ((_direction == Output) ? "PLAYBACK" : "CAPTURE"),
+                                                                     latency));
+			max_latency = latency;
+		}
+	}
+
+        DEBUG_TRACE (DEBUG::Latency, string_compose ("%1: max %4 latency from %2 ports = %3\n",
+                                                     name(), _ports.num_ports(), max_latency,
+                                                     ((_direction == Output) ? "PLAYBACK" : "CAPTURE")));
+	return max_latency;
+}
+
 int
 IO::connect_ports_to_bundle (boost::shared_ptr<Bundle> c, bool exclusive, void* src)
 {

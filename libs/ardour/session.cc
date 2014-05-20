@@ -153,7 +153,6 @@ Session::Session (AudioEngine &eng,
 	, _target_transport_speed (0.0)
 	, auto_play_legal (false)
 	, _last_slave_transport_frame (0)
-	, maximum_output_latency (0)
 	, _requested_return_frame (-1)
 	, current_block_size (0)
 	, _worst_output_latency (0)
@@ -1440,7 +1439,7 @@ Session::audible_frame () const
 	   in the absence of any plugin latency compensation
 	*/
 
-	offset = worst_playback_latency ();
+	offset = worst_session_latency ();
 
 	if (offset > current_block_size) {
 		offset -= current_block_size;
@@ -1572,13 +1571,13 @@ trace_terminal (boost::shared_ptr<Route> r1, boost::shared_ptr<Route> rbase)
 
 	/* make a copy of the existing list of routes that feed r1 */
 
-	Route::FedBy existing (r1->fed_by());
+	Route::FoodChain existing (r1->food_chain());
 
 	/* for each route that feeds r1, recurse, marking it as feeding
 	   rbase as well.
 	*/
 
-	for (Route::FedBy::iterator i = existing.begin(); i != existing.end(); ++i) {
+	for (Route::FoodChain::iterator i = existing.begin(); i != existing.end(); ++i) {
 		if (!(r2 = i->r.lock ())) {
 			/* (*i) went away, ignore it */
 			continue;
@@ -1588,7 +1587,7 @@ trace_terminal (boost::shared_ptr<Route> r1, boost::shared_ptr<Route> rbase)
 		   base as being fed by r2
 		*/
 
-		rbase->add_fed_by (r2, i->sends_only);
+		rbase->add_food_chain (r2, i->sends_only);
 
 		if (r2 != rbase) {
 
@@ -1634,9 +1633,9 @@ Session::resort_routes ()
 	for (RouteList::iterator i = rl->begin(); i != rl->end(); ++i) {
 		DEBUG_TRACE (DEBUG::Graph, string_compose ("%1 fed by ...\n", (*i)->name()));
 
-		const Route::FedBy& fb ((*i)->fed_by());
+		const Route::FoodChain& fb ((*i)->food_chain());
 
-		for (Route::FedBy::const_iterator f = fb.begin(); f != fb.end(); ++f) {
+		for (Route::FoodChain::const_iterator f = fb.begin(); f != fb.end(); ++f) {
 			boost::shared_ptr<Route> sf = f->r.lock();
 			if (sf) {
 				DEBUG_TRACE (DEBUG::Graph, string_compose ("\t%1 (sends only ? %2)\n", sf->name(), f->sends_only));
@@ -1675,6 +1674,8 @@ Session::resort_routes_using (boost::shared_ptr<RouteList> r)
 	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
 
 		/* Clear out the route's list of direct or indirect feeds */
+		(*i)->clear_food_chain ();
+		(*i)->clear_feeding ();
 		(*i)->clear_fed_by ();
 
 		for (RouteList::iterator j = r->begin(); j != r->end(); ++j) {
@@ -1688,7 +1689,12 @@ Session::resort_routes_using (boost::shared_ptr<RouteList> r)
 				/* add the edge to the graph (part #1) */
 				edges.add (*j, *i, via_sends_only);
 				/* tell the route (for part #2) */
+				(*i)->add_food_chain (*j, via_sends_only);
 				(*i)->add_fed_by (*j, via_sends_only);
+			}
+
+			if ((*i)->direct_feeds_according_to_reality (*j, &via_sends_only)) {
+				(*i)->add_feeding (*j, via_sends_only);
 			}
 		}
 	}
@@ -4702,7 +4708,7 @@ Session::update_latency (bool playback)
 	}
 
 	boost::shared_ptr<RouteList> r = routes.reader ();
-	framecnt_t max_latency = 0;
+	//framecnt_t max_latency = 0;
 
 	if (playback) {
 		/* reverse the list so that we work backwards from the last route to run to the first */
@@ -4717,9 +4723,14 @@ Session::update_latency (bool playback)
 	*/
 
 	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
-		max_latency = max (max_latency, (*i)->set_private_port_latencies (playback));
+#if 0 // use values cached by Session::update_latency_compensation()
+		(*i)->downstream_latency();
+		(*i)->upstream_latency();
+#endif
+		//max_latency = max (max_latency, (*i)->set_private_port_latencies (playback));
+		(*i)->set_public_port_latencies ((*i)->set_private_port_latencies (playback), playback);
 	}
-
+#if 0
         /* because we latency compensate playback, our published playback latencies should
            be the same for all output ports - all material played back by ardour has
            the same latency, whether its caused by plugins or by latency compensation. since
@@ -4732,6 +4743,7 @@ Session::update_latency (bool playback)
         for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
                 (*i)->set_public_port_latencies (max_latency, playback);
         }
+#endif
 
 	if (playback) {
 
@@ -4757,10 +4769,11 @@ Session::post_playback_latency ()
 			_worst_track_latency = max (_worst_track_latency, (*i)->update_signal_latency ());
 		}
 	}
-
+#if 0
 	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
-		(*i)->set_latency_compensation (_worst_track_latency);
+		(*i)->set_latency_compensation (_worst_session_latency); // XXX  was _worst_track_latency
 	}
+#endif
 }
 
 void
@@ -4852,11 +4865,25 @@ Session::update_latency_compensation (bool force_whole_graph)
 		return;
 	}
 
-	DEBUG_TRACE(DEBUG::Latency, "---------------------------- update latency compensation\n\n");
-
-	_worst_track_latency = 0;
-
 	boost::shared_ptr<RouteList> r = routes.reader ();
+
+	DEBUG_TRACE(DEBUG::Latency, "\n---------------------------- update latency compensation\n");
+
+	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
+		(*i)->reset_latency_graph();
+		(*i)->reset_latency_graph();
+	}
+
+	DEBUG_TRACE(DEBUG::Latency, "---------------------------- balance route graph\n");
+	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
+		// latency for 'terminal' routes will be wrong
+		// because the worst_session_latency is not set yet
+		(*i)->calculate_latency_compensation();
+	}
+
+	DEBUG_TRACE(DEBUG::Latency, "---------------------------- calc worst session latency..\n");
+	_worst_track_latency = 0;
+	_worst_session_latency = 0;
 
 	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
 		if (!(*i)->is_auditioner() && ((*i)->active())) {
@@ -4864,19 +4891,28 @@ Session::update_latency_compensation (bool force_whole_graph)
 			if ((*i)->signal_latency () != (tl = (*i)->update_signal_latency ())) {
 				some_track_latency_changed = true;
 			}
-			_worst_track_latency = max (tl, _worst_track_latency);
+			_worst_track_latency = max (tl + (*i)->downstream_latency(), _worst_track_latency);
+			_worst_session_latency = max ((*i)->upstream_latency() + (*i)->downstream_latency(), _worst_session_latency);
 		}
 	}
 
 	DEBUG_TRACE (DEBUG::Latency, string_compose ("worst signal processing latency: %1 (changed ? %2)\n", _worst_track_latency,
 	                                             (some_track_latency_changed ? "yes" : "no")));
+	DEBUG_TRACE (DEBUG::Latency, string_compose ("worst session latency: %1\n", _worst_session_latency));
 
-	DEBUG_TRACE(DEBUG::Latency, "---------------------------- DONE update latency compensation\n\n");
-	
+	DEBUG_TRACE(DEBUG::Latency, "---------------------------- update route compensation\n");
+
+	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
+		//(*i)->calculate_latency_compensation();
+		(*i)->set_latency_compensation(_worst_session_latency);
+	}
+	DEBUG_TRACE(DEBUG::Latency, "---------------------------- DONE updating route compensation\n");
+
 	if (some_track_latency_changed || force_whole_graph)  {
 		_engine.update_latencies ();
 	}
 
+	DEBUG_TRACE(DEBUG::Latency, "---------------------------- setting track capture offsets\n");
 
 	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
 		boost::shared_ptr<Track> tr = boost::dynamic_pointer_cast<Track> (*i);
@@ -4885,6 +4921,7 @@ Session::update_latency_compensation (bool force_whole_graph)
 		}
 		tr->set_capture_offset ();
 	}
+	DEBUG_TRACE(DEBUG::Latency, "---------------------------- done \n\n");
 }
 
 char

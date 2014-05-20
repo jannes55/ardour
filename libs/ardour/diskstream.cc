@@ -78,6 +78,7 @@ Diskstream::Diskstream (Session &sess, const string &name, Flag flag)
         , adjust_capture_position (0)
         , _capture_offset (0)
         , _roll_delay (0)
+        , _upstream_latency (0)
         , first_recordable_frame (max_framepos)
         , last_recordable_frame (max_framepos)
         , last_possibly_recording (0)
@@ -251,8 +252,7 @@ Diskstream::set_capture_offset ()
 		/* can't capture, so forget it */
 		return;
 	}
-
-	_capture_offset = _io->latency();
+	_capture_offset = _io->latency(); // XXX wrong should use public latency..
         DEBUG_TRACE (DEBUG::CaptureAlignment, string_compose ("%1: using IO latency, capture offset set to %2\n", name(), _capture_offset));
 }
 
@@ -261,10 +261,12 @@ void
 Diskstream::set_align_style (AlignStyle a, bool force)
 {
 	if (record_enabled() && _session.actively_recording()) {
+		cerr << "IGNORED Diskstream::set_align_style\n";
 		return;
 	}
 
 	if ((a != _alignment_style) || force) {
+		cerr << "IGNORED Diskstream::set_align_style "<< a << "\n";
 		_alignment_style = a;
 		AlignmentStyleChanged ();
 	}
@@ -274,9 +276,11 @@ void
 Diskstream::set_align_choice (AlignChoice a, bool force)
 {
 	if (record_enabled() && _session.actively_recording()) {
+		cerr << "IGNORED Diskstream::set_align_choice\n";
 		return;
 	}
 
+	cerr << "IGNORED Diskstream::set_align_choice "<< a << "\n";
 	if ((a != _alignment_choice) || force) {
 		_alignment_choice = a;
 
@@ -339,10 +343,16 @@ Diskstream::get_captured_frames (uint32_t n) const
 	}
 }
 
-void
+	void
 Diskstream::set_roll_delay (ARDOUR::framecnt_t nframes)
 {
 	_roll_delay = nframes;
+}
+
+	void
+Diskstream::set_upstream_latency (ARDOUR::framecnt_t nframes)
+{
+	_upstream_latency = nframes;
 }
 
 int
@@ -593,11 +603,11 @@ Diskstream::check_record_status (framepos_t transport_frame, bool can_record)
 	const int transport_rolling = 0x4;
 	const int track_rec_enabled = 0x2;
 	const int global_rec_enabled = 0x1;
-        const int fully_rec_enabled = (transport_rolling|track_rec_enabled|global_rec_enabled);
+	const int fully_rec_enabled = (transport_rolling|track_rec_enabled|global_rec_enabled);
 
 	/* merge together the 3 factors that affect record status, and compute
-	   what has changed.
-	*/
+		 what has changed.
+		 */
 
 	rolling = _session.transport_speed() != 0.0f;
 	possibly_recording = (rolling << 2) | ((int)record_enabled() << 1) | (int)can_record;
@@ -607,61 +617,63 @@ Diskstream::check_record_status (framepos_t transport_frame, bool can_record)
 		return;
 	}
 
-        framecnt_t existing_material_offset = _session.worst_playback_latency();
+	framecnt_t existing_material_offset = _session.worst_output_latency();
 
-        if (possibly_recording == fully_rec_enabled) {
+	if (possibly_recording == fully_rec_enabled) {
 
-                if (last_possibly_recording == fully_rec_enabled) {
-                        return;
-                }
+		if (last_possibly_recording == fully_rec_enabled) {
+			return;
+		}
 
 		capture_start_frame = _session.transport_frame();
-		first_recordable_frame = capture_start_frame + _capture_offset;
+		first_recordable_frame = capture_start_frame  + _capture_offset; //  + _upstream_latency;
 		last_recordable_frame = max_framepos;
 
-                DEBUG_TRACE (DEBUG::CaptureAlignment, string_compose ("%1: @ %7 (%9) FRF = %2 CSF = %4 CO = %5, EMO = %6 RD = %8 WOL %10 WTL %11\n",
-                                                                      name(), first_recordable_frame, last_recordable_frame, capture_start_frame,
-                                                                      _capture_offset,
-                                                                      existing_material_offset,
-                                                                      transport_frame,
-                                                                      _roll_delay,
-                                                                      _session.transport_frame(),
-                                                                      _session.worst_output_latency(),
-                                                                      _session.worst_track_latency()));
+		DEBUG_TRACE (DEBUG::CaptureAlignment, string_compose ("%1: @ %7 (%9) FRF = %2 CSF = %4 CO = %5, UL= %13 EMO = %6 RD = %8 WOL %10 WTL %11 WSL %12\n",
+					name(), first_recordable_frame, last_recordable_frame, capture_start_frame,
+					_capture_offset,
+					existing_material_offset,
+					transport_frame,
+					_roll_delay,
+					_session.transport_frame(),
+					_session.worst_output_latency(),
+					_session.worst_track_latency(),
+					_session.worst_session_latency(),
+					_upstream_latency));
 
 
-                if (_alignment_style == ExistingMaterial) {
-                        first_recordable_frame += existing_material_offset;
-                        DEBUG_TRACE (DEBUG::CaptureAlignment, string_compose ("\tshift FRF by EMO %1\n",
-                                                                              first_recordable_frame));
-                }
+		if (_alignment_style == ExistingMaterial) {
+			first_recordable_frame += existing_material_offset + _upstream_latency;
+			DEBUG_TRACE (DEBUG::CaptureAlignment, string_compose ("\tshift FRF by EMO (%1) and USL (2) to %3\n",
+						existing_material_offset, _upstream_latency,  first_recordable_frame));
+		}
 
-                prepare_record_status (capture_start_frame);
+		prepare_record_status (capture_start_frame);
 
-        } else {
+	} else {
 
-                if (last_possibly_recording == fully_rec_enabled) {
+		if (last_possibly_recording == fully_rec_enabled) {
 
-                        /* we were recording last time */
+			/* we were recording last time */
 
-                        if (change & transport_rolling) {
+			if (change & transport_rolling) {
 
-                                /* transport-change (stopped rolling): last_recordable_frame was set in ::prepare_to_stop(). We
-                                   had to set it there because we likely rolled past the stopping point to declick out,
-                                   and then backed up.
-                                 */
+				/* transport-change (stopped rolling): last_recordable_frame was set in ::prepare_to_stop(). We
+					 had to set it there because we likely rolled past the stopping point to declick out,
+					 and then backed up.
+					 */
 
-                        } else {
-                                /* punch out */
+			} else {
+				/* punch out */
 
-                                last_recordable_frame = _session.transport_frame() + _capture_offset;
+				last_recordable_frame = _session.transport_frame() + _capture_offset;
 
-                                if (_alignment_style == ExistingMaterial) {
-                                        last_recordable_frame += existing_material_offset;
-                                }
-                        }
-                }
-        }
+				if (_alignment_style == ExistingMaterial) {
+					last_recordable_frame += existing_material_offset;
+				}
+			}
+		}
+	}
 
 	last_possibly_recording = possibly_recording;
 }

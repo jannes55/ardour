@@ -57,6 +57,7 @@
 #include "ardour/plugin_insert.h"
 #include "ardour/port.h"
 #include "ardour/port_insert.h"
+#include "ardour/port_manager.h"
 #include "ardour/processor.h"
 #include "ardour/route.h"
 #include "ardour/route_group.h"
@@ -64,6 +65,7 @@
 #include "ardour/session.h"
 #include "ardour/unknown_processor.h"
 #include "ardour/utils.h"
+#include "ardour/track.h"
 
 #include "i18n.h"
 
@@ -80,6 +82,8 @@ Route::Route (Session& sess, string name, Flag flg, DataType default_type)
 	, GraphNode (sess._process_graph)
 	, _active (true)
 	, _signal_latency (0)
+	, _downstream_latency (-1)
+	, _upstream_latency (-1)
 	, _initial_delay (0)
 	, _roll_delay (0)
 	, _flags (flg)
@@ -512,6 +516,8 @@ Route::process_output_buffers (BufferSet& bufs,
 	/* set this to be true if the meter will already have been ::run() earlier */
 	bool const meter_already_run = metering_state() == MeteringInput;
 
+	framecnt_t latency = 0;
+
 	for (ProcessorList::iterator i = _processors.begin(); i != _processors.end(); ++i) {
 
 		if (meter_already_run && boost::dynamic_pointer_cast<PeakMeter> (*i)) {
@@ -537,8 +543,17 @@ Route::process_output_buffers (BufferSet& bufs,
 		   do we catch route != active somewhere higher?
 		*/
 
+		if (boost::dynamic_pointer_cast<Send>(*i) != 0) {
+			boost::dynamic_pointer_cast<Send>(*i)->set_delay_in(_signal_latency - latency);
+		}
+
+		// TODO add individual processor latency.. -> aux send proc
 		(*i)->run (bufs, start_frame, end_frame, nframes, *i != _processors.back());
 		bufs.set_count ((*i)->output_streams());
+
+		if ((*i)->active ()) {
+			latency += (*i)->signal_latency ();
+		}
 	}
 }
 
@@ -716,7 +731,7 @@ Route::mod_solo_by_others_upstream (int32_t delta)
 
 		if (delta > 0 || !Config->get_exclusive_solo()) {
 			DEBUG_TRACE (DEBUG::Solo, "\t ... INVERT push\n");
-			for (FedBy::iterator i = _fed_by.begin(); i != _fed_by.end(); ++i) {
+			for (FoodChain::iterator i = _food_chain.begin(); i != _food_chain.end(); ++i) {
 				boost::shared_ptr<Route> sr = i->r.lock();
 				if (sr) {
 					sr->mod_solo_by_others_downstream (-delta);
@@ -2792,6 +2807,12 @@ Route::set_comment (string cmt, void *src)
 	_session.set_dirty ();
 }
 
+void
+Route::clear_fed_by ()
+{
+	_fed_by.clear ();
+}
+
 bool
 Route::add_fed_by (boost::shared_ptr<Route> other, bool via_sends_only)
 {
@@ -2812,17 +2833,61 @@ Route::add_fed_by (boost::shared_ptr<Route> other, bool via_sends_only)
 }
 
 void
-Route::clear_fed_by ()
+Route::clear_feeding ()
 {
-	_fed_by.clear ();
+	_feeding.clear ();
+}
+
+bool
+Route::add_feeding (boost::shared_ptr<Route> other, bool via_sends_only)
+{
+	FeedRecord fr (other, via_sends_only);
+
+	pair<Feeding::iterator,bool> result =  _feeding.insert (fr);
+
+	if (!result.second) {
+
+		/* already a record for "other" - make sure sends-only information is correct */
+		if (!via_sends_only && result.first->sends_only) {
+			FeedRecord* frp = const_cast<FeedRecord*>(&(*result.first));
+			frp->sends_only = false;
+		}
+	}
+
+	return result.second;
+}
+
+void
+Route::clear_food_chain ()
+{
+	_food_chain.clear ();
+}
+
+bool
+Route::add_food_chain (boost::shared_ptr<Route> other, bool via_sends_only)
+{
+	FeedRecord fr (other, via_sends_only);
+
+	pair<FoodChain::iterator,bool> result =  _food_chain.insert (fr);
+
+	if (!result.second) {
+
+		/* already a record for "other" - make sure sends-only information is correct */
+		if (!via_sends_only && result.first->sends_only) {
+			FeedRecord* frp = const_cast<FeedRecord*>(&(*result.first));
+			frp->sends_only = false;
+		}
+	}
+
+	return result.second;
 }
 
 bool
 Route::feeds (boost::shared_ptr<Route> other, bool* via_sends_only)
 {
-	const FedBy& fed_by (other->fed_by());
+	const FoodChain& food_chain (other->food_chain());
 
-	for (FedBy::const_iterator f = fed_by.begin(); f != fed_by.end(); ++f) {
+	for (FedBy::const_iterator f = food_chain.begin(); f != food_chain.end(); ++f) {
 		boost::shared_ptr<Route> sr = f->r.lock();
 
 		if (sr && (sr.get() == this)) {
@@ -2904,10 +2969,36 @@ Route::nonrealtime_handle_transport_stopped (bool /*abort_ignored*/, bool /*did_
 		}
 	}
 
-	_roll_delay = _initial_delay;
-	if (_delayline.get()) {
-		_delayline.get()->set_delay(_initial_delay);
+#if 1
+	;
+#elif 1
+	compensate_latency(_initial_delay);
+	_roll_delay = 0;
+#else
+	_roll_delay = 0;
+
+	if (!_delayline.get()) {
+		_roll_delay = _initial_delay;
+		return;
 	}
+
+	if (dynamic_cast<Track*>(this) == 0) {
+		/* bus */
+		_delayline.get()->set_delay(_initial_delay);
+	} else {
+		Track* self = dynamic_cast<Track*>(this);
+		switch (self->monitoring_state ()) {
+			case MonitoringInput:
+				_delayline.get()->set_delay(_initial_delay);
+			case MonitoringDisk:
+				_delayline.get()->set_delay(0);
+				_roll_delay = _initial_delay;
+				break;
+			default:
+				break;
+		}
+	}
+#endif
 }
 
 void
@@ -3228,22 +3319,208 @@ Route::set_user_latency (framecnt_t nframes)
 	_session.update_latency_compensation ();
 }
 
+framecnt_t
+Route::compensated_latency()
+{
+	if (_delayline) {
+		return (_delayline.get()->get_delay() + _roll_delay);
+	} else {
+		return _roll_delay;
+	}
+}
+
 void
-Route::set_latency_compensation (framecnt_t longest_session_latency)
+Route::compensate_latency(framecnt_t delay)
 {
 	framecnt_t old = _initial_delay;
+	_initial_delay = delay;
 
-	if (_signal_latency < longest_session_latency) {
-		_initial_delay = longest_session_latency - _signal_latency;
+	if (_delayline) {
+		_delayline.get()->set_delay(delay);
+		_upstream_latency = -1;
+	}
+
+	if (_initial_delay != old) {
+		initial_delay_changed (); /* EMIT SIGNAL */
+	}
+}
+
+void
+Route::reset_latency_graph ()
+{
+	cerr << "RESET LAT " << name() << "\n";
+	if(!_delayline) {
+		_downstream_latency = 0;
+		_upstream_latency = 0;
 	} else {
-		_initial_delay = 0;
+		_downstream_latency = -1;
+		_upstream_latency = -1;
+	}
+}
+
+framecnt_t
+Route::downstream_latency ()
+{
+	if (!_delayline) {
+		return 0;
+	}
+	if (_downstream_latency == -1) {
+		framecnt_t worst_dsl = 0;
+		framecnt_t max_child_latency = 0;
+
+		for (Feeding::iterator i = _feeding.begin(); i != _feeding.end(); ++i) {
+			boost::shared_ptr<Route> sr = i->r.lock();
+			if (!sr) continue;
+			worst_dsl = max(worst_dsl, sr->downstream_latency());
+			max_child_latency = max(max_child_latency, sr->signal_latency());
+		}
+
+		_downstream_latency = max_child_latency + worst_dsl;
+	}
+	return _downstream_latency;
+}
+
+framecnt_t
+Route::upstream_latency ()
+{
+	if (!_delayline) {
+		return 0;
+	}
+
+	cerr << "<< Route::upstream_latency() " << name() << "\n";
+	if (1 || _upstream_latency == -1) {
+		framecnt_t worst_usl = 0;
+		framecnt_t max_parent_latency = 0;
+		pframes_t max_inport_latency = 0;
+
+		// code from Port::get_connected_latency_range
+		vector<string> connections;
+		PortEngine& pe (AudioEngine::instance()->port_engine());
+
+		PortSet &ins = _input->ports ();
+		for (PortSet::iterator p = ins.begin(); p != ins.end(); ++p) {
+			p->get_connections (connections);
+			if (connections.empty()) continue;
+			LatencyRange range;
+			for (vector<string>::const_iterator c = connections.begin(); c != connections.end(); ++c) {
+				cerr << "LC: checking port: " << *c << "\n";
+				if (AudioEngine::instance()->port_is_mine(*c)) continue;
+				cerr << "LC: using port: " << *c << "\n";
+				PortEngine::PortHandle remote_port = pe.get_port_by_name ((*c).c_str());
+				if (!remote_port) continue;
+				LatencyRange lr = pe.get_latency_range (remote_port, false);
+				cerr << "LC: port: " << *c << " " << lr.min << " " << lr.max << "\n";
+				max_inport_latency = max (max_inport_latency, lr.max);
+			}
+		}
+
+		for (FedBy::iterator i = _fed_by.begin(); i != _fed_by.end(); ++i) {
+			boost::shared_ptr<Route> sr = i->r.lock();
+			if (!sr) continue;
+			worst_usl = max(worst_usl, sr->upstream_latency());
+			const framecnt_t plat = sr->signal_latency() + sr->compensated_latency() + max_inport_latency;
+			max_parent_latency = max(max_parent_latency, plat);
+			if ((*i).sends_only) {
+				cerr << "LC: USL has send source\n"; // TODO adjust send latency to max_parent_latency after loops
+			}
+
+			if (max_parent_latency != plat) {
+				cerr << "LC: !!! Cannot compensate for latency " << sr->name() << " -> " << name() << "\n";
+			}
+		}
+#if 1 // NOOP so far
+		// TODO align routes from different sources..
+		for (FedBy::iterator i = _fed_by.begin(); i != _fed_by.end(); ++i) {
+			if (!(*i).sends_only) continue;
+			boost::shared_ptr<Route> sr = i->r.lock();
+			if (boost::dynamic_pointer_cast<Send>(sr) != 0) {
+				boost::dynamic_pointer_cast<Send>(sr)->set_delay_out(0);  // max_parent_latency - worst_usl
+			}
+		}
+#endif
+
+		_upstream_latency = max_parent_latency + worst_usl;
+
+		_upstream_latency = max(_upstream_latency, (framecnt_t) max_inport_latency); // XXX always add?
+
+		DEBUG_TRACE (DEBUG::LatencyCompensation, string_compose (
+									 "UPSTREAM LATENCY for %1 = %2 ( = %3 + %4 + %5)\n",
+									 name(), _upstream_latency,
+									 max_parent_latency, worst_usl, max_inport_latency
+									 ));
+	} else {
+		DEBUG_TRACE (DEBUG::LatencyCompensation, string_compose (
+									 "UPSTREAM LATENCY for %1 = %2\n",
+									 name(), _upstream_latency));
+	}
+
+	cerr << ">> [" << name() <<"]\n";
+	return _upstream_latency;
+}
+
+framecnt_t
+Route::calculate_latency_compensation ()
+{
+	bool is_terminal = true;
+	framecnt_t max_child_latency = 0;
+
+	cerr << "Route::calculate_latency_compensation() " << name() << " :\n";
+	/* find max latency of all children */
+	for (Feeding::iterator i = _feeding.begin(); i != _feeding.end(); ++i) {
+		boost::shared_ptr<Route> sr = i->r.lock();
+		if (!sr) continue;
+		cerr << " -> " << sr->name();
+		if (sr->delay_line()) {
+			cerr << " w/delayline: " << sr->signal_latency();
+			is_terminal = false;
+		}
+		max_child_latency = max(max_child_latency, sr->signal_latency());
+		cerr << "\n";
+	}
+
+	/* balance latency of direct children
+	 *
+	 * this function depends on a sorted graph
+	 * ie. signal sources are processed first.
+	 * terminan nodes last.
+	 */
+	for (Feeding::iterator i = _feeding.begin(); i != _feeding.end(); ++i) {
+		boost::shared_ptr<Route> sr = i->r.lock();
+		if (!sr) continue;
+		sr->compensate_latency(max_child_latency - sr->signal_latency());
+	}
+
+	if (is_terminal) {
+		const framecnt_t latency_so_far = upstream_latency();
+		cerr << " worst: " << _session.worst_session_latency() << ", self: " << _signal_latency << ", parents: " << latency_so_far << "\n";
+		return (_session.worst_session_latency() - _signal_latency - latency_so_far);
+		//compensate_latency(_session.worst_session_latency() - _signal_latency - latency_so_far);
+	}
+
+	return -1;
+}
+
+void
+Route::set_latency_compensation (framecnt_t /* longest_session_latency*/)
+{
+	framecnt_t old = _initial_delay;
+	framecnt_t lat = calculate_latency_compensation();
+
+	if (lat >= 0) {
+		_initial_delay = lat;
 	}
 
 	DEBUG_TRACE (DEBUG::Latency, string_compose (
 		             "%1: compensate for maximum latency of %2,"
 		             "given own latency of %3, using initial delay of %4\n",
-		             name(), longest_session_latency, _signal_latency, _initial_delay));
+		             name(), _session.worst_session_latency(), _signal_latency, _initial_delay));
 
+#if 1
+	compensate_latency(_initial_delay);
+	if (_session.transport_stopped()) {
+		_roll_delay = 0;
+	}
+#else
 	if (_initial_delay != old) {
 		initial_delay_changed (); /* EMIT SIGNAL */
 	}
@@ -3251,9 +3528,36 @@ Route::set_latency_compensation (framecnt_t longest_session_latency)
 	if (_session.transport_stopped()) {
 		_roll_delay = _initial_delay;
 	}
-	if (_delayline.get()) {
-		_delayline.get()->set_delay(_initial_delay);
+
+
+	if (!_delayline.get() || _session.actively_recording()) {
+		return;
 	}
+
+	/* set latency compensation
+	 * see note in Route::nonrealtime_handle_transport_stopped()
+	 *
+	 * here we also hande the case of 'plugin/monitoring changed'
+	 * _roll_delay cannot be updated because we're rolling, but
+	 * the delay length can be adjusted.
+	 */
+	if (dynamic_cast<Track*>(this) == 0) {
+		_delayline.get()->set_delay(_initial_delay);
+	} else if (!_session.transport_stopped()) {
+			_delayline.get()->set_delay(_initial_delay);
+	} else {
+		Track* self = dynamic_cast<Track*>(this);
+		switch (self->monitoring_state ()) {
+			case MonitoringInput:
+				_delayline.get()->set_delay(_initial_delay);
+			case MonitoringDisk:
+				_delayline.get()->set_delay(0);
+				break;
+			default:
+				break;
+		}
+	}
+#endif
 }
 
 Route::SoloControllable::SoloControllable (std::string name, boost::shared_ptr<Route> r)
@@ -3792,7 +4096,7 @@ Route::update_port_latencies (PortSet& from, PortSet& to, bool playback, framecn
 	*/
 
 	LatencyRange all_connections;
-
+#if 0
 	if (from.empty()) {
 		all_connections.min = 0;
 		all_connections.max = 0;
@@ -3813,6 +4117,16 @@ Route::update_port_latencies (PortSet& from, PortSet& to, bool playback, framecn
 			all_connections.min = min (all_connections.min, range.min);
 			all_connections.max = max (all_connections.max, range.max);
 		}
+	}
+#else
+		all_connections.min = 0;
+		all_connections.max = 0;
+#endif
+
+	if (playback) {
+		all_connections.max = max (all_connections.max, (pframes_t)_downstream_latency);
+	} else {
+		all_connections.max = max (all_connections.max, (pframes_t)_upstream_latency);
 	}
 
 	/* set the "from" port latencies to the max/min range of all their connections */
@@ -3853,6 +4167,10 @@ Route::set_private_port_latencies (bool playback) const
 		if ((*i)->active ()) {
 			own_latency += (*i)->signal_latency ();
 		}
+	}
+	if (_delayline) {
+		own_latency += _delayline.get()->get_delay();
+		cerr << "own_latency includes delayline: " << _delayline.get()->get_delay() << "\n";
 	}
 
 	if (playback) {
@@ -3957,6 +4275,12 @@ Route::setup_invisible_processors ()
 		}
 	}
 
+#if 0
+	if (!is_master() && !is_monitor() && !is_auditioner()) {
+		new_processors.push_back (_delayline);
+	}
+#endif
+
 	/* MAIN OUTS */
 
 	assert (_main_outs);
@@ -4018,9 +4342,11 @@ Route::setup_invisible_processors ()
 		}
 	}
 
+#if 1
 	if (!is_master() && !is_monitor() && !is_auditioner()) {
 		new_processors.push_front (_delayline);
 	}
+#endif
 
 	/* MONITOR CONTROL */
 

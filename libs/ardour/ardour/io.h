@@ -113,6 +113,7 @@ class LIBARDOUR_API IO : public SessionObject, public Latent
 
 	framecnt_t signal_latency () const { return 0; }
 	framecnt_t latency () const;
+	framecnt_t pub_latency () const;
 
 	PortSet& ports() { return _ports; }
 	const PortSet& ports() const { return _ports; }

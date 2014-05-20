@@ -270,11 +270,17 @@ class LIBARDOUR_API Route : public SessionObject, public Automatable, public Rou
 	void       set_public_port_latencies (framecnt_t, bool playback) const;
 
 	framecnt_t   update_signal_latency();
+	void         reset_latency_graph();
 	virtual void set_latency_compensation (framecnt_t);
+
+	framecnt_t   compensated_latency();
+	void         compensate_latency(framecnt_t);
 
 	void set_user_latency (framecnt_t);
 	framecnt_t initial_delay() const { return _initial_delay; }
 	framecnt_t signal_latency() const { return _signal_latency; }
+	framecnt_t downstream_latency();
+	framecnt_t upstream_latency();
 
 	PBD::Signal0<void>       active_changed;
 	PBD::Signal0<void>       phase_invert_changed;
@@ -358,6 +364,18 @@ class LIBARDOUR_API Route : public SessionObject, public Automatable, public Rou
 	const FedBy& fed_by() const { return _fed_by; }
 	void clear_fed_by ();
 	bool add_fed_by (boost::shared_ptr<Route>, bool sends_only);
+
+	typedef std::set<FeedRecord,FeedRecordCompare> FoodChain;
+
+	const FoodChain& food_chain() const { return _food_chain; }
+	void clear_food_chain ();
+	bool add_food_chain (boost::shared_ptr<Route>, bool sends_only);
+
+	typedef std::set<FeedRecord,FeedRecordCompare> Feeding;
+
+	const Feeding& feeding() const { return _feeding; }
+	void clear_feeding ();
+	bool add_feeding (boost::shared_ptr<Route>, bool sends_only);
 
 	/* Controls (not all directly owned by the Route */
 
@@ -472,11 +490,15 @@ class LIBARDOUR_API Route : public SessionObject, public Automatable, public Rou
 	                                     pframes_t nframes, int declick,
 	                                     bool gain_automation_ok);
 
+	framecnt_t   calculate_latency_compensation();
+
 	boost::shared_ptr<IO> _input;
 	boost::shared_ptr<IO> _output;
 
 	bool           _active;
 	framecnt_t     _signal_latency;
+	framecnt_t     _downstream_latency;
+	framecnt_t     _upstream_latency;
 	framecnt_t     _initial_delay;
 	framecnt_t     _roll_delay;
 
@@ -514,7 +536,9 @@ class LIBARDOUR_API Route : public SessionObject, public Automatable, public Rou
 	bool           _have_internal_generator;
 	bool           _solo_safe;
 	DataType       _default_type;
+	FoodChain      _food_chain;
 	FedBy          _fed_by;
+	Feeding        _feeding;
 
         InstrumentInfo _instrument_info;
 

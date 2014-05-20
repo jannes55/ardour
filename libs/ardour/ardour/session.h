@@ -103,6 +103,7 @@ class Bundle;
 class Butler;
 class Click;
 class Diskstream;
+class DelayLine;
 class ExportHandler;
 class ExportStatus;
 class Graph;
@@ -385,6 +386,7 @@ class LIBARDOUR_API Session : public PBD::StatefulDestructible, public PBD::Scop
 	framecnt_t worst_input_latency ()  const { return _worst_input_latency; }
 	framecnt_t worst_track_latency ()  const { return _worst_track_latency; }
 	framecnt_t worst_playback_latency () const { return _worst_output_latency + _worst_track_latency; }
+	framecnt_t worst_session_latency () const { return _worst_session_latency; }
 
 	int save_state (std::string snapshot_name, bool pending = false, bool switch_to_snapshot = false);
 	int restore_state (std::string snapshot_name);
@@ -948,10 +950,10 @@ class LIBARDOUR_API Session : public PBD::StatefulDestructible, public PBD::Scop
 
 	bool                     auto_play_legal;
 	framepos_t              _last_slave_transport_frame;
-	framecnt_t               maximum_output_latency;
 	framepos_t              _requested_return_frame;
 	pframes_t                current_block_size;
 	framecnt_t              _worst_output_latency;
+	framecnt_t              _worst_session_latency;
 	framecnt_t              _worst_input_latency;
 	framecnt_t              _worst_track_latency;
 	bool                    _have_captured;
