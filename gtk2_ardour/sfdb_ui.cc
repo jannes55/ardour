@@ -1195,7 +1195,7 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 			double duration_seconds = atof(dur);
 			double h, m, s;
 			char duration_hhmmss[16];
-			if (duration_seconds >= 99 * 60 * 60) {
+			if (duration_seconds > 99 * 60 * 60) {
 				strcpy(duration_hhmmss, ">99h");
 			} else {
 				s = modf(duration_seconds/60, &m) * 60;
