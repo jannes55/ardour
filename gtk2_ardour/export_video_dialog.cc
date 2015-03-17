@@ -179,7 +179,7 @@ ExportVideoDialog::ExportVideoDialog ()
 	l = manage (new Label (_("Audio KBit/s:"), Gtk::ALIGN_LEFT, Gtk::ALIGN_CENTER, false));
 	t->attach (*l, 2, 3, ty, ty+1);
 	t->attach (audio_bitrate_combo, 3, 4, ty, ty+1); ty++;
-	l = manage (new Label (_("Audio Samplerate:"), Gtk::ALIGN_LEFT, Gtk::ALIGN_CENTER, false));
+	l = manage (new Label (_("Audio Sample Rate:"), Gtk::ALIGN_LEFT, Gtk::ALIGN_CENTER, false));
 	t->attach (*l, 0, 1, ty, ty+1);
 	t->attach (audio_samplerate_combo, 1, 2, ty, ty+1);
 	t->attach (normalize_checkbox, 2, 4, ty, ty+1); ty++;
