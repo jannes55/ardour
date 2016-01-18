@@ -53,19 +53,29 @@
 #include "i18n.h"
 
 #include "ardour/audio_library.h"
+#include "ardour/debug.h"
 #include "ardour/rc_configuration.h"
 #include "pbd/pthread_utils.h"
 #include "gui_thread.h"
 
 using namespace PBD;
 
-static const std::string base_url = "http://www.freesound.org/api";
-static const std::string api_key = "9d77cb8d841b4bcfa960e1aae62224eb"; // ardour3
+static const std::string base_url = "http://www.freesound.org/apiv2";
+static const std::string default_api_key = "b2cc51878bd4fde055e3e84591eb289715d01503"; // Ardour 4
+// Ardour 4 	c7eff9328525c51775cb 	b2cc51878bd4fde055e3e84591eb289715d01503
+
+static const std::string fields = "id,name,duration,filesize,samplerate,license,download";
 
 //------------------------------------------------------------------------
-Mootcher::Mootcher()
+Mootcher::Mootcher(const std::string &the_api_key)
 	: curl(curl_easy_init())
 {
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "Created new Mootcher\n");
+	if  (the_api_key != "") {
+		api_key = the_api_key;
+	} else {
+		api_key = default_api_key;
+	}
 	cancel_download_btn.set_label (_("Cancel"));
 	progress_hbox.pack_start (progress_bar, true, true);
 	progress_hbox.pack_end (cancel_download_btn, false, false);
@@ -77,6 +87,7 @@ Mootcher::Mootcher()
 Mootcher:: ~Mootcher()
 {
 	curl_easy_cleanup(curl);
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "Destroyed Mootcher\n");
 }
 
 //------------------------------------------------------------------------
@@ -85,6 +96,7 @@ void Mootcher::ensureWorkingDir ()
 {
 	std::string p = ARDOUR::Config->get_freesound_download_dir();
 
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "ensureWorkingDir() - " + p + "\n");
 	if (!Glib::file_test (p, Glib::FILE_TEST_IS_DIR)) {
 		if (g_mkdir_with_parents (p.c_str(), 0775) != 0) {
 			PBD::error << "Unable to create Mootcher working dir" << endmsg;
@@ -176,17 +188,21 @@ std::string Mootcher::doRequest(std::string uri, std::string params)
 	// the url to get
 	std::string url = base_url + uri + "?";
 	if (params != "") {
-		url += params + "&api_key=" + api_key + "&format=xml";
+		url += params + "&token=" + api_key + "&format=xml";
 	} else {
-		url += "api_key=" + api_key + "&format=xml";
+		url += "token=" + api_key + "&format=xml";
 	}
 
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str() );
 
+	DEBUG_TRACE(PBD::DEBUG::Freesound, url + "\n"); 
+
 	// perform online request
 	CURLcode res = curl_easy_perform(curl);
 	if( res != 0 ) {
-		error << string_compose (_("curl error %1 (%2)"), res, curl_easy_strerror(res)) << endmsg;
+		std::string errmsg = string_compose (_("curl error %1 (%2)"), res, curl_easy_strerror(res));
+		error << errmsg << endmsg;
+		DEBUG_TRACE(PBD::DEBUG::Freesound, errmsg + "\n"); 
 		return "";
 	}
 
@@ -199,6 +215,7 @@ std::string Mootcher::doRequest(std::string uri, std::string params)
 	xml_page.memory = NULL;
 	xml_page.size = 0;
 
+	DEBUG_TRACE(PBD::DEBUG::Freesound, result + "\n");
 	return result;
 }
 
@@ -207,10 +224,12 @@ std::string Mootcher::searchSimilar(std::string id)
 {
 	std::string params = "";
 
-	params += "&fields=id,original_filename,duration,filesize,samplerate,license,serve";
+	params += "&fields=" + fields;
 	params += "&num_results=100";
+	// XXX should we filter out MP3s here, too?
+	// XXX and what if there are more than 100 similar sounds?
 
-	return doRequest("/sounds/" + id + "/similar", params);
+	return doRequest("/sounds/" + id + "/similar/", params);
 }
 
 //------------------------------------------------------------------------
@@ -221,27 +240,27 @@ std::string Mootcher::searchText(std::string query, int page, std::string filter
 	char buf[24];
 
 	if (page > 1) {
-		snprintf(buf, 23, "p=%d&", page);
+		snprintf(buf, 23, "page=%d&", page);
 		params += buf;
 	}
 
 	char *eq = curl_easy_escape(curl, query.c_str(), query.length());
-	params += "q=\"" + std::string(eq) + "\"";
+	params += "query=\"" + std::string(eq) + "\"";
 	free(eq);
 
 	if (filter != "") {
 		char *ef = curl_easy_escape(curl, filter.c_str(), filter.length());
-		params += "&f=" + std::string(ef);
+		params += "&filter=" + std::string(ef);
 		free(ef);
 	}
 
 	if (sort)
-		params += "&s=" + sortMethodString(sort);
+		params += "&sort=" + sortMethodString(sort);
 
-	params += "&fields=id,original_filename,duration,filesize,samplerate,license,serve";
-	params += "&sounds_per_page=100";
+	params += "&fields=" + fields;
+	params += "&page_size=100";
 
-	return doRequest("/sounds/search", params);
+	return doRequest("/search/text/", params);
 }
 
 //------------------------------------------------------------------------
@@ -255,7 +274,7 @@ std::string Mootcher::getSoundResourceFile(std::string ID)
 
 
 	// download the xmlfile into xml_page
-	xml = doRequest("/sounds/" + ID, "");
+	xml = doRequest("/sounds/" + ID + "/", "");
 
 	XMLTree doc;
 	doc.read_buffer( xml.c_str() );
@@ -267,12 +286,12 @@ std::string Mootcher::getSoundResourceFile(std::string ID)
 		return "";
 	}
 
-	if (strcmp(doc.root()->name().c_str(), "response") != 0) {
-		error << string_compose (_("getSoundResourceFile: root = %1, != response"), doc.root()->name()) << endmsg;
+	if (strcmp(doc.root()->name().c_str(), "root") != 0) {
+		error << string_compose (_("getSoundResourceFile: root = %1, != \"root\""), doc.root()->name()) << endmsg;
 		return "";
 	}
 
-	XMLNode *name = freesound->child("original_filename");
+	XMLNode *name = freesound->child("name");
 
 	// get the file name and size from xml file
 	if (name) {
@@ -361,6 +380,7 @@ freesound_download_thread_func(void *arg)
 
 bool Mootcher::checkAudioFile(std::string originalFileName, std::string theID)
 {
+	DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("checkAudiofile(%1, %2)\n", originalFileName, theID));
 	ensureWorkingDir();
 	ID = theID;
 	audioFileName = Glib::build_filename (basePath, ID + "-" + originalFileName);
@@ -384,6 +404,9 @@ bool Mootcher::checkAudioFile(std::string originalFileName, std::string theID)
 
 bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::string audioURL, SoundFileBrowser *caller)
 {
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("fetchAudiofile(%1, %2, %3...)\n", originalFileName, theID, audioURL));
+
 	ensureWorkingDir();
 	ID = theID;
 	audioFileName = Glib::build_filename (basePath, ID + "-" + originalFileName);
@@ -395,11 +418,12 @@ bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, s
 	theFile = g_fopen( (audioFileName + ".part").c_str(), "wb" );
 
 	if (!theFile) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "Can't open file for writing:" + audioFileName + ".part\n");
 		return false;
 	}
 
 	// create the download url
-	audioURL += "?api_key=" + api_key;
+	audioURL += "?token=" + api_key;
 
 	setcUrlOptions();
 	curl_easy_setopt(curl, CURLOPT_URL, audioURL.c_str() );

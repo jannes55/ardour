@@ -1094,7 +1094,7 @@ SoundFileBrowser::freesound_search()
 #ifdef GTKOSX
 			"", // OSX eats anything incl mp3
 #else
-			"type:wav OR type:aiff OR type:flac OR type:aif OR type:ogg OR type:oga",
+			"type:(wav OR aiff OR flac OR aif OR ogg OR oga)",
 #endif
 			sort_method
 			);
@@ -1114,14 +1114,14 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 		return;
 	}
 
-	if ( strcmp(root->name().c_str(), "response") != 0) {
-		error << string_compose ("root node name == %1 != \"response\"", root->name()) << endmsg;
+	if ( strcmp(root->name().c_str(), "root") != 0) {
+		error << string_compose ("root node name == %1 != \"root\"", root->name()) << endmsg;
 		return;
 	}
 
 	// find out how many pages are available to search
 	int freesound_n_pages = 1;
-	XMLNode *res = root->child("num_pages");
+	XMLNode *res = root->child("count");
 	if (res) {
 		string result = res->child("text")->content();
 		freesound_n_pages = atoi(result);
@@ -1140,9 +1140,9 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 		freesound_more_btn.set_tooltip_text(_("No more results available"));
 	}
 
-	XMLNode *sounds_root = root->child("sounds");
+	XMLNode *sounds_root = root->child("results");
 	if (!sounds_root) {
-		error << "no child node \"sounds\" found!" << endmsg;
+		error << "no child node \"results\" found!" << endmsg;
 		return;
 	}
 
@@ -1156,8 +1156,8 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 	XMLNode *node;
 	for (niter = sounds.begin(); niter != sounds.end(); ++niter) {
 		node = *niter;
-		if( strcmp( node->name().c_str(), "resource") != 0 ) {
-			error << string_compose ("node->name()=%1 != \"resource\"", node->name()) << endmsg;
+		if( strcmp( node->name().c_str(), "list-item") != 0 ) {
+			error << string_compose ("node->name()=%1 != \"list-item\"", node->name()) << endmsg;
 			break;
 		}
 
@@ -1165,8 +1165,8 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 
 
 		XMLNode *id_node  = node->child ("id");
-		XMLNode *uri_node = node->child ("serve");
-		XMLNode *ofn_node = node->child ("original_filename");
+		XMLNode *uri_node = node->child ("download");
+		XMLNode *ofn_node = node->child ("name");
 		XMLNode *dur_node = node->child ("duration");
 		XMLNode *siz_node = node->child ("filesize");
 		XMLNode *srt_node = node->child ("samplerate");
@@ -1238,6 +1238,8 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 			row[freesound_list_columns.smplrate] = srt;
 			row[freesound_list_columns.license ] = shortlicense;
 			matches++;
+		} else {
+			error << _("Failed to retrieve XML for file") << std::endl;
 		}
 	}
 }
