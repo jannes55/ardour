@@ -63,20 +63,20 @@ using namespace PBD;
 static const std::string base_url = "http://www.freesound.org/apiv2";
 
 // Ardour 4
-static const std::string default_api_key = "b2cc51878bd4fde055e3e84591eb289715d01503";
+static const std::string default_token = "b2cc51878bd4fde055e3e84591eb289715d01503";
 static const std::string client_id = "c7eff9328525c51775cb";
 
 static const std::string fields = "id,name,duration,filesize,samplerate,license,download,previews";
 
 //------------------------------------------------------------------------
-Mootcher::Mootcher(const std::string &the_api_key)
+Mootcher::Mootcher(const std::string &the_token)
 	: curl(curl_easy_init())
 {
 	DEBUG_TRACE(PBD::DEBUG::Freesound, "Created new Mootcher\n");
-	if  (the_api_key != "") {
-		api_key = the_api_key;
+	if  (the_token != "") {
+		token = the_token;
 	} else {
-		api_key = default_api_key;
+		token = default_token;
 	}
 	cancel_download_btn.set_label (_("Cancel"));
 	progress_hbox.pack_start (progress_bar, true, true);
@@ -190,9 +190,9 @@ std::string Mootcher::doRequest(std::string uri, std::string params)
 	// the url to get
 	std::string url = base_url + uri + "?";
 	if (params != "") {
-		url += params + "&token=" + api_key + "&format=xml";
+		url += params + "&token=" + token + "&format=xml";
 	} else {
-		url += "token=" + api_key + "&format=xml";
+		url += "token=" + token + "&format=xml";
 	}
 
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str() );
@@ -430,7 +430,7 @@ bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, s
 	}
 
 	// create the download url
-	audioURL += "?token=" + api_key;
+	audioURL += "?token=" + token;
 
 	setcUrlOptions();
 	curl_easy_setopt(curl, CURLOPT_URL, audioURL.c_str() );
