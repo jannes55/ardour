@@ -1166,16 +1166,23 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 
 		XMLNode *id_node  = node->child ("id");
 		XMLNode *uri_node = node->child ("download");
+		XMLNode *pre_node = node->child ("previews");
+		XMLNode *ogg_node;
+		if (pre_node) {
+			ogg_node = pre_node->child ("preview-hq-ogg");
+		} else {
+			ogg_node = uri_node;
+		}
 		XMLNode *ofn_node = node->child ("name");
 		XMLNode *dur_node = node->child ("duration");
 		XMLNode *siz_node = node->child ("filesize");
 		XMLNode *srt_node = node->child ("samplerate");
 		XMLNode *lic_node = node->child ("license");
 
-		if (id_node && uri_node && ofn_node && dur_node && siz_node && srt_node) {
+		if (id_node && ogg_node && ofn_node && dur_node && siz_node && srt_node) {
 
 			std::string  id =  id_node->child("text")->content();
-			std::string uri = uri_node->child("text")->content();
+			std::string uri = ogg_node->child("text")->content();
 			std::string ofn = ofn_node->child("text")->content();
 			std::string dur = dur_node->child("text")->content();
 			std::string siz = siz_node->child("text")->content();

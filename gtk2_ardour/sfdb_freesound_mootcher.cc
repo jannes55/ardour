@@ -61,10 +61,12 @@
 using namespace PBD;
 
 static const std::string base_url = "http://www.freesound.org/apiv2";
-static const std::string default_api_key = "b2cc51878bd4fde055e3e84591eb289715d01503"; // Ardour 4
-// Ardour 4 	c7eff9328525c51775cb 	b2cc51878bd4fde055e3e84591eb289715d01503
 
-static const std::string fields = "id,name,duration,filesize,samplerate,license,download";
+// Ardour 4
+static const std::string default_api_key = "b2cc51878bd4fde055e3e84591eb289715d01503";
+static const std::string client_id = "c7eff9328525c51775cb";
+
+static const std::string fields = "id,name,duration,filesize,samplerate,license,download,previews";
 
 //------------------------------------------------------------------------
 Mootcher::Mootcher(const std::string &the_api_key)
@@ -195,7 +197,7 @@ std::string Mootcher::doRequest(std::string uri, std::string params)
 
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str() );
 
-	DEBUG_TRACE(PBD::DEBUG::Freesound, url + "\n"); 
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "doRequest() " + url + "\n");
 
 	// perform online request
 	CURLcode res = curl_easy_perform(curl);
@@ -272,6 +274,7 @@ std::string Mootcher::getSoundResourceFile(std::string ID)
 	std::string audioFileName;
 	std::string xml;
 
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "getSoundResourceFile(" + ID + ")\n");
 
 	// download the xmlfile into xml_page
 	xml = doRequest("/sounds/" + ID + "/", "");
@@ -306,7 +309,7 @@ std::string Mootcher::getSoundResourceFile(std::string ID)
 			std::vector<std::string> strings;
 			for (niter = children.begin(); niter != children.end(); ++niter) {
 				XMLNode *node = *niter;
-				if( strcmp( node->name().c_str(), "resource") == 0 ) {
+				if( strcmp( node->name().c_str(), "list-item") == 0 ) {
 					XMLNode *text = node->child("text");
 					if (text) {
 						// std::cerr << "tag: " << text->content() << std::endl;
@@ -333,6 +336,7 @@ void *
 Mootcher::threadFunc() {
 CURLcode res;
 
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "threadFunc\n");
 	res = curl_easy_perform (curl);
 	fclose (theFile);
 	curl_easy_setopt (curl, CURLOPT_NOPROGRESS, 1); // turn off the progress bar
@@ -391,13 +395,16 @@ bool Mootcher::checkAudioFile(std::string originalFileName, std::string theID)
 		fseek (testFile , 0 , SEEK_END);
 		if (ftell (testFile) > 256) {
 			fclose (testFile);
+			DEBUG_TRACE(PBD::DEBUG::Freesound, "checkAudiofile() - found " + audioFileName + "\n");
 			return true;
 		}
 
 		// else file was small, probably an error, delete it
-		fclose(testFile);
-		remove( audioFileName.c_str() );
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "checkAudiofile() - " + audioFileName + " <= 256 bytes, removing it\n");
+		fclose (testFile);
+		remove (audioFileName.c_str() );
 	}
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "checkAudiofile() - not found " + audioFileName + "\n");
 	return false;
 }
 
@@ -405,7 +412,7 @@ bool Mootcher::checkAudioFile(std::string originalFileName, std::string theID)
 bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::string audioURL, SoundFileBrowser *caller)
 {
 
-	DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("fetchAudiofile(%1, %2, %3...)\n", originalFileName, theID, audioURL));
+	DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("fetchAudiofile(%1, %2, %3, ...)\n", originalFileName, theID, audioURL));
 
 	ensureWorkingDir();
 	ID = theID;
@@ -459,7 +466,7 @@ Mootcher::updateProgress(double dlnow, double dltotal)
 {
 	if (dltotal > 0) {
 		double fraction = dlnow / dltotal;
-		// std::cerr << "progress idle: " << progress->bar->get_text() << ". " << progress->dlnow << " / " << progress->dltotal << " = " << fraction << std::endl;
+		// std::cerr << "progress idle: " << progress_bar.get_text() << ". " << dlnow << " / " << dltotal << " = " << fraction << std::endl;
 		if (fraction > 1.0) {
 			fraction = 1.0;
 		} else if (fraction < 0.0) {
