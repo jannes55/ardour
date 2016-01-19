@@ -1163,36 +1163,34 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 
 		// node->dump(cerr, "node:");
 
-
 		XMLNode *id_node  = node->child ("id");
-		XMLNode *uri_node = node->child ("download");
+		XMLNode *uri_node;
 		XMLNode *pre_node = node->child ("previews");
-		XMLNode *ogg_node;
 		if (pre_node) {
-			ogg_node = pre_node->child ("preview-hq-ogg");
+			uri_node = pre_node->child ("preview-hq-ogg");
 		} else {
-			ogg_node = uri_node;
+		        uri_node = node->child ("download");
 		}
 		XMLNode *ofn_node = node->child ("name");
-		XMLNode *dur_node = node->child ("duration");
-		XMLNode *siz_node = node->child ("filesize");
-		XMLNode *srt_node = node->child ("samplerate");
-		XMLNode *lic_node = node->child ("license");
+		XMLNode *duration_node = node->child ("duration");
+		XMLNode *size_node = node->child ("filesize");
+		XMLNode *sr_node = node->child ("samplerate");
+		XMLNode *licence_node = node->child ("license");
 
-		if (id_node && ogg_node && ofn_node && dur_node && siz_node && srt_node) {
+		if (id_node && uri_node && ofn_node && duration_node && size_node && sr_node) {
 
 			std::string  id =  id_node->child("text")->content();
-			std::string uri = ogg_node->child("text")->content();
+			std::string uri = uri_node->child("text")->content();
 			std::string ofn = ofn_node->child("text")->content();
-			std::string dur = dur_node->child("text")->content();
-			std::string siz = siz_node->child("text")->content();
-			std::string srt = srt_node->child("text")->content();
-			std::string lic = lic_node->child("text")->content();
+			std::string duration = duration_node->child("text")->content();
+			std::string filesize = size_node->child("text")->content();
+			std::string sr = sr_node->child("text")->content();
+			std::string licence = licence_node->child("text")->content();
 
 			std::string r;
-			// cerr << "id=" << id << ",uri=" << uri << ",ofn=" << ofn << ",dur=" << dur << endl;
+			// cerr << "id=" << id << ",uri=" << uri << ",ofn=" << ofn << ",duration=" << duration << endl;
 
-			double duration_seconds = atof(dur);
+			double duration_seconds = atof(duration);
 			double h, m, s;
 			char duration_hhmmss[16];
 			if (duration_seconds > 99 * 60 * 60) {
@@ -1205,7 +1203,7 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 				       );
 			}
 
-			double size_bytes = atof(siz);
+			double size_bytes = atof(filesize);
 			char bsize[32];
 			if (size_bytes < 1000) {
 				sprintf(bsize, "%.0f %s", size_bytes, _("B"));
@@ -1221,16 +1219,16 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 
 			/* see http://www.freesound.org/help/faq/#licenses */
 			char shortlicense[64];
-			if(!lic.compare(0, 42, "http://creativecommons.org/licenses/by-nc/")){
+			if(!licence.compare(0, 42, "http://creativecommons.org/licenses/by-nc/")){
 				sprintf(shortlicense, "CC-BY-NC");
-			} else if(!lic.compare(0, 39, "http://creativecommons.org/licenses/by/")) {
+			} else if(!licence.compare(0, 39, "http://creativecommons.org/licenses/by/")) {
 				sprintf(shortlicense, "CC-BY");
-			} else if(!lic.compare("http://creativecommons.org/licenses/sampling+/1.0/")) {
+			} else if(!licence.compare("http://creativecommons.org/licenses/sampling+/1.0/")) {
 				sprintf(shortlicense, "sampling+");
-			} else if(!lic.compare(0, 40, "http://creativecommons.org/publicdomain/")) {
+			} else if(!licence.compare(0, 40, "http://creativecommons.org/publicdomain/")) {
 				sprintf(shortlicense, "PD");
 			} else {
-				snprintf(shortlicense, 64, "%s", lic.c_str());
+				snprintf(shortlicense, 64, "%s", licence.c_str());
 				shortlicense[63]= '\0';
 			}
 
@@ -1242,7 +1240,7 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 			row[freesound_list_columns.filename] = ofn;
 			row[freesound_list_columns.duration] = duration_hhmmss;
 			row[freesound_list_columns.filesize] = bsize;
-			row[freesound_list_columns.smplrate] = srt;
+			row[freesound_list_columns.smplrate] = sr;
 			row[freesound_list_columns.license ] = shortlicense;
 			matches++;
 		} else {

@@ -51,15 +51,15 @@ struct MemoryStruct {
 };
 
 enum sortMethod {
-	sort_none,		// no sort
-	sort_duration_desc,	// Sort by the duration of the sounds, longest sounds first.
-	sort_duration_asc, 	// Same as above, but shortest sounds first.
-	sort_created_desc, 	// Sort by the date of when the sound was added. newest sounds first.
-	sort_created_asc, 	// Same as above, but oldest sounds first.
-	sort_downloads_desc, 	// Sort by the number of downloads, most downloaded sounds first.
-	sort_downloads_asc, 	// Same as above, but least downloaded sounds first.
-	sort_rating_desc, 	// Sort by the average rating given to the sounds, highest rated first.
-	sort_rating_asc 	// Same as above, but lowest rated sounds first.
+	sort_none,			// no sort
+	sort_duration_descending,	// Sort by the duration of the sounds, longest sounds first.
+	sort_duration_ascending, 	// Same as above, but shortest sounds first.
+	sort_created_descending, 	// Sort by the date of when the sound was added. newest sounds first.
+	sort_created_ascending, 	// Same as above, but oldest sounds first.
+	sort_downloads_descending, 	// Sort by the number of downloads, most downloaded sounds first.
+	sort_downloads_ascending, 	// Same as above, but least downloaded sounds first.
+	sort_rating_descending, 	// Sort by the average rating given to the sounds, highest rated first.
+	sort_rating_ascending 		// Same as above, but lowest rated sounds first.
 };
 
 
