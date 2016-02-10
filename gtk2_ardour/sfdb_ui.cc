@@ -953,7 +953,7 @@ std::string
 SoundFileBrowser::freesound_get_audio_file(Gtk::TreeIter iter)
 {
 
-	Mootcher *mootcher = new Mootcher;
+	Mootcher *mootcher = new Mootcher(freesound_token_entry.get_text());
 	std::string file;
 
 	string id  = (*iter)[freesound_list_columns.id];
@@ -1166,7 +1166,7 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 		XMLNode *id_node  = node->child ("id");
 		XMLNode *uri_node;
 		XMLNode *pre_node = node->child ("previews");
-		if (pre_node) {
+		if (false && pre_node) {
 			uri_node = pre_node->child ("preview-hq-ogg");
 		} else {
 		        uri_node = node->child ("download");

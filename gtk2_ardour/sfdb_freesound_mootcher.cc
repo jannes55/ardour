@@ -54,6 +54,7 @@
 
 #include "ardour/audio_library.h"
 #include "ardour/debug.h"
+#include "ardour/filesystem_paths.h"
 #include "ardour/rc_configuration.h"
 #include "pbd/pthread_utils.h"
 #include "gui_thread.h"
@@ -235,6 +236,236 @@ std::string Mootcher::searchSimilar(std::string id)
 }
 
 //------------------------------------------------------------------------
+
+bool
+Mootcher::oauth(const std::string &username, const std::string &password)
+{
+	/* Logging into Freesound requires a few hoops to be jumped through.
+	 * See http://www.freesound.org/docs/api/authentication.html#token-authentication for the documentation.
+	 *
+	 * First, we must retrieve the page at:
+	 *     https://www.freesound.org/apiv2/oauth2/authorize/?client_id=c7eff9328525c51775cb&response_type=code
+	 * Then, we must POST this page with the users username and password, also passing along the
+	 * values of 'csrfmiddlewaretoken' and 'next' that were passed to us in hidden form fields. 'next' is
+	 * the address of the next page that will be returned, which will be that of a page with an 'authorize' button on.
+	 * We must next POST this page (with the same csrfmiddlewaretoken value), and the name and value of the 'authorize' button.
+	 * The returned page this time contains the token value which we should use for subsequent download requests.
+	 *
+	 * This function, as you might expect from the foregoing description, is rather fragile in the face of
+	 * any changes in the HTML that's served by freesound.org. Unfortunately, I can't see any better way of doing this
+	 * without them extending their API to make it less convoluted for non-web apps to log in.
+	 */
+
+	CURLcode res;
+	XMLTree doc;
+	struct MemoryStruct xml_page;
+	xml_page.memory = NULL;
+	xml_page.size = 0;
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "oauth(" + username + ",*****)\n");
+	setcUrlOptions();
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *) &xml_page);
+
+	// http://www.freesound.org/docs/api/authentication.html#token-authentication
+	// https://www.freesound.org/apiv2/oauth2/authorize/?client_id=c7eff9328525c51775cb&response_type=code&state="hello!"
+	// https://www.freesound.org/apiv2/oauth2/logout_and_authorize/?client_id=c7eff9328525c51775cb&response_type=code&state="hello!"
+
+	std::string oauth_url = "https://www.freesound.org/apiv2/oauth2/logout_and_authorize/?client_id="+client_id+"&response_type=code&state=hello";
+	std::string cookie_file = Glib::build_filename (ARDOUR::user_config_directory(), "freesound-cookies");
+	std::string oauth_page_str;
+
+	curl_easy_setopt(curl, CURLOPT_URL, oauth_url.c_str());
+	curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+	curl_easy_setopt(curl, CURLOPT_COOKIEJAR, cookie_file.c_str());
+	if (DEBUG_ENABLED(PBD::DEBUG::Freesound)) {
+		curl_easy_setopt(curl, CURLOPT_VERBOSE, 1);
+	}
+	curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANYSAFE);
+
+	res = curl_easy_perform(curl);
+	if (res != CURLE_OK) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("curl failed: %1, error=%2\n", oauth_url, res));
+		return false;
+	}
+	if (!xml_page.memory) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "curl returned nothing!\n");
+		return false;
+	}
+
+	oauth_page_str = xml_page.memory;
+	free (xml_page.memory);
+	xml_page.memory = NULL;
+	xml_page.size = 0;
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, oauth_page_str);
+	doc.read_buffer(oauth_page_str.c_str());
+	XMLNode *oauth_page = doc.root();
+	if (!oauth_page) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "oauth_page page has no doc.root!\n");
+		return false;
+	}
+
+	// oauth_page->dump(std::cerr, "oauth_page:");
+	if (strcasecmp (doc.root()->name().c_str(), "html")) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "root is not <html>\n");
+		return false;
+	}
+
+	// find all input fields with both name and value properties (there should be at least two of them, for 
+	// csrfmiddlewaretoken and next page).
+	boost::shared_ptr<XMLSharedNodeList> inputs = doc.find("//input[@name and @value]", oauth_page);
+	DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("found %1 input nodes\n", inputs->size()));
+
+	std::string csrf_mwt = "", next_page = "";
+	for (XMLSharedNodeList::const_iterator i = inputs->begin(); i != inputs->end(); ++i) {
+		XMLProperty *prop_name  = (*i)->property("name");
+		XMLProperty *prop_value = (*i)->property("value");
+		if (prop_name && prop_value) {
+			std::string input_name  = prop_name->value();
+			std::string input_value = prop_value->value();
+				DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("found input name %1, value = %2\n", input_name, input_value));
+			if (input_name == "csrfmiddlewaretoken") {
+				csrf_mwt  = input_value;
+			} else if (input_name == "next") {
+				next_page = input_value;
+			}
+		}
+	}
+
+	if (csrf_mwt =="") {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "csrfmiddlewaretoken not found\n");
+		return false;
+	}
+
+	if (next_page =="") {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "next page not found\n");
+		return false;
+	}
+
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "\n\n*** about to log in...***\n\n");
+
+	char *next_escaped = curl_easy_escape(curl, next_page.c_str(), 0);
+	DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("next_escaped: %1\n\n", next_escaped));
+
+	curl_easy_setopt(curl, CURLOPT_POST, 4);
+	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, ("csrfmiddlewaretoken=" + csrf_mwt + "&username=" + username + "&password=" + password + "&next=" + next_escaped).c_str());
+	free (next_escaped);
+	curl_easy_setopt(curl, CURLOPT_REFERER, oauth_url.c_str());
+
+	/* POST the login form */
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "*** posting... ***\n\n");
+	res = curl_easy_perform (curl);
+	if (res != CURLE_OK) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("curl failed: %1, error=%2\n", oauth_url, res));
+		return false;
+	}
+
+	if (!xml_page.memory) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "curl returned nothing!\n");
+		return false;
+	}
+
+	oauth_page_str = xml_page.memory;
+	free (xml_page.memory);
+	xml_page.memory = NULL;
+	xml_page.size = 0;
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, oauth_page_str);
+	doc.read_buffer (oauth_page_str.c_str());
+	XMLNode *authorize_page = doc.root();
+	if (!authorize_page) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "authorize page has no doc.root!\n");
+		return false;
+	}
+
+	authorize_page->dump(std::cerr, "authorize page:");
+
+	// find input fields with name, value, & type properties, i.e. the 'Authorize' button
+	boost::shared_ptr<XMLSharedNodeList> buttons = doc.find("//input[@name and @value And @type]", oauth_page);
+
+	std::cerr << "found " << buttons->size() << " buttons\n";
+
+	bool found_auth_button = false;
+	for (XMLSharedNodeList::const_iterator i = buttons->begin(); i != buttons->end(); ++i) {
+		XMLProperty *prop_name  = (*i)->property("name");
+		XMLProperty *prop_value = (*i)->property("value");
+		XMLProperty *prop_type  = (*i)->property("type");
+		if (prop_name && prop_value) {
+			std::string input_name  = prop_name->value();
+			std::string input_value = prop_value->value();
+			std::string input_type  = prop_type->value();
+			std::cerr << "found input name :" << input_name << ", value = " << input_value << std::endl;
+			if (input_name == "authorize" && input_type == "submit") {
+				char *input_value_escaped = curl_easy_escape(curl, input_value.c_str(), 0);
+				curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, ("csrfmiddlewaretoken=" + csrf_mwt + "&" + input_name + "=" + input_value_escaped).c_str());
+				free (input_value_escaped);
+				found_auth_button = true;
+				break;
+			}
+		}
+	}
+	if (!found_auth_button) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "'authorize' button not found\n");
+		return false;
+	}
+
+	curl_easy_setopt(curl, CURLOPT_POST, 2);
+
+	/* POST the "Authorize!" form */
+	res = curl_easy_perform (curl);
+	if (res != CURLE_OK) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("curl failed: %1, error=%2\n", oauth_url, res));
+		return false;
+	}
+
+	if (!xml_page.memory) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "curl returned nothing!\n");
+		return false;
+	}
+
+	oauth_page_str = xml_page.memory;
+	free (xml_page.memory);
+	xml_page.memory = NULL;
+	xml_page.size = 0;
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, oauth_page_str);
+	doc.read_buffer (oauth_page_str.c_str());
+	XMLNode *auth_granted_page = doc.root();
+	if (!auth_granted_page) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "auth_granted_page has no doc.root!\n");
+		return false;
+	}
+
+	auth_granted_page->dump(std::cerr, "auth granted page:");
+
+	// find input fields with name, value, & type properties
+	boost::shared_ptr<XMLSharedNodeList> codez = doc.find("//input[@name and @value And @type]", oauth_page);
+
+	std::cerr << "found " << codez->size() << " codez\n";
+
+	for (XMLSharedNodeList::const_iterator i = codez->begin(); i != codez->end(); ++i) {
+		XMLProperty *prop_name  = (*i)->property("name");
+		XMLProperty *prop_value = (*i)->property("value");
+		XMLProperty *prop_type  = (*i)->property("type");
+		if (prop_name && prop_value) {
+			std::string input_name  = prop_name->value();
+			std::string input_value = prop_value->value();
+			std::string input_type  = prop_type->value();
+			std::cerr << "found input name :" << input_name << ", value = " << input_value << std::endl;
+			if (input_name == "codez") {
+				token = input_value;
+				return true;
+				break;
+			}
+		}
+	}
+
+	return false;
+
+}
+
 
 std::string Mootcher::searchText(std::string query, int page, std::string filter, enum sortMethod sort)
 {
@@ -426,6 +657,10 @@ bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, s
 
 	if (!theFile) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, "Can't open file for writing:" + audioFileName + ".part\n");
+		return false;
+	}
+
+	if (!oauth("username", "password")) {
 		return false;
 	}
 

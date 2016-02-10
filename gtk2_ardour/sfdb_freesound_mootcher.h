@@ -89,6 +89,7 @@ public:
 private:
 
 	void		ensureWorkingDir();
+	bool            oauth(const std::string &username, const std::string &password);
 
 	std::string	doRequest(std::string uri, std::string params);
 	void		setcUrlOptions();
