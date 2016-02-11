@@ -120,5 +120,6 @@ private:
 	std::string basePath;
 	std::string xmlLocation;
 	std::string token;
+	bool logged_in;
 };
 

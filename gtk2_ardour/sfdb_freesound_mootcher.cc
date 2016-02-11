@@ -57,6 +57,8 @@
 #include "ardour/filesystem_paths.h"
 #include "ardour/rc_configuration.h"
 #include "pbd/pthread_utils.h"
+
+#include "ardour_dialog.h"
 #include "gui_thread.h"
 
 using namespace PBD;
@@ -72,6 +74,7 @@ static const std::string fields = "id,name,duration,filesize,samplerate,license,
 //------------------------------------------------------------------------
 Mootcher::Mootcher(const std::string &the_token)
 	: curl(curl_easy_init())
+	, logged_in (false)
 {
 	DEBUG_TRACE(PBD::DEBUG::Freesound, "Created new Mootcher\n");
 	if  (the_token != "") {
@@ -740,6 +743,35 @@ bool Mootcher::checkAudioFile(std::string originalFileName, std::string theID)
 	return false;
 }
 
+class CredentialsDialog : public ArdourDialog
+{
+
+	public:
+		CredentialsDialog(const std::string &title);
+		const std::string username() { return username_entry.get_text(); }
+		const std::string password() { return password_entry.get_text(); }
+	private:
+		Gtk::Label username_label;
+		Gtk::Entry username_entry;
+		Gtk::Label password_label;
+		Gtk::Entry password_entry;
+};
+
+CredentialsDialog::CredentialsDialog(const std::string &title)
+	: ArdourDialog (title, true)
+	, username_label (_("User name:"))
+	, password_label (_("Password:"))
+{
+	password_entry.set_visibility (false);
+	get_vbox ()->pack_start (username_label);
+	get_vbox ()->pack_start (username_entry);
+	get_vbox ()->pack_start (password_label);
+	get_vbox ()->pack_start (password_entry);
+	add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
+	add_button(Gtk::Stock::OK,     Gtk::RESPONSE_OK    );
+	show_all ();
+
+}
 
 bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::string audioURL, SoundFileBrowser *caller)
 {
@@ -761,8 +793,17 @@ bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, s
 		return false;
 	}
 
-	if (!oauth("username", "password")) {
-		return false;
+	if (!logged_in) {
+		CredentialsDialog freesound_credentials(_("Enter Freesound user name & password"));
+		int r = freesound_credentials.run();
+		freesound_credentials.hide();
+		if (r != Gtk::RESPONSE_OK) {
+			return false;
+		}
+		if (!oauth(freesound_credentials.username(), freesound_credentials.password())) {
+			return false;
+		}
+		logged_in = true;
 	}
 
 	// create the download url
