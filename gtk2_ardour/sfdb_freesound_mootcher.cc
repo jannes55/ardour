@@ -240,7 +240,7 @@ std::string Mootcher::searchSimilar(std::string id)
 bool
 Mootcher::oauth(const std::string &username, const std::string &password)
 {
-	/* Logging into Freesound requires a few hoops to be jumped through.
+	/* Logging into Freesound requires us to jump through a few hoops.
 	 * See http://www.freesound.org/docs/api/authentication.html#token-authentication for the documentation.
 	 *
 	 * First, we must retrieve the page at:
@@ -254,6 +254,11 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	 * This function, as you might expect from the foregoing description, is rather fragile in the face of
 	 * any changes in the HTML that's served by freesound.org. Unfortunately, I can't see any better way of doing this
 	 * without them extending their API to make it less convoluted for non-web apps to log in.
+	 *
+	 * Also, although the first HTML page that's returned is valid XML, subsequent pages aren't: fortunately, we only
+	 * need to extract values (csrfmiddlewaretoken and next) from that page, for which we can use XMLTree and friends.
+	 * We can (for the moment) hard-code the 'Authorize!' button name and value in the next page, and to extract the 
+	 * token value from the final page I've hacked up a hacky little HTML parser.
 	 */
 
 	CURLcode res;
@@ -371,7 +376,7 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	xml_page.size = 0;
 
 	DEBUG_TRACE(PBD::DEBUG::Freesound, oauth_page_str);
-#if FREESOUND_SENDS_VALID_XML
+#if FREESOUND_EVER_SENDS_VALID_XML
 	if (!doc.read_buffer (oauth_page_str.c_str())) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, "doc.read_buffer() returns false\n");
 		return false;
@@ -385,7 +390,7 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	authorize_page->dump(std::cerr, "authorize page:");
 
 	// find input fields with name, value, & type properties, i.e. the 'Authorize' button
-	boost::shared_ptr<XMLSharedNodeList> buttons = doc.find("//input[@name and @value And @type]", oauth_page);
+	boost::shared_ptr<XMLSharedNodeList> buttons = doc.find("//input[@name and @value and @type]", oauth_page);
 
 	std::cerr << "found " << buttons->size() << " buttons\n";
 
@@ -414,6 +419,7 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	}
 
 #else
+	// hard-code the name & value of the "Authorize!" button
 	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, ("csrfmiddlewaretoken=" + csrf_mwt + "&authorize=Authorize%21").c_str());
 
 #endif
@@ -438,6 +444,60 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	xml_page.size = 0;
 
 	DEBUG_TRACE(PBD::DEBUG::Freesound, oauth_page_str);
+
+#if FREESOUND_EVER_SENDS_VALID_XML
+	
+/* 
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+        "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<meta name='viewport' content='width=device-width, initial-scale=0.65' />
+
+    <head>
+        <title>Freesound - app authorized</title>
+        <style>
+            body {
+                font-family: Verdana, sans-serif;
+                font-size: 11px;
+                margin:0px 0px;
+                padding:0px;
+                text-align:center;
+                -webkit-text-size-adjust: 100%;
+            }
+            .container_main {
+                margin: auto;
+                padding:20px;
+                width:440px;
+            }
+            .container {
+                width:400px;
+                background-color: #f3f3f3;
+                border-radius:10px;
+                padding:20px;
+                border: solid 1px #e0e0e0;
+            }
+        </style>
+    </head>
+    <body>
+
+        <div class="container_main">
+            <div class="container">
+
+                 <img src="/media/images/logo.png"/>
+     
+                <p>
+                    Permission granted to application <strong>Ardour 4</strong>!.
+                    <br>Your authorization code:
+                
+                </p>
+                <div style="font-size:14px;font-family:'Courier';">228064a0a575a1bcd69f045cdf4c79c2ec578d6f</div>
+            </div>
+        </div>
+
+    </body>
+</html>
+*/
+
 	if (!doc.read_buffer (oauth_page_str.c_str())) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, "doc.read_buffer() of token page returns false\n");
 		return false;
@@ -451,27 +511,58 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	auth_granted_page->dump(std::cerr, "auth granted page:");
 
 	// find input fields with name, value, & type properties
-	boost::shared_ptr<XMLSharedNodeList> codez = doc.find("//input[@name and @value And @type]", oauth_page);
+	boost::shared_ptr<XMLSharedNodeList> codez = doc.find("//div[@style]", oauth_page);
 
 	std::cerr << "found " << codez->size() << " codez\n";
 
 	for (XMLSharedNodeList::const_iterator i = codez->begin(); i != codez->end(); ++i) {
-		XMLProperty *prop_name  = (*i)->property("name");
-		XMLProperty *prop_value = (*i)->property("value");
-		XMLProperty *prop_type  = (*i)->property("type");
-		if (prop_name && prop_value) {
-			std::string input_name  = prop_name->value();
-			std::string input_value = prop_value->value();
-			std::string input_type  = prop_type->value();
-			std::cerr << "found input name :" << input_name << ", value = " << input_value << std::endl;
-			if (input_name == "codez") {
-				token = input_value;
+		XMLProperty *prop_style = (*i)->property("style");
+		const std::string content = (*i)->content();
+
+		if (prop_style && content.length() == 40) {
+			size_t p = content.find_first_not_of("0123456789abcdefABCDEF");
+			if (p == std::string::npos) {
+				token = content;
 				return true;
-				break;
 			}
 		}
 	}
+#else
+	// hackily parse through the HTML looking for a <div> tag with 40-character hex contents
+	size_t p = 0;
+	while (true) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("searching for \"<div \" from %1\n", p));
+		p = oauth_page_str.find("<div ", p);
+		if (p == std::string::npos) {
+			break;
+		}
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("searching for \">\" from %1\n", p));
+		size_t q = oauth_page_str.find(">", p);
+		if (q == std::string::npos) {
+			break;
+		}
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("searching for \"</div>\" from %1\n", q));
+		size_t r = oauth_page_str.find("</div>", q);
+		if (r == std::string::npos) {
+			break;
+		}
+		p = q + 1;
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("checking content length: %1 - %2 = %3\n", r, q, r - q));
+		if (r - q != 41) {
+			continue;
+		}
+		std::string content = oauth_page_str.substr(q + 1, 40);
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("checking content is hex: %1\n", content));
+		if (content.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) {
+			continue;
+		}
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "Got token!\n");
+		token = content;
+		return true;
+	}
+#endif
 
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "Failed to get token!\n");
 	return false;
 
 }
