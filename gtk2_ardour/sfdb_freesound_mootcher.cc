@@ -74,13 +74,17 @@ static const std::string fields = "id,name,duration,filesize,samplerate,license,
 //------------------------------------------------------------------------
 Mootcher::Mootcher(const std::string &the_token)
 	: curl(curl_easy_init())
-	, logged_in (false)
 {
-	DEBUG_TRACE(PBD::DEBUG::Freesound, "Created new Mootcher\n");
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "Created new Mootcher, oauth_token =\"" + the_token + "\"\n");
+	custom_headers = NULL;
 	if  (the_token != "") {
-		token = the_token;
+		oauth_token = the_token;
+		std::string auth_header = "Authorization: Bearer " + oauth_token;
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "auth_header = " + auth_header + "\n");
+		custom_headers = curl_slist_append (custom_headers, auth_header.c_str());
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, custom_headers);
 	} else {
-		token = default_token;
+		oauth_token = "";
 	}
 	cancel_download_btn.set_label (_("Cancel"));
 	progress_hbox.pack_start (progress_bar, true, true);
@@ -93,6 +97,9 @@ Mootcher::Mootcher(const std::string &the_token)
 Mootcher:: ~Mootcher()
 {
 	curl_easy_cleanup(curl);
+	if (custom_headers) {
+		curl_slist_free_all (custom_headers);
+	}
 	DEBUG_TRACE(PBD::DEBUG::Freesound, "Destroyed Mootcher\n");
 }
 
@@ -194,9 +201,9 @@ std::string Mootcher::doRequest(std::string uri, std::string params)
 	// the url to get
 	std::string url = base_url + uri + "?";
 	if (params != "") {
-		url += params + "&token=" + token + "&format=xml";
+		url += params + "&token=" + default_token + "&format=xml";
 	} else {
-		url += "token=" + token + "&format=xml";
+		url += "token=" + default_token + "&format=xml";
 	}
 
 	curl_easy_setopt(curl, CURLOPT_URL, url.c_str() );
@@ -248,20 +255,40 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	 *
 	 * First, we must retrieve the page at:
 	 *     https://www.freesound.org/apiv2/oauth2/authorize/?client_id=c7eff9328525c51775cb&response_type=code
+	 *
+	 * Fortunately, this page, although HTML, is valid XML, so we can use XMLTree and friends to parse out
+	 * the hidden form field valus that we'll need at the next step.
+	 *
 	 * Then, we must POST this page with the users username and password, also passing along the
 	 * values of 'csrfmiddlewaretoken' and 'next' that were passed to us in hidden form fields. 'next' is
 	 * the address of the next page that will be returned, which will be that of a page with an 'authorize' button on.
+	 *
 	 * We must next POST this page (with the same csrfmiddlewaretoken value), and the name and value of the 'authorize' button.
-	 * The returned page this time contains the token value which we should use for subsequent download requests.
+	 * Ideally, we'd parse out the <input ...> field of the 'Authorize!' button and post the value therein; unfortunately
+	 * the page isn't valid XML, so we can't use XMLTree on it. For now, I've assumed that the button
+	 * is always called 'authorize' with a value of 'Authorize!'
+	 *
+	 * The returned page then contains an authorization code, which we have to exchange for a token, by POSTing to
+	 * another page. Again, this isn't valid XML: for this one I've hacked up a parser that just looks for a <div>
+	 * containing a 40digit hex number.
+	 *
+	 * Finally, the returned page this time contains the token value which we should use for subsequent download requests, but
+	 * (ha ha) this page is actually JSON, because the POST to the previous page (unlike other JSON pages on freesound.org)
+	 * ignores the "&format=xml" parameter.
+	 *
+	 * The hard-won token then needs to be presented back to freesound.org as part of an 'Authorization: Bearer " HTML
+	 * header on all subsequent requests that require OAuth.
 	 *
 	 * This function, as you might expect from the foregoing description, is rather fragile in the face of
 	 * any changes in the HTML that's served by freesound.org. Unfortunately, I can't see any better way of doing this
-	 * without them extending their API to make it less convoluted for non-web apps to log in.
-	 *
-	 * Also, although the first HTML page that's returned is valid XML, subsequent pages aren't: fortunately, we only
-	 * need to extract values (csrfmiddlewaretoken and next) from that page, for which we can use XMLTree and friends.
-	 * We can (for the moment) hard-code the 'Authorize!' button name and value in the next page, and to extract the 
-	 * token value from the final page I've hacked up a hacky little HTML parser.
+	 * without them extending their API to make it less convoluted for non-web apps to log in. Other possibilities 
+	 * include:
+	 *     - use HTMLTree and friends from libxml2 to parse the HTML pages
+	 *     - just pop up a link in Ardour when we require the user to log into Freesound,
+	 *       and provide a place for them to manually paste the access token.
+	 *     - embed a mini-browser into Ardour, and use that to show the Freesound login and token pages.
+	 *     - persuade Freesound to change their API.
+	 *     
 	 */
 
 	CURLcode res;
@@ -525,7 +552,7 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 		if (prop_style && content.length() == 40) {
 			size_t p = content.find_first_not_of("0123456789abcdefABCDEF");
 			if (p == std::string::npos) {
-				token = content;
+				oauth_token = content;
 				return true;
 			}
 		}
@@ -533,6 +560,8 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 #else
 	// hackily parse through the HTML looking for a <div> tag with 40-character hex contents
 	size_t p = 0;
+	std::string auth_code = "";
+
 	while (true) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("searching for \"<div \" from %1\n", p));
 		p = oauth_page_str.find("<div ", p);
@@ -559,14 +588,49 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 		if (content.find_first_not_of("0123456789abcdefABCDEF") != std::string::npos) {
 			continue;
 		}
-		DEBUG_TRACE(PBD::DEBUG::Freesound, "Got token!\n");
-		token = content;
-		return true;
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "Got authorization code!\n");
+		auth_code = content;
+		break;
 	}
 #endif
 
-	DEBUG_TRACE(PBD::DEBUG::Freesound, "Failed to get token!\n");
-	return false;
+	if (auth_code == "") { 
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "Failed to get authorization code!\n");
+		return false;
+	}
+
+	curl_easy_setopt(curl, CURLOPT_URL, "https://www.freesound.org/apiv2/oauth2/access_token/");
+	curl_easy_setopt(curl, CURLOPT_POST, 5);
+	curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS, 
+			("client_id=" + client_id + 
+			"&client_secret=" + default_token + 
+			"&grant_type=authorization_code" +
+			"&code=" + auth_code).c_str());
+
+	res = curl_easy_perform (curl);
+	if (res != CURLE_OK) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("curl failed: %1, error=%2\n", oauth_url, res));
+		return false;
+	}
+
+	if (!xml_page.memory) {
+		DEBUG_TRACE(PBD::DEBUG::Freesound, "curl returned nothing!\n");
+		return false;
+	}
+
+	oauth_page_str = xml_page.memory;
+	free (xml_page.memory);
+	xml_page.memory = NULL;
+	xml_page.size = 0;
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, oauth_page_str);
+
+	// one of these days ardour's gonna need a proper JSON parser, but not now...
+	p = oauth_page_str.find ("access_token");
+	oauth_token = oauth_page_str.substr (p + 16, 40);
+
+	DEBUG_TRACE(PBD::DEBUG::Freesound, "oauth_token is :" + oauth_token + "\n");
+	return true;
 
 }
 
@@ -768,12 +832,13 @@ CredentialsDialog::CredentialsDialog(const std::string &title)
 	get_vbox ()->pack_start (password_label);
 	get_vbox ()->pack_start (password_entry);
 	add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
-	add_button(Gtk::Stock::OK,     Gtk::RESPONSE_OK    );
+	add_button(Gtk::Stock::OK,     Gtk::RESPONSE_ACCEPT);
 	show_all ();
 
 }
 
-bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::string audioURL, SoundFileBrowser *caller)
+const std::string
+Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::string audioURL, SoundFileBrowser *caller)
 {
 
 	DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("fetchAudiofile(%1, %2, %3, ...)\n", originalFileName, theID, audioURL));
@@ -783,31 +848,43 @@ bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, s
 	audioFileName = Glib::build_filename (basePath, ID + "-" + originalFileName);
 
 	if (!curl) {
-		return false;
+		return "";
 	}
+
+	if (oauth_token == "") {
+		CredentialsDialog freesound_credentials(_("Enter Freesound user name & password"));
+		int r = freesound_credentials.run();
+		freesound_credentials.hide();
+		if (r != Gtk::RESPONSE_ACCEPT) {
+			return "";
+		}
+		while (gtk_events_pending()) {
+			// allow the dialogue to become hidden
+			gtk_main_iteration ();
+		}
+
+		if (!oauth(freesound_credentials.username(), freesound_credentials.password())) {
+			return "";
+		}
+
+		// oauth() has set a bunch of curl options - reset the important ones now
+		curl_easy_setopt(curl, CURLOPT_POST, 0);
+
+		// we don't need to set the 'Authorization:' header here because the instance of
+		// curl in this moothcher is still logged in. subsequently created mootchers with
+		// the token passed into their constructors will have the header set there.
+	}
+
 	// now download the actual file
 	theFile = g_fopen( (audioFileName + ".part").c_str(), "wb" );
 
 	if (!theFile) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, "Can't open file for writing:" + audioFileName + ".part\n");
-		return false;
-	}
-
-	if (!logged_in) {
-		CredentialsDialog freesound_credentials(_("Enter Freesound user name & password"));
-		int r = freesound_credentials.run();
-		freesound_credentials.hide();
-		if (r != Gtk::RESPONSE_OK) {
-			return false;
-		}
-		if (!oauth(freesound_credentials.username(), freesound_credentials.password())) {
-			return false;
-		}
-		logged_in = true;
+		return "";
 	}
 
 	// create the download url
-	audioURL += "?token=" + token;
+	audioURL += "?token=" + default_token;
 
 	setcUrlOptions();
 	curl_easy_setopt(curl, CURLOPT_URL, audioURL.c_str() );
@@ -833,7 +910,7 @@ bool Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, s
 	pthread_t freesound_download_thread;
 	pthread_create_and_store("freesound_import", &freesound_download_thread, freesound_download_thread_func, this);
 
-	return true;
+	return oauth_token;
 }
 
 //---------

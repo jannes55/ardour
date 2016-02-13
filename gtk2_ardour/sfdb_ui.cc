@@ -36,6 +36,8 @@
 #include "pbd/gstdio_compat.h"
 #include <glibmm/fileutils.h>
 
+#include "ardour/debug.h"
+
 #include "pbd/convert.h"
 #include "pbd/tokenizer.h"
 #include "pbd/enumwriter.h"
@@ -953,7 +955,7 @@ std::string
 SoundFileBrowser::freesound_get_audio_file(Gtk::TreeIter iter)
 {
 
-	Mootcher *mootcher = new Mootcher(freesound_token_entry.get_text());
+	Mootcher *mootcher = new Mootcher(freesound_token);
 	std::string file;
 
 	string id  = (*iter)[freesound_list_columns.id];
@@ -970,7 +972,7 @@ SoundFileBrowser::freesound_get_audio_file(Gtk::TreeIter iter)
 	if (!(*iter)[freesound_list_columns.started]) {
 		// start downloading the sound file
 		(*iter)[freesound_list_columns.started] = true;
-		mootcher->fetchAudioFile(ofn, id, uri, this);
+		freesound_token = mootcher->fetchAudioFile(ofn, id, uri, this);
 	}
 	return "";
 }
@@ -1187,8 +1189,10 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 			std::string sr = sr_node->child("text")->content();
 			std::string licence = licence_node->child("text")->content();
 
-			std::string r;
-			// cerr << "id=" << id << ",uri=" << uri << ",ofn=" << ofn << ",duration=" << duration << endl;
+			DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose(
+					"id=%1 ,uri=%2 ,ofn=%3 ,duration=%4\n",
+					id, uri, ofn, duration
+			));
 
 			double duration_seconds = atof(duration);
 			double h, m, s;

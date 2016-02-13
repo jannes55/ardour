@@ -193,7 +193,6 @@ class SoundFileBrowser : public ArdourWindow
 	Gtk::ComboBoxText freesound_sort;
 
 	Gtk::Button freesound_search_btn;
-	Gtk::Entry  freesound_token_entry;
 	Gtk::TreeView freesound_list_view;
 	Gtk::Notebook notebook;
 
@@ -240,6 +239,7 @@ class SoundFileBrowser : public ArdourWindow
 	void freesound_more_clicked ();
 	void freesound_similar_clicked ();
 	int freesound_page;
+	std::string freesound_token;
 
 	void chooser_file_activated ();
 	std::string freesound_get_audio_file(Gtk::TreeIter iter);

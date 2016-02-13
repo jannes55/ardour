@@ -69,14 +69,14 @@ public:
 	Mootcher(const std::string &token = "");
 	~Mootcher();
 
-	bool		checkAudioFile(std::string originalFileName, std::string ID);
-	bool		fetchAudioFile(std::string originalFileName, std::string ID, std::string audioURL, SoundFileBrowser *caller);
-	std::string	searchText(std::string query, int page, std::string filter, enum sortMethod sort);
-	std::string	searchSimilar(std::string id);
-	void *		threadFunc();
-	SoundFileBrowser *sfb;
-	std::string	audioFileName;
-	std::string	ID;
+	bool			checkAudioFile(std::string originalFileName, std::string ID);
+	const std::string	fetchAudioFile(std::string originalFileName, std::string ID, std::string audioURL, SoundFileBrowser *caller);
+	std::string		searchText(std::string query, int page, std::string filter, enum sortMethod sort);
+	std::string		searchSimilar(std::string id);
+	void *			threadFunc();
+	SoundFileBrowser *	sfb;
+	std::string		audioFileName;
+	std::string		ID;
 
 	/** signal emitted when mootcher reports progress updates during download.
 	 * The parameters are current and total numbers of bytes downloaded.
@@ -119,7 +119,7 @@ private:
 
 	std::string basePath;
 	std::string xmlLocation;
-	std::string token;
-	bool logged_in;
+	std::string oauth_token;
+	struct curl_slist *custom_headers;
 };
 
