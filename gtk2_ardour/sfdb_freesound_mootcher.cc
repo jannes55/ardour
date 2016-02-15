@@ -831,8 +831,14 @@ CredentialsDialog::CredentialsDialog(const std::string &title)
 	get_vbox ()->pack_start (username_entry);
 	get_vbox ()->pack_start (password_label);
 	get_vbox ()->pack_start (password_entry);
-	add_button(Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
-	add_button(Gtk::Stock::OK,     Gtk::RESPONSE_ACCEPT);
+
+	username_entry.set_activates_default (true);
+	password_entry.set_activates_default (true);
+
+	add_button (Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL);
+	add_button (Gtk::Stock::OK,     Gtk::RESPONSE_ACCEPT);
+	set_default_response (Gtk::RESPONSE_ACCEPT);
+
 	show_all ();
 
 }
