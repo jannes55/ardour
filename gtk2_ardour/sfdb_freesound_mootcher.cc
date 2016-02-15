@@ -832,6 +832,9 @@ CredentialsDialog::CredentialsDialog(const std::string &title)
 	get_vbox ()->pack_start (password_label);
 	get_vbox ()->pack_start (password_entry);
 
+	username_label.set_alignment (Gtk::ALIGN_LEFT);
+	password_label.set_alignment (Gtk::ALIGN_LEFT);
+
 	username_entry.set_activates_default (true);
 	password_entry.set_activates_default (true);
 
