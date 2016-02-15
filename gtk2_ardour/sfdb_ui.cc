@@ -973,6 +973,10 @@ SoundFileBrowser::freesound_get_audio_file(Gtk::TreeIter iter)
 		// start downloading the sound file
 		(*iter)[freesound_list_columns.started] = true;
 		freesound_token = mootcher->fetchAudioFile(ofn, id, uri, this);
+		if (freesound_token == "") {
+			// download cancelled or failed
+			(*iter)[freesound_list_columns.started] = false;
+		}
 	}
 	return "";
 }
