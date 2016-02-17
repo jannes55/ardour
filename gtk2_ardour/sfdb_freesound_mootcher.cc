@@ -322,6 +322,9 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	}
 	curl_easy_setopt(curl, CURLOPT_HTTPAUTH, CURLAUTH_ANYSAFE);
 
+	progress_bar.set_text(_("Connecting to Freesound.org login page..."));
+	while (gtk_events_pending()) gtk_main_iteration (); // allow the progress bar text to update
+
 	res = curl_easy_perform(curl);
 	if (res != CURLE_OK) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("curl failed: %1, error=%2\n", oauth_url, res));
@@ -398,6 +401,9 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 
 	/* POST the login form */
 	DEBUG_TRACE(PBD::DEBUG::Freesound, "*** posting... ***\n\n");
+	progress_bar.set_text(_("Logging in to Freesound.org..."));
+	while (gtk_events_pending()) gtk_main_iteration (); // allow the progress bar text to update
+
 	res = curl_easy_perform (curl);
 	if (res != CURLE_OK) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("curl failed: %1, error=%2\n", oauth_url, res));
@@ -468,6 +474,9 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 	curl_easy_setopt(curl, CURLOPT_POST, 2);
 
 	/* POST the "Authorize!" form */
+	progress_bar.set_text(string_compose(_("Authorising %1 to access Freesound.org..."), PROGRAM_NAME));
+	while (gtk_events_pending()) gtk_main_iteration (); // allow the progress bar text to update
+
 	res = curl_easy_perform (curl);
 	if (res != CURLE_OK) {
 		DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose("curl failed: %1, error=%2\n", oauth_url, res));
@@ -566,6 +575,9 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 			"&client_secret=" + default_token + 
 			"&grant_type=authorization_code" +
 			"&code=" + auth_code).c_str());
+
+	progress_bar.set_text(_("Fetching Access Token..."));
+	while (gtk_events_pending()) gtk_main_iteration (); // allow the progress bar text to update
 
 	res = curl_easy_perform (curl);
 	if (res != CURLE_OK) {
@@ -820,6 +832,14 @@ Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::s
 		return "";
 	}
 
+	Gtk::VBox *freesound_vbox = dynamic_cast<Gtk::VBox *> (caller->notebook.get_nth_page(2));
+	freesound_vbox->pack_start(progress_hbox, Gtk::PACK_SHRINK);
+
+	cancel_download = false;
+	curl_easy_setopt (curl, CURLOPT_NOPROGRESS, 0); // turn on the progress bar
+	curl_easy_setopt (curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+	curl_easy_setopt (curl, CURLOPT_PROGRESSDATA, this);
+
 	if (oauth_token == "") {
 		CredentialsDialog freesound_credentials(_("Enter Freesound user name & password"));
 		int r = freesound_credentials.run();
@@ -832,7 +852,9 @@ Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::s
 			gtk_main_iteration ();
 		}
 
-		if (!oauth(freesound_credentials.username(), freesound_credentials.password())) {
+		progress_hbox.show();
+		if (!oauth (freesound_credentials.username(), freesound_credentials.password())) {
+			progress_hbox.hide();
 			return "";
 		}
 
@@ -863,16 +885,9 @@ Mootcher::fetchAudioFile(std::string originalFileName, std::string theID, std::s
 	std::string prog;
 	prog = string_compose (_("%1"), originalFileName);
 	progress_bar.set_text(prog);
-
-	Gtk::VBox *freesound_vbox = dynamic_cast<Gtk::VBox *> (caller->notebook.get_nth_page(2));
-	freesound_vbox->pack_start(progress_hbox, Gtk::PACK_SHRINK);
 	progress_hbox.show();
-	cancel_download = false;
-	sfb = caller;
 
-	curl_easy_setopt (curl, CURLOPT_NOPROGRESS, 0); // turn on the progress bar
-	curl_easy_setopt (curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
-	curl_easy_setopt (curl, CURLOPT_PROGRESSDATA, this);
+	sfb = caller;
 
 	Progress.connect(*this, invalidator (*this), boost::bind(&Mootcher::updateProgress, this, _1, _2), gui_context());
 	Finished.connect(*this, invalidator (*this), boost::bind(&Mootcher::doneWithMootcher, this), gui_context());
