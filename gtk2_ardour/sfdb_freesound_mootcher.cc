@@ -396,7 +396,7 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 			  "&password=" + password +
 			  "&next=" + next_escaped).c_str());
 
-	free (next_escaped);
+	curl_free (next_escaped);
 	curl_easy_setopt(curl, CURLOPT_REFERER, oauth_url.c_str());
 
 	/* POST the login form */
@@ -454,7 +454,7 @@ Mootcher::oauth(const std::string &username, const std::string &password)
 				curl_easy_setopt(curl, CURLOPT_COPYPOSTFIELDS,
 						("csrfmiddlewaretoken=" + csrf_mwt +
 						 "&" + input_name + "=" + input_value_escaped).c_str());
-				free (input_value_escaped);
+				curl_free (input_value_escaped);
 				found_auth_button = true;
 				break;
 			}
@@ -619,12 +619,12 @@ std::string Mootcher::searchText(std::string query, int page, std::string filter
 
 	char *eq = curl_easy_escape(curl, query.c_str(), query.length());
 	params += "query=\"" + std::string(eq) + "\"";
-	free(eq);
+	curl_free(eq);
 
 	if (filter != "") {
 		char *ef = curl_easy_escape(curl, filter.c_str(), filter.length());
 		params += "&filter=" + std::string(ef);
-		free(ef);
+		curl_free(ef);
 	}
 
 	if (sort)
