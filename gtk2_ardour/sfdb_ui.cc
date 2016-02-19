@@ -960,9 +960,9 @@ SoundFileBrowser::freesound_get_audio_file(Gtk::TreeIter iter)
 
 	string id  = (*iter)[freesound_list_columns.id];
 	string uri = (*iter)[freesound_list_columns.uri];
-	string ofn = (*iter)[freesound_list_columns.filename];
+	string filename = (*iter)[freesound_list_columns.filename];
 
-	if (mootcher->checkAudioFile(ofn, id)) {
+	if (mootcher->checkAudioFile(filename, id)) {
 		// file already exists, no need to download it again
 		file = mootcher->audioFileName;
 		delete mootcher;
@@ -972,7 +972,7 @@ SoundFileBrowser::freesound_get_audio_file(Gtk::TreeIter iter)
 	if (!(*iter)[freesound_list_columns.started]) {
 		// start downloading the sound file
 		(*iter)[freesound_list_columns.started] = true;
-		freesound_token = mootcher->fetchAudioFile(ofn, id, uri, this);
+		freesound_token = mootcher->fetchAudioFile(filename, id, uri, this);
 		if (freesound_token == "") {
 			// download cancelled or failed
 			(*iter)[freesound_list_columns.started] = false;
@@ -997,7 +997,7 @@ SoundFileBrowser::freesound_list_view_selected ()
 		switch (rows.size()) {
 			case 0:
 				// nothing selected
-				freesound_similar_btn.set_sensitive(false);
+				freesound_similar_btn.set_sensitive (false);
 				set_action_sensitive (false);
 				break;
 			case 1:
@@ -1008,12 +1008,12 @@ SoundFileBrowser::freesound_list_view_selected ()
 					preview.setup_labels (file);
 					set_action_sensitive (true);
 				}
-				freesound_similar_btn.set_sensitive(true);
+				freesound_similar_btn.set_sensitive (true);
 				break;
 			default:
 				// multiple items selected
 				preview.setup_labels ("");
-				freesound_similar_btn.set_sensitive(false);
+				freesound_similar_btn.set_sensitive (false);
 				break;
 		}
 
@@ -1032,7 +1032,7 @@ SoundFileBrowser::refresh_display(std::string ID, std::string file)
 		std::string selected_ID = (*row)[freesound_list_columns.id];
 		if (ID == selected_ID) {
 			// the selected item in the freesound list is the item that has just finished downloading
-			chooser.set_filename(file);
+			chooser.set_filename (file);
 			preview.setup_labels (file);
 			set_action_sensitive (true);
 		}
@@ -1136,13 +1136,13 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 	int more_pages = freesound_n_pages - freesound_page;
 
 	if (more_pages > 0) {
-		freesound_more_btn.set_sensitive(true);
+		freesound_more_btn.set_sensitive (true);
 		freesound_more_btn.set_tooltip_text(string_compose(P_(
 						"%1 more page of 100 results available",
 						"%1 more pages of 100 results available",
 						more_pages), more_pages));
 	} else {
-		freesound_more_btn.set_sensitive(false);
+		freesound_more_btn.set_sensitive (false);
 		freesound_more_btn.set_tooltip_text(_("No more results available"));
 	}
 
@@ -1177,28 +1177,28 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 		} else {
 		        uri_node = node->child ("download");
 		}
-		XMLNode *ofn_node = node->child ("name");
+		XMLNode *filename_node = node->child ("name");
 		XMLNode *duration_node = node->child ("duration");
-		XMLNode *size_node = node->child ("filesize");
-		XMLNode *sr_node = node->child ("samplerate");
+		XMLNode *filesize_node = node->child ("filesize");
+		XMLNode *samplerate_node = node->child ("samplerate");
 		XMLNode *licence_node = node->child ("license");
 
-		if (id_node && uri_node && ofn_node && duration_node && size_node && sr_node) {
+		if (id_node && uri_node && filename_node && duration_node && filesize_node && samplerate_node) {
 
-			std::string  id =  id_node->child("text")->content();
-			std::string uri = uri_node->child("text")->content();
-			std::string ofn = ofn_node->child("text")->content();
+			std::string id       =  id_node->child("text")->content();
+			std::string uri      = uri_node->child("text")->content();
+			std::string filename = filename_node->child("text")->content();
 			std::string duration = duration_node->child("text")->content();
-			std::string filesize = size_node->child("text")->content();
-			std::string sr = sr_node->child("text")->content();
+			std::string filesize = filesize_node->child("text")->content();
+			std::string samplerate = samplerate_node->child("text")->content();
 			std::string licence = licence_node->child("text")->content();
 
 			DEBUG_TRACE(PBD::DEBUG::Freesound, string_compose(
-					"id=%1 ,uri=%2 ,ofn=%3 ,duration=%4\n",
-					id, uri, ofn, duration
+					"id=%1 ,uri=%2 ,filename=%3 ,duration=%4\n",
+					id, uri, filename, duration
 			));
 
-			double duration_seconds = atof(duration);
+			double duration_seconds = atof (duration);
 			double h, m, s;
 			char duration_hhmmss[16];
 			if (duration_seconds > 99 * 60 * 60) {
@@ -1245,10 +1245,10 @@ SoundFileBrowser::handle_freesound_results(std::string theString) {
 
 			row[freesound_list_columns.id      ] = id;
 			row[freesound_list_columns.uri     ] = uri;
-			row[freesound_list_columns.filename] = ofn;
+			row[freesound_list_columns.filename] = filename;
 			row[freesound_list_columns.duration] = duration_hhmmss;
 			row[freesound_list_columns.filesize] = bsize;
-			row[freesound_list_columns.smplrate] = sr;
+			row[freesound_list_columns.smplrate] = samplerate;
 			row[freesound_list_columns.license ] = shortlicense;
 			matches++;
 		} else {
