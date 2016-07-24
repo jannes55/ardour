@@ -101,6 +101,7 @@
 #include "ardour/slave.h"
 #include "ardour/system_exec.h"
 #include "ardour/track.h"
+#include "ardour/trigger_track.h"
 #include "ardour/vca_manager.h"
 #include "ardour/utils.h"
 
@@ -2053,6 +2054,44 @@ ARDOUR_UI::session_add_audio_route (
 			(*i)->set_strict_io (true);
 		}
 		for (RouteList::iterator i = routes.begin(); i != routes.end(); ++i) {
+			(*i)->set_strict_io (true);
+		}
+	}
+}
+
+void
+ARDOUR_UI::session_add_trigger_track (
+	const ChanCount& input_channels,
+	const ChanCount& output_channels,
+	RouteGroup* route_group,
+	uint32_t how_many,
+	string const & name_template,
+	bool strict_io,
+	ARDOUR::PresentationInfo::order_t order)
+{
+	list<boost::shared_ptr<TriggerTrack> > tracks;
+
+	if (_session == 0) {
+		warning << _("You cannot add a track or bus without a session already loaded.") << endmsg;
+		return;
+	}
+
+	try {
+		tracks = _session->new_trigger_track (input_channels, output_channels, route_group, how_many, name_template, order);
+
+		if (tracks.size() != how_many) {
+			error << string_compose (P_("could not create %1 new trigger track", "could not create %1 new trigger tracks", how_many), how_many)
+			      << endmsg;
+		}
+	}
+
+	catch (...) {
+		display_insufficient_ports_message ();
+		return;
+	}
+
+	if (strict_io) {
+		for (list<boost::shared_ptr<TriggerTrack> >::iterator i = tracks.begin(); i != tracks.end(); ++i) {
 			(*i)->set_strict_io (true);
 		}
 	}
@@ -4172,6 +4211,9 @@ ARDOUR_UI::add_route_dialog_finished (int r)
 		break;
 	case AddRouteDialog::MidiTrack:
 		session_add_midi_track (route_group, count, name_template, strict_io, instrument, 0, order);
+		break;
+	case AddRouteDialog::TriggerTrack:
+		session_add_trigger_track (input_chan, output_chan, route_group, count, name_template, strict_io, order);
 		break;
 	case AddRouteDialog::MixedTrack:
 		session_add_mixed_track (input_chan, output_chan, route_group, count, name_template, strict_io, instrument, 0, order);
