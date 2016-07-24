@@ -151,6 +151,7 @@ class Source;
 class Speakers;
 class TempoMap;
 class Track;
+class TriggerTrack;
 class VCAManager;
 class WindowsVSTPlugin;
 
@@ -637,6 +638,15 @@ class LIBARDOUR_API Session : public PBD::StatefulDestructible, public PBD::Scop
 		RouteGroup* route_group, uint32_t how_many, std::string name_template,
 		PresentationInfo::order_t,
 		TrackMode mode = Normal
+		);
+
+	std::list<boost::shared_ptr<TriggerTrack> > new_trigger_track (
+		const ChanCount& input_channels,
+		const ChanCount& output_channels,
+		RouteGroup* route_group,
+		uint32_t how_many,
+		std::string name_template,
+		PresentationInfo::order_t order
 		);
 
 	RouteList new_audio_route (int input_channels, int output_channels, RouteGroup* route_group, uint32_t how_many, std::string name_template, PresentationInfo::Flag, PresentationInfo::order_t);
