@@ -116,6 +116,7 @@ class LIBARDOUR_API PresentationInfo : public PBD::Stateful
 		MasterOut = 0x20,
 		MonitorOut = 0x40,
 		Auditioner = 0x80,
+		TriggerTrack = 0x100,
 		/* These are for sharing Stripable states between the GUI and other
 		 * user interfaces/control surfaces
 		 */
