@@ -76,6 +76,7 @@ AddRouteDialog::AddRouteDialog ()
 
 	track_bus_combo.append_text (_("Audio Tracks"));
 	track_bus_combo.append_text (_("MIDI Tracks"));
+	track_bus_combo.append_text (_("Trigger Tracks"));
 	track_bus_combo.append_text (_("Audio+MIDI Tracks"));
 	track_bus_combo.append_text (_("Audio Busses"));
 	track_bus_combo.append_text (_("MIDI Busses"));
@@ -222,6 +223,8 @@ AddRouteDialog::type_wanted() const
 		return MidiBus;
 	} else if (str == _("MIDI Tracks")){
 		return MidiTrack;
+	} else if (str == _("Trigger Tracks")){
+		return TriggerTrack;
 	} else if (str == _("Audio+MIDI Tracks")) {
 		return MixedTrack;
 	} else if (str == _("Audio Tracks")) {
@@ -240,6 +243,9 @@ AddRouteDialog::maybe_update_name_template_entry ()
 		break;
 	case MidiTrack:
 		name_template_entry.set_text (_("MIDI"));
+		break;
+	case TriggerTrack:
+		name_template_entry.set_text (_("Trigger"));
 		break;
 	case MixedTrack:
 		name_template_entry.set_text (_("Audio+MIDI"));
@@ -270,6 +276,17 @@ AddRouteDialog::track_type_chosen ()
 		insert_at_combo.set_sensitive (true);
 		break;
 	case MidiTrack:
+		channel_combo.set_sensitive (false);
+		mode_combo.set_sensitive (false);
+		instrument_combo.set_sensitive (true);
+		configuration_label.set_sensitive (false);
+		mode_label.set_sensitive (false);
+		instrument_label.set_sensitive (true);
+		route_group_combo.set_sensitive (true);
+		strict_io_combo.set_sensitive (true);
+		insert_at_combo.set_sensitive (true);
+		break;
+	case TriggerTrack:
 		channel_combo.set_sensitive (false);
 		mode_combo.set_sensitive (false);
 		instrument_combo.set_sensitive (true);
@@ -349,6 +366,7 @@ AddRouteDialog::name_template_is_default() const
 
 	if (n == _("Audio") ||
 	    n == _("MIDI") ||
+	    n == _("Trigger") ||
 	    n == _("Audio+MIDI") ||
 	    n == _("Bus") ||
 	    n == VCA::default_name_template()) {
@@ -387,11 +405,11 @@ AddRouteDialog::mode ()
 		return ARDOUR::NonLayered;
 	} else if (str == _("Tape")) {
 		return ARDOUR::Destructive;
-	} else {
-		fatal << string_compose (X_("programming error: unknown track mode in add route dialog combo = %1"), str)
-		      << endmsg;
-		abort(); /*NOTREACHED*/
 	}
+
+	fatal << string_compose (X_("programming error: unknown track mode in add route dialog combo = %1"), str)
+	      << endmsg;
+	abort(); /*NOTREACHED*/
 	/* keep gcc happy */
 	return ARDOUR::Normal;
 }
@@ -402,6 +420,7 @@ AddRouteDialog::channels ()
 	ChanCount ret;
 	string str;
 	switch (type_wanted()) {
+	case TriggerTrack:
 	case AudioTrack:
 	case AudioBus:
 		str = channel_combo.get_active_text();
