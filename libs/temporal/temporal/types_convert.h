@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2012 Paul Davis
+    Copyright (C) 2015 Tim Mayberry
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -17,28 +17,24 @@
 
 */
 
-#ifndef __ardour_readable_h__
-#define __ardour_readable_h__
+#ifndef TEMPORAL_TYPES_CONVERT_H
+#define TEMPORAL_TYPES_CONVERT_H
 
-#include "temporal/timeline.h"
+#ifdef COMPILER_MSVC
+#pragma warning(disable:4101)
+#endif
 
-#include "ardour/libardour_visibility.h"
-#include "ardour/types.h"
+#include "pbd/enum_convert.h"
 
-namespace ARDOUR {
+#include "temporal/types.h"
+#include "temporal/time.h"
 
-class LIBARDOUR_API Readable {
-  public:
-	Readable () {}
-	virtual ~Readable() {}
+namespace PBD {
 
-	/* audio-only API */
+DEFINE_ENUM_CONVERT(Temporal::TimecodeFormat)
+DEFINE_ENUM_CONVERT(Temporal::LockStyle)
+DEFINE_ENUM_CONVERT(Temporal::Dirty)
 
-	virtual samplecnt_t read (Sample*, samplepos_t pos, samplecnt_t cnt, int channel) const = 0;
-	virtual samplecnt_t readable_length_samples() const = 0;
-	virtual uint32_t  n_channels () const = 0;
-};
+} // namespace Temporal
 
-}
-
-#endif /* __ardour_readable_h__ */
+#endif // TEMPORAL_TYPES_CONVERT_H

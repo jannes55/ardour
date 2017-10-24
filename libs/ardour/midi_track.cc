@@ -385,7 +385,7 @@ MidiTrack::non_realtime_locate (samplepos_t pos)
 	}
 
 	/* Update track controllers based on its "automation". */
-	const samplepos_t     origin = region->position() - region->start();
+	const samplepos_t origin = region->position_sample() - region->start_sample();
 	BeatsSamplesConverter bfc(_session.tempo_map(), origin);
 	for (Controls::const_iterator c = _controls.begin(); c != _controls.end(); ++c) {
 		boost::shared_ptr<MidiTrack::MidiControl> tcontrol;

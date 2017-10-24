@@ -82,7 +82,7 @@ MIDIClock_Slave::rebind (MidiPort& port)
 void
 MIDIClock_Slave::calculate_one_ppqn_in_samples_at(samplepos_t time)
 {
-	const double samples_per_quarter_note = session->tempo_map().samples_per_quarter_note_at (time, session->sample_rate());
+	const double samples_per_quarter_note = session->tempo_map().samples_per_quarter_note_at (time);
 
 	one_ppqn_in_samples = samples_per_quarter_note / double (ppqn);
 	// DEBUG_TRACE (DEBUG::MidiClock, string_compose ("at %1, one ppqn = %2\n", time, one_ppqn_in_samples));

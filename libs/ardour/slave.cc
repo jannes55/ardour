@@ -23,7 +23,7 @@
 
 namespace ARDOUR {
 
-TempoMap&
+Temporal::TempoMap&
 SlaveSessionProxy::tempo_map() const
 {
 	return session.tempo_map();

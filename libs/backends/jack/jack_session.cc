@@ -112,16 +112,16 @@ JACKSession::timebase_callback (jack_transport_state_t /*state*/,
 				 jack_position_t* pos,
 				 int /*new_position*/)
 {
-	Timecode::BBT_Time bbt;
-	TempoMap& tempo_map (_session->tempo_map());
+	Temporal::BBT_Time bbt;
+	Temporal::TempoMap& tempo_map (_session->tempo_map());
 	samplepos_t tf = _session->transport_sample ();
 
 	/* BBT info */
 
-	TempoMetric metric (tempo_map.metric_at (tf));
+	Temporal::TempoMapPoint const & p (tempo_map.const_point_at (tf));
 
 	try {
-		bbt = tempo_map.bbt_at_sample (tf);
+		bbt = tempo_map.bbt_at (tf);
 
 		pos->bar = bbt.bars;
 		pos->beat = bbt.beats;
@@ -129,10 +129,10 @@ JACKSession::timebase_callback (jack_transport_state_t /*state*/,
 
 		// XXX still need to set bar_start_tick
 
-		pos->beats_per_bar = metric.meter().divisions_per_bar();
-		pos->beat_type = metric.meter().note_divisor();
-		pos->ticks_per_beat = Timecode::BBT_Time::ticks_per_beat;
-		pos->beats_per_minute = metric.tempo().note_types_per_minute();
+		pos->beats_per_bar = p.metric().divisions_per_bar();
+		pos->beat_type = p.metric().note_value();
+		pos->ticks_per_beat = Temporal::ticks_per_beat;
+		pos->beats_per_minute = p.metric().note_types_per_minute();
 
 		pos->valid = jack_position_bits_t (pos->valid | JackPositionBBT);
 

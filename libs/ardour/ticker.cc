@@ -33,9 +33,10 @@
 
 using namespace ARDOUR;
 using namespace PBD;
+using namespace Temporal;
 
 /** MIDI Clock Position tracking */
-class MidiClockTicker::Position : public Timecode::BBT_Time
+class MidiClockTicker::Position : public Temporal::BBT_Time
 {
 public:
 
@@ -67,11 +68,10 @@ public:
 
 	    s->bbt_time (this->sample, *this);
 
-	    const TempoMap& tempo = s->tempo_map();
-	    const Meter& meter = tempo.meter_at_sample (sample);
+	    const Meter& meter = s->tempo_map().meter_at (sample);
 
 	    const double divisions   = meter.divisions_per_bar();
-	    const double divisor     = meter.note_divisor();
+	    const double divisor     = meter.note_value();
 	    const double qnote_scale = divisor * 0.25f;
 	    double mb;
 
@@ -80,7 +80,7 @@ public:
 	     */
 
 	    mb  = (((bars - 1) * divisions) + beats - 1);
-	    mb += (double)ticks / (double)Position::ticks_per_beat * qnote_scale;
+	    mb += (double)ticks / (double)Temporal::ticks_per_beat * qnote_scale;
 	    mb *= 16.0f / divisor;
 
 	    if (mb != midi_beats) {
@@ -204,16 +204,16 @@ MidiClockTicker::transport_looped()
 
 	DEBUG_TRACE (DEBUG::MidiClock,
 		     string_compose ("Transport looped, position: %1, loop start: %2, loop end: %3, play loop: %4\n",
-				     _session->transport_sample(), loop_location->start(), loop_location->end(), _session->get_play_loop())
+		                     _session->transport_sample(), loop_location->start_sample(), loop_location->end_sample(), _session->get_play_loop())
 		);
 
 	// adjust _last_tick, so that the next MIDI clock message is sent
 	// in due time (and the tick interval is still constant)
 
-	samplecnt_t elapsed_since_last_tick = loop_location->end() - _last_tick;
+	samplecnt_t elapsed_since_last_tick = loop_location->end_sample() - _last_tick;
 
-	if (loop_location->start() > elapsed_since_last_tick) {
-		_last_tick = loop_location->start() - elapsed_since_last_tick;
+	if (loop_location->start_sample() > elapsed_since_last_tick) {
+		_last_tick = loop_location->start_sample() - elapsed_since_last_tick;
 	} else {
 		_last_tick = 0;
 	}
@@ -251,7 +251,7 @@ MidiClockTicker::tick (const samplepos_t& /* transport_sample */, pframes_t nfra
 			if (_session->get_play_loop()) {
 				assert(_session->locations()->auto_loop_location());
 
-				if (_pos->sample == _session->locations()->auto_loop_location()->start()) {
+				if (_pos->sample == _session->locations()->auto_loop_location()->start_sample()) {
 					send_start_event (0, nframes);
 				} else {
 					send_continue_event (0, nframes);
@@ -308,8 +308,8 @@ MidiClockTicker::tick (const samplepos_t& /* transport_sample */, pframes_t nfra
 double
 MidiClockTicker::one_ppqn_in_samples (samplepos_t transport_position)
 {
-	const double samples_per_quarter_note = _session->tempo_map().samples_per_quarter_note_at (transport_position, _session->nominal_sample_rate());
-
+	Tempo const & tempo (_session->tempo_map().tempo_at (transport_position));
+	const double samples_per_quarter_note = tempo.samples_per_quarter_note (_session->nominal_sample_rate());
 	return samples_per_quarter_note / double (_ppqn);
 }
 

@@ -35,12 +35,14 @@
 #include "pbd/statefuldestructible.h"
 #include "pbd/properties.h"
 
+#include "temporal/timeline.h"
+
 #include "ardour/ardour.h"
 
 namespace ARDOUR {
 
 class AutomationList;
-class DoubleBeatsSamplesConverter;
+class BeatsSamplesConverter;
 
 /** A SharedStatefulProperty for AutomationLists */
 class LIBARDOUR_API AutomationListProperty : public PBD::SharedStatefulProperty<AutomationList>
@@ -69,20 +71,21 @@ private:
 class LIBARDOUR_API AutomationList : public Evoral::ControlList, public PBD::StatefulDestructible
 {
 public:
-	AutomationList (const Evoral::Parameter& id, const Evoral::ParameterDescriptor& desc);
-	AutomationList (const Evoral::Parameter& id);
+	AutomationList (const Evoral::Parameter& id, const Evoral::ParameterDescriptor& desc, Temporal::LockStyle);
+	AutomationList (const Evoral::Parameter& id, Temporal::LockStyle);
 	AutomationList (const XMLNode&, Evoral::Parameter id);
 	AutomationList (const AutomationList&);
-	AutomationList (const AutomationList&, double start, double end);
+	AutomationList (const AutomationList&, timecnt_t start, timecnt_t end);
 	~AutomationList();
 
 	virtual boost::shared_ptr<ControlList> create(const Evoral::Parameter&           id,
-	                                              const Evoral::ParameterDescriptor& desc);
+	                                              const Evoral::ParameterDescriptor& desc,
+	                                              Temporal::LockStyle                time_style);
 
 	AutomationList& operator= (const AutomationList&);
 
 	void thaw ();
-	bool paste (const ControlList&, double, DoubleBeatsSamplesConverter const&);
+	bool paste (const ControlList&, double, BeatsSamplesConverter const&);
 
 	void set_automation_state (AutoState);
 	AutoState automation_state() const;

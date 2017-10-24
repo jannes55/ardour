@@ -156,14 +156,14 @@ LTCFileReader::read_ltc (uint32_t channel, uint32_t max_frames)
 			ltc_frame_to_time (&stime, &frame.ltc, /*use_date*/ 0);
 
 			// convert Timecode to samples @ audio-file rate
-			Timecode::Time timecode (_expected_fps);
+			Temporal::Time timecode (_expected_fps);
 			timecode.hours   = stime.hours;
 			timecode.minutes = stime.mins;
 			timecode.seconds = stime.secs;
 			timecode.frames  = stime.frame;
 
 			int64_t sample = 0;
-			Timecode::timecode_to_sample (
+			Temporal::timecode_to_sample (
 					timecode, sample, false, false,
 					_info.samplerate,
 					0, 0, 0);

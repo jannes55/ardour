@@ -69,15 +69,16 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 	void lock ();
 	void unlock ();
 
-	samplepos_t start() const  { return _start; }
-	samplepos_t end() const { return _end; }
-	samplecnt_t length() const { return _end - _start; }
+	timepos_t const & end_time() const { return _end; }
 
-	int set_start (samplepos_t s, bool force = false, bool allow_beat_recompute = true, const uint32_t sub_num = 0);
-	int set_end (samplepos_t e, bool force = false, bool allow_beat_recompute = true, const uint32_t sub_num = 0);
-	int set (samplepos_t start, samplepos_t end, bool allow_beat_recompute = true, const uint32_t sub_num = 0);
+	samplepos_t start_sample() const  { return _start.sample(); }
+	samplepos_t end_sample() const { return _end.sample(); }
+	samplecnt_t length_samples() const { return _end.sample() - _start.sample(); }
 
-	int move_to (samplepos_t pos, const uint32_t sub_num);
+	int set_start_sample (samplepos_t s, bool force = false, const uint32_t sub_num = 0);
+	int set_end_sample (samplepos_t e, bool force = false, const uint32_t sub_num = 0);
+	int set_sample (samplepos_t start, samplepos_t end, const uint32_t sub_num = 0);
+	int move_to_sample (samplepos_t pos, const uint32_t sub_num);
 
 	const std::string& name() const { return _name; }
 	void set_name (const std::string &str);
@@ -131,7 +132,7 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 	PBD::Signal0<void> StartChanged;
 	PBD::Signal0<void> FlagsChanged;
 	PBD::Signal0<void> LockChanged;
-	PBD::Signal0<void> PositionLockStyleChanged;
+	PBD::Signal0<void> LockStyleChanged;
 
 	/* CD Track / CD-Text info */
 
@@ -141,27 +142,22 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 	XMLNode& get_state (void);
 	int set_state (const XMLNode&, int version);
 
-	PositionLockStyle position_lock_style() const { return _position_lock_style; }
-	void set_position_lock_style (PositionLockStyle ps);
-	void recompute_samples_from_beat ();
+	Temporal::LockStyle position_lock_style() const { return _start.lock_style(); }
+	void set_position_lock_style (Temporal::LockStyle ps);
 
 	static PBD::Signal0<void> scene_changed; /* for use by backend scene change management, class level */
         PBD::Signal0<void> SceneChangeChanged;   /* for use by objects interested in this object */
 
   private:
 	std::string        _name;
-	samplepos_t         _start;
-	double             _start_beat;
-	samplepos_t         _end;
-	double             _end_beat;
+	timepos_t         _start;
+	timepos_t         _end;
 	Flags              _flags;
 	bool               _locked;
-	PositionLockStyle  _position_lock_style;
 	boost::shared_ptr<SceneChange> _scene_change;
 
 	void set_mark (bool yn);
 	bool set_flag_internal (bool yn, Flags flag);
-	void recompute_beat_from_samples (const uint32_t sub_num);
 };
 
 /** A collection of session locations including unique dedicated locations (loop, punch, etc) */

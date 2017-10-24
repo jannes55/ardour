@@ -311,7 +311,7 @@ Auditioner::audition_region (boost::shared_ptr<Region> region)
 		_midi_audition = true;
 
 		the_region.reset();
-		_import_position = region->position();
+		_import_position = region->position().sample();
 
 		/* copy it */
 		midi_region = (boost::dynamic_pointer_cast<MidiRegion> (RegionFactory::create (region)));
@@ -370,11 +370,11 @@ Auditioner::audition_region (boost::shared_ptr<Region> region)
 	samplecnt_t offset;
 
 	if (_midi_audition) {
-		length = midi_region->length();
-		offset = _import_position + midi_region->sync_offset (dir);
+		length = midi_region->length().samples();
+		offset = _import_position + midi_region->sync_offset (dir).samples();
 	} else {
-		length = the_region->length();
-		offset = the_region->sync_offset (dir);
+		length = the_region->length().samples();
+		offset = the_region->sync_offset (dir).samples();
 	}
 
 	/* can't audition from a negative sync point */

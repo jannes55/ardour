@@ -1466,6 +1466,7 @@ int
 MidiModel::resolve_overlaps_unlocked (const NotePtr note, void* arg)
 {
 	using namespace Evoral;
+	using namespace Temporal;
 
 	if (_writing || insert_merge_policy() == InsertMergeRelax) {
 		return 0;
@@ -1812,7 +1813,7 @@ MidiModel::insert_silence_at_start (TimeType t)
 		apply_command_as_subcommand (s->session(), c);
 	}
 
-	ContentsShifted (t.to_double());
+	ContentsShifted (t);
 }
 
 void

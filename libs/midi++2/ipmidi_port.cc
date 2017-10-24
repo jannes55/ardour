@@ -57,6 +57,7 @@ inline void closesocket(int s) { ::close(s); }
 using namespace MIDI;
 using namespace std;
 using namespace PBD;
+using Temporal::samplecnt_t;
 
 IPMIDIPort::IPMIDIPort (int base_port, const string& iface)
 	: Port (string_compose ("IPmidi@%1", base_port), Port::Flags (Port::IsInput|Port::IsOutput))

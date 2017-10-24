@@ -56,7 +56,8 @@ Session::add_click (samplepos_t pos, bool emphasis)
 void
 Session::click (samplepos_t cycle_start, samplecnt_t nframes)
 {
-	vector<TempoMap::BBTPoint> points; // TODO use mempool allocator
+	Temporal::TempoMapPoints points;
+	samplecnt_t click_distance;
 
 	if (_click_io == 0) {
 		return;
@@ -90,21 +91,21 @@ Session::click (samplepos_t cycle_start, samplecnt_t nframes)
 	start = max (start, (samplepos_t) 0);
 
 	if (end > start) {
-		_tempo_map->get_grid (points, start, end);
+		_tempo_map->get_grid (points, Temporal::samples_to_superclock (start, sample_rate()), Temporal::samples_to_superclock (end, sample_rate()), Temporal::Beats (1));
 	}
 
 	if (distance (points.begin(), points.end()) == 0) {
 		goto run_clicks;
 	}
 
-	for (vector<TempoMap::BBTPoint>::iterator i = points.begin(); i != points.end(); ++i) {
-		switch ((*i).beat) {
+	for (Temporal::TempoMapPoints::iterator i = points.begin(); i != points.end(); ++i) {
+		switch ((*i).bbt().beats) {
 		case 1:
-			add_click ((*i).sample, true);
+			add_click (Temporal::superclock_to_samples ((*i).sclock(), sample_rate()), true);
 			break;
 		default:
-			if (click_emphasis_data == 0 || (Config->get_use_click_emphasis () == false) || (click_emphasis_data && (*i).beat != 1)) { // XXX why is this check needed ??  (*i).beat !=1 must be true here
-				add_click ((*i).sample, false);
+			if (click_emphasis_data == 0 || (Config->get_use_click_emphasis () == false) || (click_emphasis_data && (*i).bbt().beat != 1)) { // XXX why is this check needed ??  (*i).beat !=1 must be true here
+				add_click (Temporal::superclock_to_samples ((*i).sclock(), sample_rate()), false);
 			}
 			break;
 		}

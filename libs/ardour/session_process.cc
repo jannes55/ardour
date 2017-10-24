@@ -780,7 +780,7 @@ Session::track_slave_state (float slave_speed, samplepos_t slave_transport_sampl
 
 				Location* al = _locations->auto_loop_location();
 
-				if (al && play_loop && (slave_transport_sample < al->start() || slave_transport_sample > al->end())) {
+				if (al && play_loop && (slave_transport_sample < al->start_sample() || slave_transport_sample > al->end_sample())) {
 					// cancel looping
 					request_play_loop(false);
 				}
@@ -1279,7 +1279,7 @@ Session::compute_stop_limit () const
 	} else if (punching_in && !punching_out) {
 		/* punching in but never out */
 		return max_samplepos;
-	} else if (punching_in && punching_out && _locations->auto_punch_location()->end() > current_end_sample()) {
+	} else if (punching_in && punching_out && _locations->auto_punch_location()->end_sample() > current_end_sample()) {
 		/* punching in and punching out after session end */
 		return max_samplepos;
 	}

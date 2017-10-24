@@ -39,8 +39,9 @@ public:
 	AudioPlaylist (Session&, const XMLNode&, bool hidden = false);
 	AudioPlaylist (Session&, std::string name, bool hidden = false);
 	AudioPlaylist (boost::shared_ptr<const AudioPlaylist>, std::string name, bool hidden = false);
-	AudioPlaylist (boost::shared_ptr<const AudioPlaylist>, samplepos_t start, samplecnt_t cnt, std::string name, bool hidden = false);
+	AudioPlaylist (boost::shared_ptr<const AudioPlaylist>, timepos_t start, timecnt_t cnt, std::string name, bool hidden = false);
 
+	/* inescapably audio-based calls, therefore use sample time */
 	samplecnt_t read (Sample *dst, Sample *mixdown, float *gain_buffer, samplepos_t start, samplecnt_t cnt, uint32_t chan_n=0);
 
 	bool destroy_region (boost::shared_ptr<Region>);

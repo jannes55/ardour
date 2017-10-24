@@ -284,7 +284,7 @@ Session::mmc_locate (MIDI::MachineControl &/*mmc*/, const MIDI::byte* mmc_tc)
 	}
 
 	samplepos_t target_sample;
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 
 	timecode.hours = mmc_tc[0] & 0xf;
 	timecode.minutes = mmc_tc[1];
@@ -395,7 +395,7 @@ Session::send_full_time_code (samplepos_t const t, MIDI::pframes_t nframes)
 	 * that be useful?  Does ardour do sub-block accurate locating? [DR] */
 
 	MIDI::byte msg[10];
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 
 	_send_timecode_update = false;
 
@@ -425,13 +425,13 @@ Session::send_full_time_code (samplepos_t const t, MIDI::pframes_t nframes)
 	// outbound_mtc_timecode_frame needs to be >= _transport_sample
 	// or a new full timecode will be queued next cycle.
 	while (outbound_mtc_timecode_frame < t) {
-		Timecode::increment (transmitting_timecode_time, config.get_subframes_per_frame());
+		Temporal::increment (transmitting_timecode_time, config.get_subframes_per_frame());
 		outbound_mtc_timecode_frame += _samples_per_timecode_frame;
 	}
 
 	double const quarter_frame_duration = ((samplecnt_t) _samples_per_timecode_frame) / 4.0;
 	if (ceil((t - mtc_tc) / quarter_frame_duration) > 0) {
-		Timecode::increment (transmitting_timecode_time, config.get_subframes_per_frame());
+		Temporal::increment (transmitting_timecode_time, config.get_subframes_per_frame());
 		outbound_mtc_timecode_frame += _samples_per_timecode_frame;
 	}
 
@@ -442,7 +442,7 @@ Session::send_full_time_code (samplepos_t const t, MIDI::pframes_t nframes)
 	// according to MTC spec 24, 30 drop and 30 non-drop TC, the sample-number represented by 8 quarter frames must be even.
 	if (((mtc_timecode_bits >> 5) != MIDI::MTC_25_FPS) && (transmitting_timecode_time.frames % 2)) {
 		// start MTC quarter frame transmission on an even sample
-		Timecode::increment (transmitting_timecode_time, config.get_subframes_per_frame());
+		Temporal::increment (transmitting_timecode_time, config.get_subframes_per_frame());
 		outbound_mtc_timecode_frame += _samples_per_timecode_frame;
 	}
 
@@ -499,7 +499,7 @@ Session::send_midi_time_code_for_cycle (samplepos_t start_sample, samplepos_t en
 	 * TODO actually limit it to 24,25,29df,30fps
 	 * talk to oofus, first.
 	 */
-	if (Timecode::timecode_to_frames_per_second(config.get_timecode_format()) > 30) {
+	if (Temporal::timecode_to_frames_per_second(config.get_timecode_format()) > 30) {
 		return 0;
 	}
 
@@ -589,8 +589,8 @@ Session::send_midi_time_code_for_cycle (samplepos_t start_sample, samplepos_t en
 			// Wrap quarter frame counter
 			next_quarter_frame_to_send = 0;
 			// Increment timecode time twice
-			Timecode::increment (transmitting_timecode_time, config.get_subframes_per_frame());
-			Timecode::increment (transmitting_timecode_time, config.get_subframes_per_frame());
+			Temporal::increment (transmitting_timecode_time, config.get_subframes_per_frame());
+			Temporal::increment (transmitting_timecode_time, config.get_subframes_per_frame());
 			// Increment timing of first quarter frame
 			outbound_mtc_timecode_frame += 2.0 * _samples_per_timecode_frame;
 		}

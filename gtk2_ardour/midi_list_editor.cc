@@ -46,7 +46,7 @@ using namespace Gtk;
 using namespace Gtkmm2ext;
 using namespace Glib;
 using namespace ARDOUR;
-using Timecode::BBT_Time;
+using Temporal::BBT_Time;
 
 static map<int,std::string> note_length_map;
 
@@ -771,7 +771,7 @@ MidiListEditor::redisplay_model ()
 			row[columns.note] = (*i)->note();
 			row[columns.velocity] = (*i)->velocity();
 
-			Timecode::BBT_Time bbt (_session->tempo_map().bbt_at_sample (region->position() + conv.to ((*i)->time())));
+			Temporal::BBT_Time bbt (_session->tempo_map().bbt_at_sample (region->position() + conv.to ((*i)->time())));
 
 			ss.str ("");
 			ss << bbt;

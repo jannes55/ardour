@@ -30,8 +30,6 @@
 #include "ardour/audioplaylist.h"
 #include "ardour/audio_playlist_source.h"
 #include "ardour/boost_debug.h"
-#include "ardour/midi_playlist.h"
-#include "ardour/midi_playlist_source.h"
 #include "ardour/source.h"
 #include "ardour/source_factory.h"
 #include "ardour/sndfilesource.h"
@@ -134,9 +132,9 @@ SourceFactory::setup_peakfile (boost::shared_ptr<Source> s, bool async)
 }
 
 boost::shared_ptr<Source>
-SourceFactory::createSilent (Session& s, const XMLNode& node, samplecnt_t nframes, float sr)
+SourceFactory::createSilent (Session& s, const XMLNode& node, samplecnt_t length, float sr)
 {
-	Source* src = new SilentFileSource (s, node, nframes, sr);
+	Source* src = new SilentFileSource (s, node, length, sr);
 #ifdef BOOST_SP_ENABLE_DEBUG_HOOKS
 	// boost_debug_shared_ptr_mark_interesting (src, "Source");
 #endif
@@ -395,7 +393,7 @@ SourceFactory::createForRecovery (DataType type, Session& s, const std::string& 
 
 boost::shared_ptr<Source>
 SourceFactory::createFromPlaylist (DataType type, Session& s, boost::shared_ptr<Playlist> p, const PBD::ID& orig, const std::string& name,
-				   uint32_t chn, sampleoffset_t start, samplecnt_t len, bool copy, bool defer_peaks)
+				   uint32_t chn, timepos_t start, timecnt_t len, bool copy, bool defer_peaks)
 {
 	if (type == DataType::AUDIO) {
 		try {
@@ -405,11 +403,11 @@ SourceFactory::createFromPlaylist (DataType type, Session& s, boost::shared_ptr<
 			if (ap) {
 
 				if (copy) {
-					ap.reset (new AudioPlaylist (ap, start, len, name, true));
+					ap.reset (new AudioPlaylist (ap, start, len.samples(), name, true));
 					start = 0;
 				}
 
-				Source* src = new AudioPlaylistSource (s, orig, name, ap, chn, start, len, Source::Flag (0));
+				Source* src = new AudioPlaylistSource (s, orig, name, ap, chn, start.sample(), len.samples(), Source::Flag (0));
 				boost::shared_ptr<Source> ret (src);
 
 				if (setup_peakfile (ret, defer_peaks)) {
@@ -428,29 +426,7 @@ SourceFactory::createFromPlaylist (DataType type, Session& s, boost::shared_ptr<
 
 	} else if (type == DataType::MIDI) {
 
-		try {
-
-			boost::shared_ptr<MidiPlaylist> ap = boost::dynamic_pointer_cast<MidiPlaylist>(p);
-
-			if (ap) {
-
-				if (copy) {
-					ap.reset (new MidiPlaylist (ap, start, len, name, true));
-					start = 0;
-				}
-
-				Source* src = new MidiPlaylistSource (s, orig, name, ap, chn, start, len, Source::Flag (0));
-				boost::shared_ptr<Source> ret (src);
-
-				SourceCreated (ret);
-				return ret;
-			}
-		}
-
-		catch (failed_constructor& err) {
-			/* relax - return at function scope */
-		}
-
+		/* fail */
 	}
 
 	return boost::shared_ptr<Source>();

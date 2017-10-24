@@ -106,9 +106,9 @@ AudioPlaylistSource::set_state (const XMLNode& node, int version, bool with_desc
 		}
 	}
 
-	pair<samplepos_t,samplepos_t> extent = _playlist->get_extent();
+	pair<timepos_t,timepos_t> extent = _playlist->get_extent();
 
-	AudioSource::_length = extent.second - extent.first;
+	AudioSource::_length = extent.second.sample() - extent.first.sample();
 
 	if (!node.get_property (X_("channel"), _playlist_channel)) {
 		throw failed_constructor ();

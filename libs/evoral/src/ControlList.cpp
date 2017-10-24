@@ -54,10 +54,11 @@ inline bool event_time_less_than (ControlEvent* a, ControlEvent* b)
 	return a->when < b->when;
 }
 
-ControlList::ControlList (const Parameter& id, const ParameterDescriptor& desc)
+ControlList::ControlList (const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle ts)
 	: _parameter(id)
 	, _desc(desc)
 	, _interpolation (default_interpolation ())
+	, _time_style (ts)
 	, _curve(0)
 {
 	_frozen = 0;
@@ -79,6 +80,7 @@ ControlList::ControlList (const ControlList& other)
 	: _parameter(other._parameter)
 	, _desc(other._desc)
 	, _interpolation(other._interpolation)
+	, _time_style (other._time_style)
 	, _curve(0)
 {
 	_frozen = 0;
@@ -97,10 +99,11 @@ ControlList::ControlList (const ControlList& other)
 	copy_events (other);
 }
 
-ControlList::ControlList (const ControlList& other, double start, double end)
+ControlList::ControlList (const ControlList& other, ControlEvent::when_t start, ControlEvent::when_t end)
 	: _parameter(other._parameter)
 	, _desc(other._desc)
 	, _interpolation(other._interpolation)
+	, _time_style (other._time_style)
 	, _curve(0)
 {
 	_frozen = 0;
@@ -139,9 +142,9 @@ ControlList::~ControlList()
 }
 
 boost::shared_ptr<ControlList>
-ControlList::create(const Parameter& id, const ParameterDescriptor& desc)
+ControlList::create(const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle time_style)
 {
-	return boost::shared_ptr<ControlList>(new ControlList(id, desc));
+	return boost::shared_ptr<ControlList>(new ControlList(id, desc, time_style));
 }
 
 bool
@@ -252,13 +255,13 @@ ControlList::x_scale (double factor)
 }
 
 bool
-ControlList::extend_to (double when)
+ControlList::extend_to (ControlEvent::when_t when)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 	if (_events.empty() || _events.back()->when == when) {
 		return false;
 	}
-	double factor = when / _events.back()->when;
+	double factor = when / (double) _events.back()->when;
 	_x_scale (factor);
 	return true;
 }
@@ -327,7 +330,7 @@ void
 ControlList::_x_scale (double factor)
 {
 	for (iterator i = _events.begin(); i != _events.end(); ++i) {
-		(*i)->when *= factor;
+		(*i)->when = llrint ((*i)->when * factor);
 	}
 
 	mark_dirty ();
@@ -409,7 +412,7 @@ ControlList::thin (double thinning_factor)
 }
 
 void
-ControlList::fast_simple_add (double when, double value)
+ControlList::fast_simple_add (ControlEvent::when_t when, double value)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 	/* to be used only for loading pre-sorted data from saved state */
@@ -453,7 +456,7 @@ ControlList::unlocked_remove_duplicates ()
 }
 
 void
-ControlList::start_write_pass (double when)
+ControlList::start_write_pass (ControlEvent::when_t when)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 
@@ -484,7 +487,7 @@ ControlList::start_write_pass (double when)
 }
 
 void
-ControlList::write_pass_finished (double /*when*/, double thinning_factor)
+ControlList::write_pass_finished (ControlEvent::when_t /*when*/, double thinning_factor)
 {
 	DEBUG_TRACE (DEBUG::ControlList, "write pass finished\n");
 
@@ -497,7 +500,7 @@ ControlList::write_pass_finished (double /*when*/, double thinning_factor)
 }
 
 void
-ControlList::set_in_write_pass (bool yn, bool add_point, double when)
+ControlList::set_in_write_pass (bool yn, bool add_point, ControlEvent::when_t when)
 {
 	DEBUG_TRACE (DEBUG::ControlList, string_compose ("now in write pass @ %1, add point ? %2\n", when, add_point));
 
@@ -510,7 +513,7 @@ ControlList::set_in_write_pass (bool yn, bool add_point, double when)
 }
 
 void
-ControlList::add_guard_point (double when, double offset)
+ControlList::add_guard_point (ControlEvent::when_t when, double offset)
 {
 	// caller needs to hold writer-lock
 	if (offset < 0 && when < offset) {
@@ -595,7 +598,7 @@ ControlList::in_write_pass () const
 }
 
 bool
-ControlList::editor_add (double when, double value, bool with_guard)
+ControlList::editor_add (ControlEvent::when_t when, double value, bool with_guard)
 {
 	/* this is for making changes from a graphical line editor */
 	{
@@ -646,7 +649,7 @@ ControlList::editor_add (double when, double value, bool with_guard)
 }
 
 void
-ControlList::maybe_add_insert_guard (double when)
+ControlList::maybe_add_insert_guard (ControlEvent::when_t when)
 {
 	// caller needs to hold writer-lock
 	if (most_recent_insert_iterator != _events.end()) {
@@ -667,7 +670,7 @@ ControlList::maybe_add_insert_guard (double when)
 
 /** If we would just be adding to a straight line, move the previous point instead. */
 bool
-ControlList::maybe_insert_straight_line (double when, double value)
+ControlList::maybe_insert_straight_line (ControlEvent::when_t when, double value)
 {
 	// caller needs to hold writer-lock
 	if (_events.empty()) {
@@ -696,7 +699,7 @@ ControlList::maybe_insert_straight_line (double when, double value)
 }
 
 ControlList::iterator
-ControlList::erase_from_iterator_to (iterator iter, double when)
+ControlList::erase_from_iterator_to (iterator iter, ControlEvent::when_t when)
 {
 	// caller needs to hold writer-lock
 	while (iter != _events.end()) {
@@ -717,7 +720,7 @@ ControlList::erase_from_iterator_to (iterator iter, double when)
  * control surface (GUI, MIDI, OSC etc)
  */
 void
-ControlList::add (double when, double value, bool with_guards, bool with_initial)
+ControlList::add (ControlEvent::when_t when, double value, bool with_guards, bool with_initial)
 {
 	/* clamp new value to allowed range */
 	value = std::min ((double)_desc.upper, std::max ((double)_desc.lower, value));
@@ -900,7 +903,7 @@ ControlList::erase (iterator start, iterator end)
 
 /** Erase the first event which matches the given time and value */
 void
-ControlList::erase (double when, double value)
+ControlList::erase (ControlEvent::when_t when, double value)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -924,7 +927,7 @@ ControlList::erase (double when, double value)
 }
 
 void
-ControlList::erase_range (double start, double endt)
+ControlList::erase_range (ControlEvent::when_t start, ControlEvent::when_t endt)
 {
 	bool erased = false;
 
@@ -944,7 +947,7 @@ ControlList::erase_range (double start, double endt)
 }
 
 bool
-ControlList::erase_range_internal (double start, double endt, EventList & events)
+ControlList::erase_range_internal (ControlEvent::when_t start, ControlEvent::when_t endt, EventList & events)
 {
 	bool erased = false;
 	ControlEvent cp (start, 0.0f);
@@ -965,7 +968,7 @@ ControlList::erase_range_internal (double start, double endt, EventList & events
 }
 
 void
-ControlList::slide (iterator before, double distance)
+ControlList::slide (iterator before, ControlEvent::when_t distance)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -986,14 +989,14 @@ ControlList::slide (iterator before, double distance)
 }
 
 void
-ControlList::shift (double pos, double frames)
+ControlList::shift (ControlEvent::when_t pos, ControlEvent::when_t distance)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
 
 		for (iterator i = _events.begin(); i != _events.end(); ++i) {
 			if ((*i)->when >= pos) {
-				(*i)->when += frames;
+				(*i)->when += distance;
 			}
 		}
 
@@ -1004,7 +1007,7 @@ ControlList::shift (double pos, double frames)
 }
 
 void
-ControlList::modify (iterator iter, double when, double val)
+ControlList::modify (iterator iter, ControlEvent::when_t when, double val)
 {
 	/* note: we assume higher level logic is in place to avoid this
 	 * reordering the time-order of control events in the list. ie. all
@@ -1038,7 +1041,7 @@ ControlList::modify (iterator iter, double when, double val)
 }
 
 std::pair<ControlList::iterator,ControlList::iterator>
-ControlList::control_points_adjacent (double xval)
+ControlList::control_points_adjacent (ControlEvent::when_t xval)
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
 	iterator i;
@@ -1114,7 +1117,7 @@ ControlList::mark_dirty () const
 }
 
 void
-ControlList::truncate_end (double last_coordinate)
+ControlList::truncate_end (ControlEvent::when_t last_coordinate)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -1217,7 +1220,7 @@ ControlList::truncate_end (double last_coordinate)
 }
 
 void
-ControlList::truncate_start (double overall_length)
+ControlList::truncate_start (ControlEvent::when_t overall_length)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -1237,7 +1240,7 @@ ControlList::truncate_start (double overall_length)
 
 			/* growing at front: duplicate first point. shift all others */
 
-			double shift = overall_length - _events.back()->when;
+			ControlEvent::when_t shift = overall_length - _events.back()->when;
 			uint32_t np;
 
 			for (np = 0, i = _events.begin(); i != _events.end(); ++i, ++np) {
@@ -1318,11 +1321,11 @@ ControlList::truncate_start (double overall_length)
 }
 
 double
-ControlList::unlocked_eval (double x) const
+ControlList::unlocked_eval (ControlEvent::when_t x) const
 {
 	pair<EventList::iterator,EventList::iterator> range;
 	int32_t npoints;
-	double lpos, upos;
+	ControlEvent::when_t lpos, upos;
 	double lval, uval;
 	double fraction;
 
@@ -1383,9 +1386,9 @@ ControlList::unlocked_eval (double x) const
 }
 
 double
-ControlList::multipoint_eval (double x) const
+ControlList::multipoint_eval (ControlEvent::when_t x) const
 {
-	double upos, lpos;
+	ControlEvent::when_t upos, lpos;
 	double uval, lval;
 	double fraction;
 
@@ -1468,7 +1471,7 @@ ControlList::multipoint_eval (double x) const
 }
 
 void
-ControlList::build_search_cache_if_necessary (double start) const
+ControlList::build_search_cache_if_necessary (ControlEvent::when_t start) const
 {
 	if (_events.empty()) {
 		/* Empty, nothing to cache, move to end. */
@@ -1501,7 +1504,7 @@ ControlList::build_search_cache_if_necessary (double start) const
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event (double start, double& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
 {
 	// FIXME: It would be nice if this was unnecessary..
 	Glib::Threads::RWLock::ReaderLock lm(_lock, Glib::Threads::TRY_LOCK);
@@ -1521,7 +1524,7 @@ ControlList::rt_safe_earliest_event (double start, double& x, double& y, bool in
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event_unlocked (double start, double& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
 {
 	if (_interpolation == Discrete) {
 		return rt_safe_earliest_event_discrete_unlocked(start, x, y, inclusive);
@@ -1539,7 +1542,7 @@ ControlList::rt_safe_earliest_event_unlocked (double start, double& x, double& y
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event_discrete_unlocked (double start, double& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event_discrete_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
 {
 	build_search_cache_if_necessary (start);
 
@@ -1580,7 +1583,7 @@ ControlList::rt_safe_earliest_event_discrete_unlocked (double start, double& x, 
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event_linear_unlocked (double start, double& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
 {
 	// cout << "earliest_event(start: " << start << ", x: " << x << ", y: " << y << ", inclusive: " << inclusive <<  ")" << endl;
 
@@ -1701,9 +1704,9 @@ ControlList::rt_safe_earliest_event_linear_unlocked (double start, double& x, do
  *  @param op 0 = cut, 1 = copy, 2 = clear.
  */
 boost::shared_ptr<ControlList>
-ControlList::cut_copy_clear (double start, double end, int op)
+ControlList::cut_copy_clear (ControlEvent::when_t start, ControlEvent::when_t end, int op)
 {
-	boost::shared_ptr<ControlList> nal = create (_parameter, _desc);
+	boost::shared_ptr<ControlList> nal = create (_parameter, _desc, _time_style);
 	iterator s, e;
 	ControlEvent cp (start, 0.0);
 
@@ -1798,26 +1801,26 @@ ControlList::cut_copy_clear (double start, double end, int op)
 
 
 boost::shared_ptr<ControlList>
-ControlList::cut (double start, double end)
+ControlList::cut (ControlEvent::when_t start, ControlEvent::when_t end)
 {
 	return cut_copy_clear (start, end, 0);
 }
 
 boost::shared_ptr<ControlList>
-ControlList::copy (double start, double end)
+ControlList::copy (ControlEvent::when_t start, ControlEvent::when_t end)
 {
 	return cut_copy_clear (start, end, 1);
 }
 
 void
-ControlList::clear (double start, double end)
+ControlList::clear (ControlEvent::when_t start, ControlEvent::when_t end)
 {
 	cut_copy_clear (start, end, 2);
 }
 
 /** @param pos Position in model coordinates */
 bool
-ControlList::paste (const ControlList& alist, double pos)
+ControlList::paste (const ControlList& alist, ControlEvent::when_t pos)
 {
 	if (alist._events.empty()) {
 		return false;
@@ -1887,9 +1890,9 @@ ControlList::paste (const ControlList& alist, double pos)
  *  @param return true if anything was changed, otherwise false (ie nothing needed changing)
  */
 bool
-ControlList::move_ranges (const list< RangeMove<double> >& movements)
+ControlList::move_ranges (const list< Temporal::RangeMove<ControlEvent::when_t> >& movements)
 {
-	typedef list< RangeMove<double> > RangeMoveList;
+	typedef list< Temporal::RangeMove<ControlEvent::when_t> > RangeMoveList;
 
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -2023,7 +2026,7 @@ ControlList::dump (ostream& o)
 	/* NOT LOCKED ... for debugging only */
 
 	for (EventList::iterator x = _events.begin(); x != _events.end(); ++x) {
-		o << (*x)->value << " @ " << (uint64_t) (*x)->when << endl;
+		o << (*x)->value << " @ " << (*x)->when << endl;
 	}
 }
 

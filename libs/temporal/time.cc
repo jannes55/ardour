@@ -25,7 +25,7 @@
 
 #include "temporal/time.h"
 
-namespace Timecode {
+namespace Temporal {
 
 double Time::default_rate = 30.0;
 
@@ -597,7 +597,7 @@ timecode_format_name (TimecodeFormat const t)
 	return "??";
 }
 
-std::string timecode_format_time (Timecode::Time TC)
+std::string timecode_format_time (Temporal::Time TC)
 {
 	char buf[32];
 	if (TC.negative) {
@@ -624,7 +624,7 @@ std::string timecode_format_sampletime (
 	return timecode_format_time(t);
 }
 
-bool parse_timecode_format(std::string tc, Timecode::Time &TC) {
+bool parse_timecode_format(std::string tc, Temporal::Time &TC) {
 	char negative[2];
 	char ignored[2];
 	TC.subframes = 0;
@@ -644,9 +644,9 @@ bool parse_timecode_format(std::string tc, Timecode::Time &TC) {
 
 void
 timecode_to_sample(
-	Timecode::Time& timecode, int64_t& sample,
+	Temporal::Time& timecode, int64_t& sample,
 	bool use_offset, bool use_subframes,
-	/* Note - framerate info is taken from Timecode::Time& */
+	/* Note - framerate info is taken from Temporal::Time& */
 	double sample_sample_rate /**< may include pull up/down */,
 	uint32_t subframes_per_frame,
 	/* optional offset  - can be improved: function pointer to lazily query this*/
@@ -755,7 +755,7 @@ timecode_to_sample(
 
 void
 sample_to_timecode (
-	int64_t sample, Timecode::Time& timecode,
+	int64_t sample, Temporal::Time& timecode,
 	bool use_offset, bool use_subframes,
 	/* framerate info */
 	double timecode_frames_per_second,
@@ -847,7 +847,7 @@ sample_to_timecode (
 } // namespace Timecode
 
 std::ostream&
-operator<<(std::ostream& ostr, const Timecode::Time& t)
+operator<<(std::ostream& ostr, const Temporal::Time& t)
 {
 	return t.print (ostr);
 }

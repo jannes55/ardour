@@ -134,7 +134,7 @@ IdleOMeter::idle ()
 	_label_avg.set_text (buf);
 	snprintf (buf, sizeof(buf), "%8.3f ms", stddev / 1000.0);
 	_label_dev.set_text (buf);
-	_label_acq.set_text (Timecode::timecode_format_sampletime (now - _start, 1000000, 100, false));
+	_label_acq.set_text (Temporal::timecode_format_sampletime (now - _start, 1000000, 100, false));
 
 	return true;
 }

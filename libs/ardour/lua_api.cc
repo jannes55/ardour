@@ -271,17 +271,17 @@ ARDOUR::LuaAPI::sample_to_timecode (lua_State *L)
 	if (top < 3) {
 		return luaL_argerror (L, 1, "invalid number of arguments sample_to_timecode (TimecodeFormat, sample_rate, sample)");
 	}
-	typedef Timecode::TimecodeFormat T;
+	typedef Temporal::TimecodeFormat T;
 	T tf = luabridge::Stack<T>::get (L, 1);
 	double sample_rate = luabridge::Stack<double>::get (L, 2);
 	int64_t sample = luabridge::Stack<int64_t>::get (L, 3);
 
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 
-	Timecode::sample_to_timecode (
+	Temporal::sample_to_timecode (
 			sample, timecode, false, false,
-			Timecode::timecode_to_frames_per_second (tf),
-			Timecode::timecode_has_drop_frames (tf),
+			Temporal::timecode_to_frames_per_second (tf),
+			Temporal::timecode_has_drop_frames (tf),
 			sample_rate,
 			0, false, 0);
 
@@ -299,7 +299,7 @@ ARDOUR::LuaAPI::timecode_to_sample (lua_State *L)
 	if (top < 6) {
 		return luaL_argerror (L, 1, "invalid number of arguments sample_to_timecode (TimecodeFormat, sample_rate, hh, mm, ss, ff)");
 	}
-	typedef Timecode::TimecodeFormat T;
+	typedef Temporal::TimecodeFormat T;
 	T tf = luabridge::Stack<T>::get (L, 1);
 	double sample_rate = luabridge::Stack<double>::get (L, 2);
 	int hh = luabridge::Stack<int>::get (L, 3);
@@ -307,19 +307,19 @@ ARDOUR::LuaAPI::timecode_to_sample (lua_State *L)
 	int ss = luabridge::Stack<int>::get (L, 5);
 	int ff = luabridge::Stack<int>::get (L, 6);
 
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 	timecode.negative = false;
 	timecode.hours = hh;
 	timecode.minutes = mm;
 	timecode.seconds = ss;
 	timecode.frames = ff;
 	timecode.subframes = 0;
-	timecode.rate = Timecode::timecode_to_frames_per_second (tf);
-	timecode.drop = Timecode::timecode_has_drop_frames (tf);
+	timecode.rate = Temporal::timecode_to_frames_per_second (tf);
+	timecode.drop = Temporal::timecode_has_drop_frames (tf);
 
 	int64_t sample;
 
-	Timecode::timecode_to_sample (
+	Temporal::timecode_to_sample (
 			timecode, sample, false, false,
 			sample_rate, 0, false, 0);
 
@@ -337,9 +337,9 @@ ARDOUR::LuaAPI::sample_to_timecode_lua (lua_State *L)
 	Session const* const s = luabridge::Userdata::get <Session> (L, 1, true);
 	int64_t sample = luabridge::Stack<int64_t>::get (L, 2);
 
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 
-	Timecode::sample_to_timecode (
+	Temporal::sample_to_timecode (
 			sample, timecode, false, false,
 			s->timecode_frames_per_second (),
 			s->timecode_drop_frames (),
@@ -365,7 +365,7 @@ ARDOUR::LuaAPI::timecode_to_sample_lua (lua_State *L)
 	int ss = luabridge::Stack<int>::get (L, 4);
 	int ff = luabridge::Stack<int>::get (L, 5);
 
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 	timecode.negative = false;
 	timecode.hours = hh;
 	timecode.minutes = mm;
@@ -377,7 +377,7 @@ ARDOUR::LuaAPI::timecode_to_sample_lua (lua_State *L)
 
 	int64_t sample;
 
-	Timecode::timecode_to_sample (
+	Temporal::timecode_to_sample (
 			timecode, sample, false, false,
 			s->sample_rate (),
 			0, false, 0);
@@ -774,7 +774,7 @@ LuaAPI::Vamp::analyze (boost::shared_ptr<ARDOUR::Readable> r, uint32_t channel, 
 	float* data = new float[_bufsize];
 	float* bufs[1] = { data };
 
-	samplecnt_t len = r->readable_length();
+	samplecnt_t len = r->readable_length_samples();
 	samplepos_t pos = 0;
 
 	int rv = 0;

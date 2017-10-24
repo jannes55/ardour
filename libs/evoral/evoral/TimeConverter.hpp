@@ -29,50 +29,35 @@ namespace Evoral {
  * the two template parameters (i.e. "A <name> B").
  *
  * _origin_b should be the origin for conversion in the units of B.
- * That is, there is some point in time _origin_b, such that:
+ * That is, there is some point in time _origin, such that:
  *
- *    to()   converts a time _origin_b + a into an offset from _origin_b in units of B.
- *    from() converts a time _origin_b + b into an offset from _origin_b in units of A.
+ *    to()   converts a time _origin + a into an offset from _origin_b in units of B.
+ *    from() converts a time _origin + b into an offset from _origin_b in units of A.
  */
-template<typename A, typename B>
+template<typename A, typename B, typename C>
 class LIBEVORAL_TEMPLATE_API TimeConverter {
 public:
-	TimeConverter () : _origin_b (0) {}
-	TimeConverter (B ob) : _origin_b (ob) {}
+	TimeConverter () : _origin (0) {}
+	TimeConverter (B ob) : _origin (ob) {}
 	virtual ~TimeConverter();
 
-	/** Convert A time to B time (A to B) */
-	virtual B to(A a) const = 0;
+	/** Convert A time to C time (A to C) */
+	virtual C to(A a) const = 0;
 
-	/** Convert B time to A time (A from B) */
-	virtual A from(B b) const = 0;
+	/** Convert C time to A time (A from C) */
+	virtual A from(C b) const = 0;
 
-	B origin_b () const {
-		return _origin_b;
+	B origin () const {
+		return _origin;
 	}
 
-	void set_origin_b (B o) {
-		_origin_b = o;
+	void set_origin (B o) {
+		_origin = o;
 	}
 
 protected:
-	B _origin_b;
+	B _origin;
 };
-
-
-/** A stub TimeConverter that simple statically casts between types.
- *  _origin_b has no bearing here, as there is no time conversion
- *  going on.
- */
-template<typename A, typename B>
-class LIBEVORAL_TEMPLATE_API IdentityConverter : public TimeConverter<A,B> {
-  public:
-	IdentityConverter() {}
-
-	B to(A a)   const;
-	A from(B b) const;
-};
-
 
 } // namespace Evoral
 

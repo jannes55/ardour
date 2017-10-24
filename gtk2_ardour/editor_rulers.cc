@@ -795,7 +795,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 {
 	samplepos_t pos;
 	samplecnt_t spacer;
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 	gchar buf[16];
 	gint n;
 	ArdourCanvas::Ruler::Mark mark;
@@ -834,7 +834,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 			mark.position = pos;
 			marks.push_back (mark);
 			// Increment subframes by one
-			Timecode::increment_subframes( timecode, _session->config.get_subframes_per_frame() );
+			Temporal::increment_subframes( timecode, _session->config.get_subframes_per_frame() );
 		}
 		break;
 
@@ -842,7 +842,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 		// Find timecode time of this sample (pos)
 		_session->sample_to_timecode(pos, timecode, true /* use_offset */, false /* use_subframes */ );
 		// Go to next whole sample down
-		Timecode::frames_floot( timecode );
+		Temporal::frames_floot( timecode );
 		for (n = 0; n < timecode_nmarks; n++) {
 			_session->timecode_to_sample(timecode, pos, true /* use_offset */, false /* use_subframes */ );
 			if ((timecode.frames % timecode_mark_modulo) == 0) {
@@ -860,7 +860,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 			}
 			mark.label = buf;
 			marks.push_back (mark);
-			Timecode::increment( timecode, _session->config.get_subframes_per_frame() );
+			Temporal::increment( timecode, _session->config.get_subframes_per_frame() );
 		}
 		break;
 
@@ -868,7 +868,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 		// Find timecode time of this sample (pos)
 		_session->sample_to_timecode(pos, timecode, true /* use_offset */, false /* use_subframes */ );
 		// Go to next whole second down
-		Timecode::seconds_floor( timecode );
+		Temporal::seconds_floor( timecode );
 		for (n = 0; n < timecode_nmarks; n++) {
 			_session->timecode_to_sample(timecode, pos, true /* use_offset */, false /* use_subframes */ );
 			if ((timecode.seconds % timecode_mark_modulo) == 0) {
@@ -887,7 +887,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 			}
 			mark.label = buf;
 			marks.push_back (mark);
-			Timecode::increment_seconds( timecode, _session->config.get_subframes_per_frame() );
+			Temporal::increment_seconds( timecode, _session->config.get_subframes_per_frame() );
 		}
 		break;
 
@@ -895,7 +895,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 		//Find timecode time of this sample (pos)
 		_session->sample_to_timecode(pos, timecode, true /* use_offset */, false /* use_subframes */ );
 		// Go to next whole minute down
-		Timecode::minutes_floor( timecode );
+		Temporal::minutes_floor( timecode );
 		for (n = 0; n < timecode_nmarks; n++) {
 			_session->timecode_to_sample(timecode, pos, true /* use_offset */, false /* use_subframes */ );
 			if ((timecode.minutes % timecode_mark_modulo) == 0) {
@@ -912,14 +912,14 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 			mark.label = buf;
 			mark.position = pos;
 			marks.push_back (mark);
-			Timecode::increment_minutes( timecode, _session->config.get_subframes_per_frame() );
+			Temporal::increment_minutes( timecode, _session->config.get_subframes_per_frame() );
 		}
 		break;
 	case timecode_show_hours:
 		// Find timecode time of this sample (pos)
 		_session->sample_to_timecode(pos, timecode, true /* use_offset */, false /* use_subframes */ );
 		// Go to next whole hour down
-		Timecode::hours_floor( timecode );
+		Temporal::hours_floor( timecode );
 		for (n = 0; n < timecode_nmarks; n++) {
 			_session->timecode_to_sample(timecode, pos, true /* use_offset */, false /* use_subframes */ );
 			if ((timecode.hours % timecode_mark_modulo) == 0) {
@@ -932,14 +932,14 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 			mark.label = buf;
 			mark.position = pos;
 			marks.push_back (mark);
-			Timecode::increment_hours( timecode, _session->config.get_subframes_per_frame() );
+			Temporal::increment_hours( timecode, _session->config.get_subframes_per_frame() );
 		}
 		break;
 	case timecode_show_many_hours:
 		// Find timecode time of this sample (pos)
 		_session->sample_to_timecode(pos, timecode, true /* use_offset */, false /* use_subframes */ );
 		// Go to next whole hour down
-		Timecode::hours_floor (timecode);
+		Temporal::hours_floor (timecode);
 
 		for (n = 0; n < timecode_nmarks; ) {
 			_session->timecode_to_sample(timecode, pos, true /* use_offset */, false /* use_subframes */ );
@@ -951,7 +951,7 @@ Editor::metric_get_timecode (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdou
 				marks.push_back (mark);
 				++n;
 			}
-			/* can't use Timecode::increment_hours() here because we may be traversing thousands of hours
+			/* can't use Temporal::increment_hours() here because we may be traversing thousands of hours
 			 * and doing it 1 hour at a time is just stupid (and slow).
 			 */
 			timecode.hours += timecode_mark_modulo - (timecode.hours % timecode_mark_modulo);
@@ -968,7 +968,7 @@ Editor::compute_bbt_ruler_scale (samplepos_t lower, samplepos_t upper)
 	}
 
 	std::vector<TempoMap::BBTPoint>::const_iterator i;
-	Timecode::BBT_Time lower_beat, upper_beat; // the beats at each end of the ruler
+	Temporal::BBT_Time lower_beat, upper_beat; // the beats at each end of the ruler
 	double floor_lower_beat = floor(max (0.0, _session->tempo_map().beat_at_sample (lower)));
 
 	if (floor_lower_beat < 0.0) {
@@ -1119,7 +1119,7 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 	char buf[64];
 	gint  n = 0;
 	samplepos_t pos;
-	Timecode::BBT_Time next_beat;
+	Temporal::BBT_Time next_beat;
 	uint32_t beats = 0;
 	uint32_t tick = 0;
 	uint32_t skip;
@@ -1213,10 +1213,10 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 			}
 
 			/* Add the tick marks */
-			skip = Timecode::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
+			skip = Temporal::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
 			tick = skip; // the first non-beat tick
 			t = 0;
-			while (tick < Timecode::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
+			while (tick < Temporal::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
 
 				next_beat.beats = (*i).beat;
 				next_beat.bars = (*i).bar;
@@ -1282,11 +1282,11 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 			}
 
 			/* Add the tick marks */
-			skip = Timecode::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
+			skip = Temporal::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
 			tick = skip; // the first non-beat tick
 
 			t = 0;
-			while (tick < Timecode::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
+			while (tick < Temporal::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
 
 				next_beat.beats = (*i).beat;
 				next_beat.bars = (*i).bar;
@@ -1358,13 +1358,13 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 			}
 
 			/* Add the tick marks */
-			skip = Timecode::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
+			skip = Temporal::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
 
 			next_beat.beats = (*i).beat;
 			next_beat.bars = (*i).bar;
 			tick = skip; // the first non-beat tick
 			t = 0;
-			while (tick < Timecode::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
+			while (tick < Temporal::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
 
 				next_beat.ticks = tick;
 				pos = _session->tempo_map().sample_at_bbt (next_beat);

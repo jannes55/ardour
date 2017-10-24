@@ -32,12 +32,14 @@
 #include <inttypes.h>
 
 #include "temporal/bbt_time.h"
+#include "temporal/range.h"
 #include "temporal/time.h"
+#include "temporal/timeline.h"
 #include "temporal/types.h"
 
 #include "pbd/id.h"
 
-#include "evoral/Range.hpp"
+#include "temporal/range.h"
 
 #include "ardour/chan_count.h"
 #include "ardour/plugin_types.h"
@@ -73,6 +75,9 @@ namespace ARDOUR {
 	typedef Temporal::samplecnt_t samplecnt_t;
 	typedef Temporal::samplepos_t samplepos_t;
 	typedef Temporal::sampleoffset_t sampleoffset_t;
+
+	typedef Temporal::timepos_t timepos_t;
+	typedef Temporal::timecnt_t timecnt_t;
 
 	static const layer_t    max_layer    = UINT32_MAX;
 
@@ -249,8 +254,8 @@ namespace ARDOUR {
 
 		Type type;
 
-		Timecode::Time     timecode;
-		Timecode::BBT_Time bbt;
+		Temporal::Time     timecode;
+		Temporal::BBT_Time bbt;
 
 		union {
 			samplecnt_t     samples;
@@ -294,66 +299,26 @@ namespace ARDOUR {
 		}
 	};
 
-	/* used for translating audio samples to an exact musical position using a note divisor.
-	   an exact musical position almost never falls exactly on an audio sample, but for sub-sample
-	   musical accuracy we need to derive exact musical locations from a sample position
-	   the division follows TempoMap::exact_beat_at_sample().
-	   division
-	   -1       musical location is the bar closest to sample
-	    0       musical location is the musical position of the sample
-	    1       musical location is the BBT beat closest to sample
-	    n       musical location is the quarter-note division n closest to sample
+	/* Just a Temporal::Range with an ID for identity
 	*/
-	struct MusicSample {
-		samplepos_t sample;
-		int32_t    division;
-
-		MusicSample (samplepos_t f, int32_t d) : sample (f), division (d) {}
-
-		void set (samplepos_t f, int32_t d) {sample = f; division = d; }
-
-		MusicSample operator- (MusicSample other) { return MusicSample (sample - other.sample, 0); }
-	};
-
-	/* XXX: slightly unfortunate that there is this and Evoral::Range<>,
-	   but this has a uint32_t id which Evoral::Range<> does not.
-	*/
-	struct AudioRange {
-		samplepos_t start;
-		samplepos_t end;
+	struct TimelineRange : public Temporal::Range<timepos_t> {
 		uint32_t id;
 
-		AudioRange (samplepos_t s, samplepos_t e, uint32_t i) : start (s), end (e) , id (i) {}
+		TimelineRange (samplepos_t s, samplepos_t e, uint32_t i) : Temporal::Range<timepos_t> (timepos_t (s), timepos_t (e)), id (i) {}
+		TimelineRange (Temporal::BBT_Time& s, Temporal::BBT_Time& e, uint32_t i) : Temporal::Range<timepos_t> (timepos_t (s), timepos_t (e)), id (i) {}
 
-		samplecnt_t length() const { return end - start + 1; }
+		samplecnt_t length_samples() const { return (to - from).sample() + 1; }
 
-		bool operator== (const AudioRange& other) const {
-			return start == other.start && end == other.end && id == other.id;
+	        bool operator== (const TimelineRange& other) const {
+		        return id == other.id && Temporal::Range<timepos_t>::operator== (other);
 		}
 
-		bool equal (const AudioRange& other) const {
-			return start == other.start && end == other.end;
+		bool equal (const TimelineRange& other) const {
+			return Temporal::Range<timepos_t>::operator== (other);
 		}
 
-		Evoral::OverlapType coverage (samplepos_t s, samplepos_t e) const {
-			return Evoral::coverage (start, end, s, e);
-		}
-	};
-
-	struct MusicRange {
-		Timecode::BBT_Time start;
-		Timecode::BBT_Time end;
-		uint32_t id;
-
-		MusicRange (Timecode::BBT_Time& s, Timecode::BBT_Time& e, uint32_t i)
-			: start (s), end (e), id (i) {}
-
-		bool operator== (const MusicRange& other) const {
-			return start == other.start && end == other.end && id == other.id;
-		}
-
-		bool equal (const MusicRange& other) const {
-			return start == other.start && end == other.end;
+		Temporal::OverlapType coverage (samplepos_t s, samplepos_t e) const {
+			return Temporal::coverage (from.sample(), to.sample(), s, e);
 		}
 	};
 
@@ -590,11 +555,6 @@ namespace ARDOUR {
 	struct CleanupReport {
 		std::vector<std::string> paths;
 		size_t                   space;
-	};
-
-	enum PositionLockStyle {
-		AudioTime,
-		MusicTime
 	};
 
 	/** A struct used to describe changes to processors in a route.

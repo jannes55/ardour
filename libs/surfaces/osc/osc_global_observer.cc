@@ -217,7 +217,7 @@ OSCGlobalObserver::tick ()
 	samplepos_t now_sample = session->transport_sample();
 	if (now_sample != _last_sample) {
 		if (feedback[6]) { // timecode enabled
-			Timecode::Time timecode;
+			Temporal::Time timecode;
 			session->timecode_time (now_sample, timecode);
 
 			// Timecode mode: Hours/Minutes/Seconds/Samples
@@ -233,7 +233,7 @@ OSCGlobalObserver::tick ()
 			_osc.text_message ("/position/smpte", os.str(), addr);
 		}
 		if (feedback[5]) { // Bar beat enabled
-			Timecode::BBT_Time bbt_time;
+			Temporal::BBT_Time bbt_time;
 
 			session->bbt_time (now_sample, bbt_time);
 

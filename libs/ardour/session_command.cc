@@ -108,7 +108,7 @@ Session::memento_command_factory(XMLNode *n)
 	    return new MementoCommand<Locations>(*_locations, before, after);
 
     } else if (type_name == "ARDOUR::TempoMap") {
-	    return new MementoCommand<TempoMap>(*_tempo_map, before, after);
+	    return new MementoCommand<Temporal::TempoMap>(*_tempo_map, before, after);
 
     } else if (type_name == "ARDOUR::Playlist" || type_name == "ARDOUR::AudioPlaylist" || type_name == "ARDOUR::MidiPlaylist") {
 	    if (boost::shared_ptr<Playlist> pl = playlists->by_name(child->property("name")->value())) {

@@ -17,14 +17,18 @@
 
 */
 
-#ifndef __ardour_superclock_h__
-#define __ardour_superclock_h__
+#ifndef __temporal_superclock_h__
+#define __temporal_superclock_h__
 
 #include <stdint.h>
 
-namespace ARDOUR {
+namespace Temporal {
 
-typedef uint64_t superclock_t;
+/* should really be unsigned but creates all sort of silly signed/unsigned math
+ * issues when used with position and offset values that can be positive or
+ * negative.
+ */
+typedef int64_t superclock_t;
 
 static const superclock_t superclock_ticks_per_second = 508032000; // 2^10 * 3^4 * 5^3 * 7^2
 
@@ -33,4 +37,4 @@ static inline superclock_t samples_to_superclock (int samples, int sr) { return 
 
 }
 
-#endif /* __ardour_superclock_h__ */
+#endif /* __temporal_superclock_h__ */

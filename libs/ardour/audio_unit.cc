@@ -1824,7 +1824,7 @@ AUPlugin::get_musical_time_location_callback (UInt32*   outDeltaSampleOffsetToNe
 	DEBUG_TRACE (DEBUG::AudioUnits, "AU calls ardour music time location callback\n");
 
 	TempoMetric metric = tmap.metric_at (transport_sample + input_offset);
-	Timecode::BBT_Time bbt = _session.tempo_map().bbt_at_sample (transport_sample + input_offset);
+	Temporal::BBT_Time bbt = _session.tempo_map().bbt_at_sample (transport_sample + input_offset);
 
 	if (outDeltaSampleOffsetToNextBeat) {
 		if (bbt.ticks == 0) {
@@ -1909,7 +1909,7 @@ AUPlugin::get_transport_state_callback (Boolean*  outIsPlaying,
 
 				TempoMap& tmap (_session.tempo_map());
 
-				Timecode::BBT_Time bbt;
+				Temporal::BBT_Time bbt;
 
 				if (outCycleStartBeat) {
 					*outCycleStartBeat = tmap.quarter_note_at_sample (loc->start() + input_offset);

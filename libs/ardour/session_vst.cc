@@ -178,34 +178,34 @@ intptr_t Session::vst_callback (
 			timeinfo->sampleRate = session->sample_rate();
 
 			if (value & (kVstTempoValid)) {
-				const Tempo& t (session->tempo_map().tempo_at_sample (now));
+				const Temporal::Tempo& t (session->tempo_map().tempo_at (now));
 				timeinfo->tempo = t.quarter_notes_per_minute ();
 				newflags |= (kVstTempoValid);
 			}
 			if (value & (kVstTimeSigValid)) {
-				const MeterSection& ms (session->tempo_map().meter_section_at_sample (now));
+				const Temporal::Meter& ms (session->tempo_map().meter_at (now));
 				timeinfo->timeSigNumerator = ms.divisions_per_bar ();
-				timeinfo->timeSigDenominator = ms.note_divisor ();
+				timeinfo->timeSigDenominator = ms.note_value ();
 				newflags |= (kVstTimeSigValid);
 			}
 			if ((value & (kVstPpqPosValid)) || (value & (kVstBarsValid))) {
-				Timecode::BBT_Time bbt;
+				Temporal::BBT_Time bbt;
 
 				try {
-					bbt = session->tempo_map().bbt_at_sample_rt (now);
+					bbt = session->tempo_map().bbt_at (now);
 					bbt.beats = 1;
 					bbt.ticks = 0;
 					/* exact quarter note */
-					double ppqBar = session->tempo_map().quarter_note_at_bbt_rt (bbt);
+					Temporal::Beats ppqBar = session->tempo_map().quarter_note_at (bbt);
 					/* quarter note at sample position (not rounded to note subdivision) */
-					double ppqPos = session->tempo_map().quarter_note_at_sample_rt (now);
+					Temporal::Beats ppqPos = session->tempo_map().quarter_note_at (now);
 					if (value & (kVstPpqPosValid)) {
-						timeinfo->ppqPos = ppqPos;
+						timeinfo->ppqPos = ppqPos.to_double();
 						newflags |= kVstPpqPosValid;
 					}
 
 					if (value & (kVstBarsValid)) {
-						timeinfo->barStartPos = ppqBar;
+						timeinfo->barStartPos = ppqBar.to_double();
 						newflags |= kVstBarsValid;
 					}
 
@@ -215,7 +215,7 @@ intptr_t Session::vst_callback (
 			}
 
 			if (value & (kVstSmpteValid)) {
-				Timecode::Time t;
+				Temporal::Time t;
 
 				session->timecode_time (now, t);
 
@@ -258,12 +258,13 @@ intptr_t Session::vst_callback (
 			if (session->get_play_loop ()) {
 				newflags |= kVstTransportCycleActive;
 				Location * looploc = session->locations ()->auto_loop_location ();
-				if (looploc) try {
-					timeinfo->cycleStartPos = session->tempo_map ().quarter_note_at_sample_rt (looploc->start ());
-					timeinfo->cycleEndPos = session->tempo_map ().quarter_note_at_sample_rt (looploc->end ());
-
-					newflags |= kVstCyclePosValid;
-				} catch (...) { }
+				if (looploc) {
+					try {
+						timeinfo->cycleStartPos = session->tempo_map ().quarter_note_at (looploc->start_sample ()).to_double();
+						timeinfo->cycleEndPos = session->tempo_map ().quarter_note_at (looploc->end_sample ()).to_double();
+						newflags |= kVstCyclePosValid;
+					} catch (...) { }
+				}
 			}
 
 		} else {
@@ -303,7 +304,7 @@ intptr_t Session::vst_callback (
 		SHOW_CALLBACK ("audioMasterTempoAt");
 		// returns tempo (in bpm * 10000) at sample sample location passed in <value>
 		if (session) {
-			const Tempo& t (session->tempo_map().tempo_at_sample (value));
+			const Temporal::Tempo& t (session->tempo_map().tempo_at (value));
 			return t.quarter_notes_per_minute() * 1000;
 		} else {
 			return 0;

@@ -147,11 +147,11 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 	double stretch = region->stretch() * tsr.time_fraction;
 	double shift = region->shift() * tsr.pitch_fraction;
 
-	samplecnt_t read_start = region->ancestral_start() +
-		samplecnt_t(region->start() / (double)region->stretch());
+	samplecnt_t read_start = region->ancestral_start().sample() +
+		samplecnt_t(region->start().sample() / (double)region->stretch());
 
 	samplecnt_t read_duration =
-		samplecnt_t(region->length() / (double)region->stretch());
+		samplecnt_t(region->length().samples() / (double)region->stretch());
 
 	uint32_t channels = region->n_channels();
 
@@ -214,7 +214,7 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 
 				samplepos_t this_position;
 				this_position = read_start + pos -
-					region->start() + region->position();
+					region->start().sample() + region->position().sample();
 
 				this_read = region->master_read_at
 					(buffers[i],
@@ -254,7 +254,7 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 
 				samplepos_t this_position;
 				this_position = read_start + pos -
-					region->start() + region->position();
+					region->start().sample() + region->position().sample();
 
 				this_read = region->master_read_at
 					(buffers[i],
@@ -267,7 +267,7 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 				if (this_read != this_time) {
 					error << string_compose
 						(_("tempoize: error reading data from %1 at %2 (wanted %3, got %4)"),
-						 region->name(), pos + region->position(), this_time, this_read) << endmsg;
+						 region->name(), pos + region->position().sample(), this_time, this_read) << endmsg;
 					goto out;
 				}
 			}
@@ -354,7 +354,7 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 		/* multiply the old (possibly previously stretched) region length by the extra
 		   stretch this time around to get its new length. this is a non-music based edit atm.
 		*/
-		(*x)->set_length ((*x)->length() * tsr.time_fraction, 0);
+		(*x)->set_length ((*x)->length() * tsr.time_fraction);
 	}
 
 	/* stretch region gain envelope */

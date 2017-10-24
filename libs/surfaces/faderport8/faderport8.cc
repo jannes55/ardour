@@ -225,12 +225,12 @@ FaderPort8::periodic ()
 	 * in FP8Strip::periodic_update_timecode
 	 */
 	if (_ctrls.display_timecode () && clock_mode ()) {
-		Timecode::Time TC;
+		Temporal::Time TC;
 		session->timecode_time (TC);
-		_timecode = Timecode::timecode_format_time(TC);
+		_timecode = Temporal::timecode_format_time(TC);
 
 		char buf[16];
-		Timecode::BBT_Time BBT = session->tempo_map ().bbt_at_sample (session->transport_sample ());
+		Temporal::BBT_Time BBT = session->tempo_map ().bbt_at (session->transport_sample ());
 		snprintf (buf, sizeof (buf),
 				" %02" PRIu32 "|%02" PRIu32 "|%02" PRIu32 "|%02" PRIu32,
 				BBT.bars % 100, BBT.beats %100,

@@ -1423,8 +1423,8 @@ Editor::toggle_marker_lock_style ()
 		MeterSection* msp = &mm->meter();
 
 		const Meter meter (msp->divisions_per_bar(), msp->note_divisor());
-		const Timecode::BBT_Time bbt (msp->bbt());
-		const PositionLockStyle pls = (msp->position_lock_style() == AudioTime) ? MusicTime : AudioTime;
+		const Temporal::BBT_Time bbt (msp->bbt());
+		const Temporal::LockStyle pls = (msp->position_lock_style() == AudioTime) ? MusicTime : AudioTime;
 
 		_session->tempo_map().replace_meter (*msp, meter, bbt, msp->sample(), pls);
 
@@ -1436,7 +1436,7 @@ Editor::toggle_marker_lock_style ()
 
 		const double pulse = tsp->pulse();
 		const samplepos_t sample = tsp->sample();
-		const PositionLockStyle pls = (tsp->position_lock_style() == AudioTime) ? MusicTime : AudioTime;
+		const Temporal::LockStyle pls = (tsp->position_lock_style() == AudioTime) ? MusicTime : AudioTime;
 		const Tempo tempo (tsp->note_types_per_minute(), tsp->note_type(), tsp->end_note_types_per_minute());
 
 		begin_reversible_command (_("change tempo lock style"));
@@ -1463,7 +1463,7 @@ Editor::toggle_tempo_type ()
 		const Tempo tempo (tsp->note_types_per_minute(), tsp->note_type());
 		const double pulse = tsp->pulse();
 		const samplepos_t sample = tsp->sample();
-		const PositionLockStyle pls = tsp->position_lock_style();
+		const Temporal::LockStyle pls = tsp->position_lock_style();
 
 		begin_reversible_command (_("set tempo to constant"));
 		XMLNode &before = _session->tempo_map().get_state();
@@ -1519,7 +1519,7 @@ Editor::ramp_to_next_tempo ()
 			const Tempo tempo (tsp->note_types_per_minute(), tsp->note_type(), next_ts->note_types_per_minute());
 			const double pulse = tsp->pulse();
 			const samplepos_t sample = tsp->sample();
-			const PositionLockStyle pls = tsp->position_lock_style();
+			const Temporal::LockStyle pls = tsp->position_lock_style();
 
 			begin_reversible_command (_("ramp to next tempo"));
 			XMLNode &before = _session->tempo_map().get_state();

@@ -990,8 +990,8 @@ Track::use_captured_midi_sources (SourceList& srcs, CaptureInfos const & capture
 
 			/* start of this region is the offset between the start of its capture and the start of the whole pass */
 			plist.add (Properties::start, (*ci)->start - initial_capture);
-			plist.add (Properties::length, (*ci)->samples);
-			plist.add (Properties::length_beats, converter.from((*ci)->samples).to_double());
+			/* XXX seems wrong. we should use an actual beat unit here */
+			plist.add (Properties::length, converter.from((*ci)->samples).to_double());
 			plist.add (Properties::name, region_name);
 
 			boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));
@@ -1057,7 +1057,7 @@ Track::use_captured_audio_sources (SourceList& srcs, CaptureInfos const & captur
 		PropertyList plist;
 
 		plist.add (Properties::start, afs->last_capture_start_sample());
-		plist.add (Properties::length, afs->length(0));
+		plist.add (Properties::length, afs->length());
 		plist.add (Properties::name, whole_file_region_name);
 		boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));
 		rx->set_automatic (true);

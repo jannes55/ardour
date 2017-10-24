@@ -128,7 +128,7 @@ string
 AudioRegionImporter::get_info () const
 {
 	samplecnt_t length, position;
-	Timecode::Time length_time, position_time;
+	Temporal::Time length_time, position_time;
 	std::ostringstream oss;
 
 	// Get sample positions
@@ -312,7 +312,7 @@ AudioRegionImporter::prepare_region ()
 	// create region and update XML
 	boost::shared_ptr<Region> r = RegionFactory::create (source_list, xml_region);
 	if (session.config.get_glue_new_regions_to_bars_and_beats ()) {
-		r->set_position_lock_style (MusicTime);
+		r->set_position_lock_style (Temporal::BarTime);
 	}
 	region.push_back (r);
 	if (*region.begin()) {

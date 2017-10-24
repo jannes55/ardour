@@ -144,9 +144,9 @@ class LIBCONTROLCP_API BasicUI {
 
 	ARDOUR::samplecnt_t timecode_frames_per_hour ();
 
-	void timecode_time (samplepos_t where, Timecode::Time&);
-	void timecode_to_sample (Timecode::Time& timecode, samplepos_t & sample, bool use_offset, bool use_subframes) const;
-	void sample_to_timecode (samplepos_t sample, Timecode::Time& timecode, bool use_offset, bool use_subframes) const;
+	void timecode_time (samplepos_t where, Temporal::Time&);
+	void timecode_to_sample (Temporal::Time& timecode, samplepos_t & sample, bool use_offset, bool use_subframes) const;
+	void sample_to_timecode (samplepos_t sample, Temporal::Time& timecode, bool use_offset, bool use_subframes) const;
 
   protected:
 	BasicUI ();

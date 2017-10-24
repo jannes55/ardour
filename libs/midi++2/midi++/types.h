@@ -22,6 +22,8 @@
 
 #include <inttypes.h>
 
+#include "temporal/types.h"
+
 #include "midi++/libmidi_visibility.h"
 
 namespace MIDI {
@@ -32,8 +34,7 @@ namespace MIDI {
 	typedef unsigned short pitchbend_t;
 	typedef uint32_t       timestamp_t;
 
-	/** XXX: dupes from libardour */
-	typedef int64_t  samplecnt_t;
+	/** XXX: dupe from libardour */
 	typedef uint32_t pframes_t;
 
 	enum eventType {

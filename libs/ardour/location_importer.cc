@@ -105,7 +105,7 @@ string
 LocationImporter::get_info () const
 {
 	samplepos_t start, end;
-	Timecode::Time start_time, end_time;
+	Temporal::Time start_time, end_time;
 
 	// Get sample positions
 	std::istringstream iss_start (xml_location.property ("start")->value());

@@ -17,12 +17,13 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include "temporal/tempo.h"
+
 #include "evoral/EventList.hpp"
 
 #include "ardour/beats_samples_converter.h"
 #include "ardour/midi_state_tracker.h"
 #include "ardour/note_fixer.h"
-#include "ardour/tempo.h"
 
 namespace ARDOUR {
 
@@ -40,10 +41,10 @@ NoteFixer::clear()
 }
 
 void
-NoteFixer::prepare(TempoMap&                          tempo_map,
+NoteFixer::prepare(Temporal::TempoMap&                tempo_map,
                    const MidiModel::NoteDiffCommand*  cmd,
-                   const samplepos_t                   origin,
-                   const samplepos_t                   pos,
+                   const samplepos_t                  origin,
+                   const samplepos_t                  pos,
                    std::set< boost::weak_ptr<Note> >& active_notes)
 {
 	typedef MidiModel::NoteDiffCommand Command;

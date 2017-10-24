@@ -110,7 +110,7 @@ class LIBARDOUR_API SndFileSource : public AudioFileSource {
 	Sample*        xfade_buf;
 
 	samplecnt_t crossfade (Sample* data, samplecnt_t cnt, int dir);
-	void set_timeline_position (samplepos_t);
+	void set_timeline_position (timepos_t const &);
 	samplecnt_t destructive_write_unlocked (Sample *dst, samplecnt_t cnt);
 	samplecnt_t nondestructive_write_unlocked (Sample *dst, samplecnt_t cnt);
 	void handle_header_position_change ();

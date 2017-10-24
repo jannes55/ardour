@@ -38,7 +38,7 @@ using namespace std;
 using namespace ARDOUR;
 using namespace MIDI;
 using namespace PBD;
-using namespace Timecode;
+using namespace Temporal;
 
 #define FLYWHEEL_TIMEOUT ( 1 * session.sample_rate() )
 
@@ -85,8 +85,8 @@ LTC_Slave::~LTC_Slave()
 
 void
 LTC_Slave::parse_timecode_offset() {
-	Timecode::Time offset_tc;
-	Timecode::parse_timecode_format(session.config.get_slave_timecode_offset(), offset_tc);
+	Temporal::Time offset_tc;
+	Temporal::parse_timecode_format(session.config.get_slave_timecode_offset(), offset_tc);
 	offset_tc.rate = session.timecode_frames_per_second();
 	offset_tc.drop = session.timecode_drop_frames();
 	session.timecode_to_sample(offset_tc, timecode_offset, false, false);
@@ -273,10 +273,10 @@ LTC_Slave::detect_ltc_fps(int frameno, bool df)
 			did_reset_tc_format = true;
 		}
 		if (cur_timecode != tc_format) {
-			if (ceil(Timecode::timecode_to_frames_per_second(cur_timecode)) != ceil(Timecode::timecode_to_frames_per_second(tc_format))) {
+			if (ceil(Temporal::timecode_to_frames_per_second(cur_timecode)) != ceil(Temporal::timecode_to_frames_per_second(tc_format))) {
 				warning << string_compose(_("Session framerate adjusted from %1 to LTC's %2."),
-						Timecode::timecode_format_name(cur_timecode),
-						Timecode::timecode_format_name(tc_format))
+						Temporal::timecode_format_name(cur_timecode),
+						Temporal::timecode_format_name(tc_format))
 					<< endmsg;
 			}
 			session.config.set_timecode_format (tc_format);
@@ -287,10 +287,10 @@ LTC_Slave::detect_ltc_fps(int frameno, bool df)
 		if (a3e_timecode != cur_timecode) printed_timecode_warning = false;
 
 		if (cur_timecode != tc_format && ! printed_timecode_warning) {
-			if (ceil(Timecode::timecode_to_frames_per_second(cur_timecode)) != ceil(Timecode::timecode_to_frames_per_second(tc_format))) {
+			if (ceil(Temporal::timecode_to_frames_per_second(cur_timecode)) != ceil(Temporal::timecode_to_frames_per_second(tc_format))) {
 				warning << string_compose(_("Session and LTC framerate mismatch: LTC:%1 Session:%2."),
-						Timecode::timecode_format_name(tc_format),
-						Timecode::timecode_format_name(cur_timecode))
+						Temporal::timecode_format_name(tc_format),
+						Temporal::timecode_format_name(cur_timecode))
 					<< endmsg;
 			}
 			printed_timecode_warning = true;
@@ -384,7 +384,7 @@ LTC_Slave::process_ltc(samplepos_t const /*now*/)
 
 		/* map LTC timecode to session TC setting */
 		samplepos_t ltc_frame; ///< audio-sample corresponding to LTC sample
-		Timecode::timecode_to_sample (timecode, ltc_frame, true, false,
+		Temporal::timecode_to_sample (timecode, ltc_frame, true, false,
 			double(session.sample_rate()),
 			session.config.get_subframes_per_frame(),
 			timecode_negative_offset, timecode_offset
@@ -571,7 +571,7 @@ LTC_Slave::speed_and_position (double& speed, samplepos_t& pos)
 	return true;
 }
 
-Timecode::TimecodeFormat
+Temporal::TimecodeFormat
 LTC_Slave::apparent_timecode_format () const
 {
 	if      (timecode.rate == 24 && !timecode.drop)
@@ -597,7 +597,7 @@ LTC_Slave::approximate_current_position() const
 	if (last_timestamp == 0) {
 		return " --:--:--:--";
 	}
-	return Timecode::timecode_format_time(timecode);
+	return Temporal::timecode_format_time(timecode);
 }
 
 std::string

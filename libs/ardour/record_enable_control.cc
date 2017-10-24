@@ -26,7 +26,7 @@ using namespace PBD;
 
 RecordEnableControl::RecordEnableControl (Session& session, std::string const & name, Recordable& r)
 	: SlavableAutomationControl (session, RecEnableAutomation, ParameterDescriptor (RecEnableAutomation),
-	                             boost::shared_ptr<AutomationList>(new AutomationList(Evoral::Parameter(RecEnableAutomation))),
+	                             boost::shared_ptr<AutomationList>(new AutomationList(Evoral::Parameter(RecEnableAutomation), Temporal::AudioTime)),
 	                             name)
 	, _recordable (r)
 {

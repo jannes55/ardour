@@ -47,6 +47,8 @@
 #include "pbd/replace_all.h"
 #include "pbd/unwind.h"
 
+#include "temporal/superclock.h"
+
 #include "ardour/amp.h"
 #include "ardour/analyser.h"
 #include "ardour/async_midi_port.h"
@@ -931,7 +933,7 @@ Session::setup_click ()
 {
 	_clicking = false;
 
-	boost::shared_ptr<AutomationList> gl (new AutomationList (Evoral::Parameter (GainAutomation)));
+	boost::shared_ptr<AutomationList> gl (new AutomationList (Evoral::Parameter (GainAutomation), Temporal::AudioTime));
 	boost::shared_ptr<GainControl> gain_control = boost::shared_ptr<GainControl> (new GainControl (*this, Evoral::Parameter(GainAutomation), gl));
 
 	_click_io.reset (new ClickIO (*this, X_("Click")));
@@ -1653,7 +1655,7 @@ Session::set_track_monitor_input_status (bool yn)
 void
 Session::auto_punch_start_changed (Location* location)
 {
-	replace_event (SessionEvent::PunchIn, location->start());
+	replace_event (SessionEvent::PunchIn, location->start_sample());
 
 	if (get_record_enabled() && config.get_punch_in() && !actively_recording ()) {
 		/* capture start has been changed, so save new pending state */
@@ -1664,7 +1666,7 @@ Session::auto_punch_start_changed (Location* location)
 void
 Session::auto_punch_end_changed (Location* location)
 {
-	replace_event (SessionEvent::PunchOut, location->end());
+	replace_event (SessionEvent::PunchOut, location->end_sample());
 }
 
 void
@@ -1681,14 +1683,14 @@ Session::auto_punch_changed (Location* location)
 void
 Session::auto_loop_declick_range (Location* loc, samplepos_t & pos, samplepos_t & length)
 {
-	pos = max (loc->start(), loc->end() - 64);
-	length = loc->end() - pos;
+	pos = max (loc->start_sample(), loc->end_sample() - 64);
+	length = loc->end_sample() - pos;
 }
 
 void
 Session::auto_loop_changed (Location* location)
 {
-	replace_event (SessionEvent::AutoLoop, location->end(), location->start());
+	replace_event (SessionEvent::AutoLoop, location->end_sample(), location->start_sample());
 	samplepos_t dcp;
 	samplecnt_t dcl;
 	auto_loop_declick_range (location, dcp, dcl);
@@ -1699,11 +1701,11 @@ Session::auto_loop_changed (Location* location)
 
 		// if (_transport_sample > location->end()) {
 
-		if (_transport_sample < location->start() || _transport_sample > location->end()) {
+		if (_transport_sample < location->start_sample() || _transport_sample > location->end_sample()) {
 			// relocate to beginning of loop
 			clear_events (SessionEvent::LocateRoll);
 
-			request_locate (location->start(), true);
+			request_locate (location->start_sample(), true);
 
 		}
 		else if (Config->get_seamless_loop() && !loop_changing) {
@@ -1712,7 +1714,7 @@ Session::auto_loop_changed (Location* location)
 			// previous loop end
 			loop_changing = true;
 
-			if (location->end() > last_loopend) {
+			if (location->end_sample() > last_loopend) {
 				clear_events (SessionEvent::LocateRoll);
 				SessionEvent *ev = new SessionEvent (SessionEvent::LocateRoll, SessionEvent::Add, last_loopend, last_loopend, 0, true);
 				queue_event (ev);
@@ -1731,13 +1733,13 @@ Session::auto_loop_changed (Location* location)
 	samplepos_t pos;
 
 	if (!transport_rolling() && select_playhead_priority_target (pos)) {
-		if (pos == location->start()) {
+		if (pos == location->start_sample()) {
 			request_locate (pos);
 		}
 	}
 
 
-	last_loopend = location->end();
+	last_loopend = location->end_sample();
 	set_dirty ();
 }
 
@@ -1760,7 +1762,7 @@ Session::set_auto_punch_location (Location* location)
 		return;
 	}
 
-	if (location->end() <= location->start()) {
+	if (location->end_sample() <= location->start_sample()) {
 		error << _("Session: you can't use that location for auto punch (start <= end)") << endmsg;
 		return;
 	}
@@ -1792,7 +1794,7 @@ Session::set_session_extents (samplepos_t start, samplepos_t end)
 		return;
 	}
 
-	existing->set( start, end );
+	existing->set_sample (start, end);
 
 	set_dirty();
 }
@@ -1805,7 +1807,7 @@ Session::set_auto_loop_location (Location* location)
 	if ((existing = _locations->auto_loop_location()) != 0 && existing != location) {
 		loop_connections.drop_connections ();
 		existing->set_auto_loop (false, this);
-		remove_event (existing->end(), SessionEvent::AutoLoop);
+		remove_event (existing->end_sample(), SessionEvent::AutoLoop);
 		samplepos_t dcp;
 		samplecnt_t dcl;
 		auto_loop_declick_range (existing, dcp, dcl);
@@ -1819,12 +1821,12 @@ Session::set_auto_loop_location (Location* location)
 		return;
 	}
 
-	if (location->end() <= location->start()) {
+	if (location->end_sample() <= location->start_sample()) {
 		error << _("You cannot use this location for auto-loop because it has zero or negative length") << endmsg;
 		return;
 	}
 
-	last_loopend = location->end();
+	last_loopend = location->end_sample();
 
 	loop_connections.drop_connections ();
 
@@ -1899,21 +1901,21 @@ Session::consolidate_skips (Location* loc)
                         continue;
                 }
 
-                switch (Evoral::coverage ((*l)->start(), (*l)->end(), loc->start(), loc->end())) {
-                case Evoral::OverlapInternal:
-                case Evoral::OverlapExternal:
-                case Evoral::OverlapStart:
-                case Evoral::OverlapEnd:
+                switch (Temporal::coverage ((*l)->start_sample(), (*l)->end_sample(), loc->start_sample(), loc->end_sample())) {
+                case Temporal::OverlapInternal:
+                case Temporal::OverlapExternal:
+                case Temporal::OverlapStart:
+                case Temporal::OverlapEnd:
                         /* adjust new location to cover existing one */
-                        loc->set_start (min (loc->start(), (*l)->start()));
-                        loc->set_end (max (loc->end(), (*l)->end()));
+	                loc->set_sample (min (loc->start_sample(), (*l)->start_sample()),
+	                                 max (loc->end_sample(), (*l)->end_sample()));
                         /* we don't need this one any more */
                         _locations->remove (*l);
                         /* the location has been deleted, so remove reference to it in our local list */
                         l = all_locations.erase (l);
                         break;
 
-                case Evoral::OverlapNone:
+                case Temporal::OverlapNone:
                         ++l;
                         break;
                 }
@@ -1941,7 +1943,7 @@ Session::_sync_locations_to_skips ()
 		Location* location = *i;
 
 		if (location->is_skip() && location->is_skipping()) {
-			SessionEvent* ev = new SessionEvent (SessionEvent::Skip, SessionEvent::Add, location->start(), location->end(), 1.0);
+			SessionEvent* ev = new SessionEvent (SessionEvent::Skip, SessionEvent::Add, location->start_sample(), location->end_sample(), 1.0);
 			queue_event (ev);
 		}
 	}
@@ -1973,7 +1975,7 @@ Session::location_added (Location *location)
                 location->EndChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
                 location->Changed.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
                 location->FlagsChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
-		location->PositionLockStyleChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
+		location->LockStyleChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
         }
 
 	if (location->is_range_marker()) {
@@ -1983,7 +1985,7 @@ Session::location_added (Location *location)
                 location->EndChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
                 location->Changed.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
                 location->FlagsChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
-		location->PositionLockStyleChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
+		location->LockStyleChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
         }
 
         if (location->is_skip()) {
@@ -1993,7 +1995,7 @@ Session::location_added (Location *location)
                 location->EndChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_skips, this, location, true));
                 location->Changed.connect_same_thread (skip_update_connections, boost::bind (&Session::update_skips, this, location, true));
                 location->FlagsChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_skips, this, location, false));
-		location->PositionLockStyleChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
+		location->LockStyleChanged.connect_same_thread (skip_update_connections, boost::bind (&Session::update_marks, this, location));
 
                 update_skips (location, true);
         }
@@ -2192,9 +2194,9 @@ Session::audible_sample (bool* latent_locate) const
 			 * is still at the end of the loop.
 			 */
 			Location *location = _locations->auto_loop_location();
-			sampleoffset_t lo = location->start() - ret;
+			sampleoffset_t lo = location->start_sample() - ret;
 			if (lo > 0) {
-				ret = location->end () - lo;
+				ret = location->end_sample () - lo;
 				if (latent_locate) {
 					*latent_locate = true;
 				}
@@ -2213,9 +2215,8 @@ Session::preroll_samples (samplepos_t pos) const
 {
 	const float pr = Config->get_preroll_seconds();
 	if (pos >= 0 && pr < 0) {
-		const Tempo& tempo = _tempo_map->tempo_at_sample (pos);
-		const Meter& meter = _tempo_map->meter_at_sample (pos);
-		return meter.samples_per_bar (tempo, sample_rate()) * -pr;
+		Temporal::TempoMapPoint const & tmp (_tempo_map->const_point_at (Temporal::samples_to_superclock (pos, sample_rate())));
+		return tmp.metric().samples_per_bar (tmp.metric(), sample_rate()) * -pr;
 	}
 	if (pr < 0) {
 		return 0;
@@ -4672,7 +4673,7 @@ Session::playlist_region_added (boost::weak_ptr<Region> w)
  *  b is after the current end.
  */
 void
-Session::maybe_update_session_range (samplepos_t a, samplepos_t b)
+Session::maybe_update_session_range (timepos_t a, timepos_t b)
 {
 	if (_state_of_the_state & Loading) {
 		return;
@@ -4682,16 +4683,16 @@ Session::maybe_update_session_range (samplepos_t a, samplepos_t b)
 
 	if (_session_range_location == 0) {
 
-		set_session_range_location (a, b + session_end_marker_shift_samples);
+		set_session_range_location (a.sample(), b.sample() + session_end_marker_shift_samples);
 
 	} else {
 
-		if (a < _session_range_location->start()) {
-			_session_range_location->set_start (a);
+		if (a < _session_range_location->start_sample()) {
+			_session_range_location->set_start_sample (a.sample());
 		}
 
-		if (_session_range_end_is_free && (b > _session_range_location->end())) {
-			_session_range_location->set_end (b);
+		if (_session_range_end_is_free && (b > _session_range_location->end_time())) {
+			_session_range_location->set_end_sample (b.sample());
 		}
 	}
 }
@@ -4703,18 +4704,18 @@ Session::set_end_is_free (bool yn)
 }
 
 void
-Session::playlist_ranges_moved (list<Evoral::RangeMove<samplepos_t> > const & ranges)
+Session::playlist_ranges_moved (list<Temporal::RangeMove<timepos_t> > const & ranges)
 {
-	for (list<Evoral::RangeMove<samplepos_t> >::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
-		maybe_update_session_range (i->to, i->to + i->length);
+	for (list<Temporal::RangeMove<timepos_t> >::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
+		maybe_update_session_range (i->from.sample(), i->to.sample());
 	}
 }
 
 void
-Session::playlist_regions_extended (list<Evoral::Range<samplepos_t> > const & ranges)
+Session::playlist_regions_extended (list<Temporal::Range<timepos_t> > const & ranges)
 {
-	for (list<Evoral::Range<samplepos_t> >::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
-		maybe_update_session_range (i->from, i->to);
+	for (list<Temporal::Range<timepos_t> >::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
+		maybe_update_session_range (i->from.sample(), i->to.sample());
 	}
 }
 
@@ -5813,24 +5814,13 @@ Session::bundle_by_name (string name) const
 }
 
 void
-Session::tempo_map_changed (const PropertyChange&)
+Session::tempo_map_changed (Temporal::samplepos_t /*start_of_change*/, Temporal::samplepos_t /*end_of_change*/)
 {
 	clear_clicks ();
-
 	playlists->update_after_tempo_map_change ();
-
-	_locations->apply (*this, &Session::update_locations_after_tempo_map_change);
-
 	set_dirty ();
 }
 
-void
-Session::update_locations_after_tempo_map_change (const Locations::LocationList& loc)
-{
-	for (Locations::LocationList::const_iterator i = loc.begin(); i != loc.end(); ++i) {
-		(*i)->recompute_samples_from_beat ();
-	}
-}
 
 /** Ensures that all buffers (scratch, send, silent, etc) are allocated for
  * the given count with the current block size.
@@ -6221,7 +6211,7 @@ Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
 				for (MidiBuffer::const_iterator i = buf.begin(); i != buf.end(); ++i) {
 					Evoral::Event<samplepos_t> ev = *i;
 					ev.set_time(ev.time() - position);
-					ms->append_event_samples(lock, ev, ms->timeline_position());
+					ms->append_event_samples(lock, ev, ms->timeline_position().sample());
 				}
 			}
 		}
@@ -6275,7 +6265,7 @@ Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
 		PropertyList plist;
 
 		plist.add (Properties::start, 0);
-		plist.add (Properties::length, srcs.front()->length(srcs.front()->timeline_position()));
+		plist.add (Properties::length, srcs.front()->length ());
 		plist.add (Properties::name, region_name_from_path (srcs.front()->name(), true));
 
 		result = RegionFactory::create (srcs, plist);
@@ -6577,7 +6567,7 @@ void
 Session::goto_end ()
 {
 	if (_session_range_location) {
-		request_locate (_session_range_location->end(), false);
+		request_locate (_session_range_location->end_sample(), false);
 	} else {
 		request_locate (0, false);
 	}
@@ -6587,7 +6577,7 @@ void
 Session::goto_start (bool and_roll)
 {
 	if (_session_range_location) {
-		request_locate (_session_range_location->start(), and_roll);
+		request_locate (_session_range_location->start_sample(), and_roll);
 	} else {
 		request_locate (0, and_roll);
 	}
@@ -6596,13 +6586,13 @@ Session::goto_start (bool and_roll)
 samplepos_t
 Session::current_start_sample () const
 {
-	return _session_range_location ? _session_range_location->start() : 0;
+	return _session_range_location ? _session_range_location->start_sample() : 0;
 }
 
 samplepos_t
 Session::current_end_sample () const
 {
-	return _session_range_location ? _session_range_location->end() : 0;
+	return _session_range_location ? _session_range_location->end_sample() : 0;
 }
 
 void
@@ -6652,8 +6642,8 @@ Session::start_time_changed (samplepos_t old)
 
 	Location* l = _locations->auto_loop_location ();
 
-	if (l && l->start() == old) {
-		l->set_start (s->start(), true);
+	if (l && l->start_sample() == old) {
+		l->set_start_sample (s->start_sample(), true);
 	}
 	set_dirty ();
 }
@@ -6672,8 +6662,8 @@ Session::end_time_changed (samplepos_t old)
 
 	Location* l = _locations->auto_loop_location ();
 
-	if (l && l->end() == old) {
-		l->set_end (s->end(), true);
+	if (l && l->end_sample() == old) {
+		l->set_end_sample (s->end_sample(), true);
 	}
 	set_dirty ();
 }
@@ -7104,7 +7094,7 @@ Session::reconnect_ltc_output ()
 void
 Session::set_range_selection (samplepos_t start, samplepos_t end)
 {
-	_range_selection = Evoral::Range<samplepos_t> (start, end);
+	_range_selection = Temporal::Range<samplepos_t> (start, end);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7113,7 +7103,7 @@ Session::set_range_selection (samplepos_t start, samplepos_t end)
 void
 Session::set_object_selection (samplepos_t start, samplepos_t end)
 {
-	_object_selection = Evoral::Range<samplepos_t> (start, end);
+	_object_selection = Temporal::Range<samplepos_t> (start, end);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7122,7 +7112,7 @@ Session::set_object_selection (samplepos_t start, samplepos_t end)
 void
 Session::clear_range_selection ()
 {
-	_range_selection = Evoral::Range<samplepos_t> (-1,-1);
+	_range_selection = Temporal::Range<samplepos_t> (-1,-1);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7131,7 +7121,7 @@ Session::clear_range_selection ()
 void
 Session::clear_object_selection ()
 {
-	_object_selection = Evoral::Range<samplepos_t> (-1,-1);
+	_object_selection = Temporal::Range<samplepos_t> (-1,-1);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif

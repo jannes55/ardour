@@ -277,7 +277,7 @@ ExportTimespanSelector::construct_length (ARDOUR::Location const * location) con
 
 	case AudioClock::Timecode:
 	{
-		Timecode::Time tc;
+		Temporal::Time tc;
 		_session->timecode_duration (location->length(), tc);
 		tc.print (s);
 		break;
@@ -304,7 +304,7 @@ ExportTimespanSelector::bbt_str (samplepos_t samples) const
 	}
 
 	std::ostringstream oss;
-	Timecode::BBT_Time time;
+	Temporal::BBT_Time time;
 	_session->bbt_time (samples, time);
 
 	print_padded (oss, time);
@@ -319,7 +319,7 @@ ExportTimespanSelector::timecode_str (samplecnt_t samples) const
 	}
 
 	std::ostringstream oss;
-	Timecode::Time time;
+	Temporal::Time time;
 
 	_session->timecode_time (samples, time);
 

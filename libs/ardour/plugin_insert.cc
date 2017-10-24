@@ -473,7 +473,7 @@ PluginInsert::create_automatable_parameters ()
 		if (automatable) {
 			can_automate (param);
 		}
-		boost::shared_ptr<AutomationList> list(new AutomationList(param, desc));
+		boost::shared_ptr<AutomationList> list(new AutomationList(param, desc, Temporal::AudioTime));
 		boost::shared_ptr<AutomationControl> c (new PluginControl(this, param, desc, list));
 		if (!automatable) {
 			c->set_flags (Controllable::Flag ((int)c->flags() | Controllable::NotAutomatable));
@@ -490,7 +490,7 @@ PluginInsert::create_automatable_parameters ()
 		if (desc.datatype != Variant::NOTHING) {
 			boost::shared_ptr<AutomationList> list;
 			if (Variant::type_is_numeric(desc.datatype)) {
-				list = boost::shared_ptr<AutomationList>(new AutomationList(param, desc));
+				list = boost::shared_ptr<AutomationList>(new AutomationList(param, desc, Temporal::AudioTime));
 			}
 			boost::shared_ptr<AutomationControl> c (new PluginPropertyControl(this, param, desc, list));
 			if (!Variant::type_is_numeric(desc.datatype)) {
@@ -512,7 +512,7 @@ PluginInsert::create_automatable_parameters ()
 		desc.normal = 1;
 		desc.lower  = 0;
 		desc.upper  = 1;
-		boost::shared_ptr<AutomationList> list(new AutomationList(param, desc));
+		boost::shared_ptr<AutomationList> list(new AutomationList(param, desc, Temporal::AudioTime));
 		boost::shared_ptr<AutomationControl> c (new PluginControl(this, param, desc, list));
 		add_control (c);
 	}

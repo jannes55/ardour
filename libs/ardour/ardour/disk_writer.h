@@ -152,7 +152,7 @@ protected:
 	bool prep_record_disable ();
 
 	void calculate_record_range (
-		Evoral::OverlapType ot, samplepos_t transport_sample, samplecnt_t nframes,
+		Temporal::OverlapType ot, samplepos_t transport_sample, samplecnt_t nframes,
 		samplecnt_t& rec_nframes, samplecnt_t& rec_offset
 		);
 

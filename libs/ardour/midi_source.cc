@@ -60,7 +60,6 @@ using namespace PBD;
 MidiSource::MidiSource (Session& s, string name, Source::Flag flags)
 	: Source(s, DataType::MIDI, name, flags)
 	, _writing(false)
-	, _length_beats(0.0)
 	, _capture_length(0)
 	, _capture_loop_length(0)
 {
@@ -69,7 +68,6 @@ MidiSource::MidiSource (Session& s, string name, Source::Flag flags)
 MidiSource::MidiSource (Session& s, const XMLNode& node)
 	: Source(s, node)
 	, _writing(false)
-	, _length_beats(0.0)
 	, _capture_length(0)
 	, _capture_loop_length(0)
 {
@@ -150,53 +148,24 @@ MidiSource::set_state (const XMLNode& node, int /*version*/)
 	return 0;
 }
 
-bool
-MidiSource::empty () const
-{
-	return !_length_beats;
-}
-
-samplecnt_t
-MidiSource::length (samplepos_t pos) const
-{
-	if (!_length_beats) {
-		return 0;
-	}
-
-	BeatsSamplesConverter converter(_session.tempo_map(), pos);
-	return converter.to(_length_beats);
-}
-
-void
-MidiSource::update_length (samplecnt_t)
-{
-	// You're not the boss of me!
-}
-
 void
 MidiSource::invalidate (const Lock& lock)
 {
 	Invalidated(_session.transport_rolling());
 }
 
-samplecnt_t
+timecnt_t
 MidiSource::midi_read (const Lock&                        lm,
-                       Evoral::EventSink<samplepos_t>&     dst,
-                       samplepos_t                         source_start,
-                       samplepos_t                         start,
-                       samplecnt_t                         cnt,
-                       Evoral::Range<samplepos_t>*         loop_range,
+                       Evoral::EventSink<samplepos_t>&    dst,
+                       timepos_t                          source_start,
+                       timepos_t                          start,
+                       timecnt_t                          cnt,
+                       Temporal::Range<samplepos_t>*      loop_range,
                        MidiCursor&                        cursor,
                        MidiStateTracker*                  tracker,
                        MidiChannelFilter*                 filter,
-                       const std::set<Evoral::Parameter>& filtered,
-                       const double                       pos_beats,
-                       const double                       start_beats) const
+                       const std::set<Evoral::Parameter>& filtered) const
 {
-	BeatsSamplesConverter converter(_session.tempo_map(), source_start);
-
-	const double start_qn = pos_beats - start_beats;
-
 	DEBUG_TRACE (DEBUG::MidiSourceIO,
 	             string_compose ("MidiSource::midi_read() %5 sstart %1 start %2 cnt %3 tracker %4\n",
 	                             source_start, start, cnt, tracker, name()));
@@ -207,7 +176,9 @@ MidiSource::midi_read (const Lock&                        lm,
 
 	// Find appropriate model iterator
 	Evoral::Sequence<Temporal::Beats>::const_iterator& i = cursor.iter;
+
 	const bool linear_read = cursor.last_read_end != 0 && start == cursor.last_read_end;
+
 	if (!linear_read || !i.valid()) {
 		/* Cached iterator is invalid, search for the first event past start.
 		   Note that multiple tracks can use a MidiSource simultaneously, so
@@ -215,9 +186,9 @@ MidiSource::midi_read (const Lock&                        lm,
 		   be cached in the source of model itself.
 		   See http://tracker.ardour.org/view.php?id=6541
 		*/
-		cursor.connect(Invalidated);
-		cursor.iter = _model->begin(converter.from(start), false, filtered, &cursor.active_notes);
-		cursor.active_notes.clear();
+		cursor.connect (Invalidated);
+		cursor.iter = _model->begin (start.beats(), false, filtered, &cursor.active_notes);
+		cursor.active_notes.clear ();
 	}
 
 	cursor.last_read_end = start + cnt;
@@ -226,15 +197,15 @@ MidiSource::midi_read (const Lock&                        lm,
 	for (; i != _model->end(); ++i) {
 
 		// Offset by source start to convert event time to session time
-
-		samplepos_t time_samples = _session.tempo_map().sample_at_quarter_note (i->time().to_double() + start_qn);
+		timepos_t const start_time = source_start + i->time();
+		samplepos_t time_samples = _session.tempo_map().sample_at (start_time.beats());
 
 		if (time_samples < start + source_start) {
 			/* event too early */
 
 			continue;
 
-		} else if (time_samples >= start + cnt + source_start) {
+		} else if (start_time >= start + cnt + source_start) {
 
 			DEBUG_TRACE (DEBUG::MidiSourceIO,
 			             string_compose ("%1: reached end with event @ %2 vs. %3\n",
@@ -249,14 +220,18 @@ MidiSource::midi_read (const Lock&                        lm,
 				time_samples = loop_range->squish (time_samples);
 			}
 
-			const uint8_t status           = i->buffer()[0];
-			const bool    is_channel_event = (0x80 <= (status & 0xF0)) && (status <= 0xE0);
-			if (filter && is_channel_event) {
-				/* Copy event so the filter can modify the channel.  I'm not
-				   sure if this is necessary here (channels are mapped later in
-				   buffers anyway), but it preserves existing behaviour without
-				   destroying events in the model during read. */
-				Evoral::Event<Temporal::Beats> ev(*i, true);
+			if (filter && i->is_channel_event()) {
+
+				/* Copy event so the filter can potentially
+				   modify the channel.  I'm not sure if this is
+				   necessary here (channels are mapped later in
+				   buffers anyway), but it preserves existing
+				   behaviour without destroying events in the
+				   model during read.
+				*/
+
+				Evoral::Event<Temporal::Beats> ev (*i, true);
+
 				if (!filter->filter(ev.buffer(), ev.size())) {
 					dst.write(time_samples, ev.event_type(), ev.size(), ev.buffer());
 				} else {
@@ -294,21 +269,21 @@ MidiSource::midi_read (const Lock&                        lm,
 	return cnt;
 }
 
-samplecnt_t
-MidiSource::midi_write (const Lock&                 lm,
+int
+MidiSource::midi_write (const Lock&                  lm,
                         MidiRingBuffer<samplepos_t>& source,
-                        samplepos_t                  source_start,
-                        samplecnt_t                  cnt)
+                        timepos_t                    source_start,
+                        timecnt_t                    cnt)
 {
-	const samplecnt_t ret = write_unlocked (lm, source, source_start, cnt);
+	write_unlocked (lm, source, source_start, cnt);
 
-	if (cnt == max_samplecnt) {
+	if (cnt.samples() == max_samplecnt) {
 		invalidate(lm);
 	} else {
-		_capture_length += cnt;
+		_capture_length += cnt.samples();
 	}
 
-	return ret;
+	return 0;
 }
 
 void
@@ -342,9 +317,9 @@ MidiSource::mark_write_starting_now (samplecnt_t position,
 	_capture_length      = capture_length;
 	_capture_loop_length = loop_length;
 
-	TempoMap& map (_session.tempo_map());
+	Temporal::TempoMap& map (_session.tempo_map());
 	BeatsSamplesConverter converter(map, position);
-	_length_beats = converter.from(capture_length);
+	_length = converter.from(capture_length);
 }
 
 void

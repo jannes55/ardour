@@ -288,7 +288,7 @@ TranzportControlProtocol::show_bbt (samplepos_t where)
 {
 	if (where != last_where) {
 		char buf[16];
-		Timecode::BBT_Time bbt;
+		Temporal::BBT_Time bbt;
 
 		// When recording or playing back < 1.0 speed do 1 or 2
 		// FIXME - clean up state machine & break up logic
@@ -357,7 +357,7 @@ TranzportControlProtocol::show_timecode (samplepos_t where)
 	if ((where != last_where) || lcd_isdamaged(1,9,10)) {
 
 		char buf[5];
-		Timecode::Time timecode;
+		Temporal::Time timecode;
 
 		session->timecode_time (where, timecode);
 

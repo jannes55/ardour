@@ -32,7 +32,7 @@
 using namespace std;
 using namespace ARDOUR;
 using namespace PBD;
-using namespace Timecode;
+using namespace Temporal;
 
 /* really verbose timing debug */
 //#define LTC_GEN_FRAMEDBUG
@@ -129,8 +129,8 @@ Session::ltc_tx_reset()
 
 void
 Session::ltc_tx_parse_offset() {
-	Timecode::Time offset_tc;
-	Timecode::parse_timecode_format(config.get_timecode_generator_offset(), offset_tc);
+	Temporal::Time offset_tc;
+	Temporal::parse_timecode_format(config.get_timecode_generator_offset(), offset_tc);
 	offset_tc.rate = timecode_frames_per_second();
 	offset_tc.drop = timecode_drop_frames();
 	timecode_to_sample(offset_tc, ltc_timecode_offset, false, false);
@@ -142,7 +142,7 @@ void
 Session::ltc_tx_recalculate_position()
 {
 	SMPTETimecode enctc;
-	Timecode::Time a3tc;
+	Temporal::Time a3tc;
 	ltc_encoder_get_timecode(ltc_encoder, &enctc);
 
 	a3tc.hours   = enctc.hours;
@@ -152,7 +152,7 @@ Session::ltc_tx_recalculate_position()
 	a3tc.rate = timecode_to_frames_per_second(ltc_enc_tcformat);
 	a3tc.drop = timecode_has_drop_frames(ltc_enc_tcformat);
 
-	Timecode::timecode_to_sample (a3tc, ltc_enc_pos, true, false,
+	Temporal::timecode_to_sample (a3tc, ltc_enc_pos, true, false,
 		(double)sample_rate(),
 		config.get_subframes_per_frame(),
 		ltc_timecode_negative_offset, ltc_timecode_offset
@@ -427,11 +427,11 @@ Session::ltc_tx_send_time_code_for_cycle (samplepos_t start_sample, samplepos_t 
 	DEBUG_TRACE (DEBUG::LTC, string_compose("LTC TX2: transport speed %1.\n", ltc_speed));
 
 	// (3) bit/sample alignment
-	Timecode::Time tc_start;
+	Temporal::Time tc_start;
 	samplepos_t tc_sample_start;
 
 	/* calc timecode frame from current position - round down to nearest timecode */
-	Timecode::sample_to_timecode(cycle_start_sample, tc_start, true, false,
+	Temporal::sample_to_timecode(cycle_start_sample, tc_start, true, false,
 			timecode_frames_per_second(),
 			timecode_drop_frames(),
 			(double)sample_rate(),
@@ -440,7 +440,7 @@ Session::ltc_tx_send_time_code_for_cycle (samplepos_t start_sample, samplepos_t 
 			);
 
 	/* convert timecode back to sample-position */
-	Timecode::timecode_to_sample (tc_start, tc_sample_start, true, false,
+	Temporal::timecode_to_sample (tc_start, tc_sample_start, true, false,
 		(double)sample_rate(),
 		config.get_subframes_per_frame(),
 		ltc_timecode_negative_offset, ltc_timecode_offset
@@ -477,7 +477,7 @@ Session::ltc_tx_send_time_code_for_cycle (samplepos_t start_sample, samplepos_t 
 		if (nominal_sample_rate() != sample_rate()) {
 			maxdiff *= 3.0;
 		}
-		if (ltc_enc_tcformat == Timecode::timecode_23976 || ltc_enc_tcformat == Timecode::timecode_24976) {
+		if (ltc_enc_tcformat == Temporal::timecode_23976 || ltc_enc_tcformat == Temporal::timecode_24976) {
 			maxdiff *= 15.0;
 		}
 	}

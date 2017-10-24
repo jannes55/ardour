@@ -1328,7 +1328,7 @@ WaveView::set_global_logscaled (bool yn)
 samplecnt_t
 WaveView::region_length() const
 {
-	return _region->length() - (_props->region_start - _region->start());
+	return _region->length_samples() - (_props->region_start - _region->start_sample());
 }
 
 samplepos_t
@@ -1365,8 +1365,8 @@ WaveView::region_resized ()
 	}
 
 	begin_change ();
-	_props->region_start = _region->start();
-	_props->region_end = _region->start() + _region->length();
+	_props->region_start = _region->start_sample();
+	_props->region_end = _region->start_sample() + _region->length_samples();
 	_bounding_box_dirty = true;
 	end_change ();
 }

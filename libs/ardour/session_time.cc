@@ -44,9 +44,9 @@ using namespace PBD;
 /* BBT TIME*/
 
 void
-Session::bbt_time (samplepos_t when, Timecode::BBT_Time& bbt)
+Session::bbt_time (samplepos_t when, Temporal::BBT_Time& bbt)
 {
-	bbt = _tempo_map->bbt_at_sample (when);
+	bbt = _tempo_map->bbt_at (when);
 }
 
 /* Timecode TIME */
@@ -54,13 +54,13 @@ Session::bbt_time (samplepos_t when, Timecode::BBT_Time& bbt)
 double
 Session::timecode_frames_per_second() const
 {
-	return Timecode::timecode_to_frames_per_second (config.get_timecode_format());
+	return Temporal::timecode_to_frames_per_second (config.get_timecode_format());
 }
 
 bool
 Session::timecode_drop_frames() const
 {
-	return Timecode::timecode_has_drop_frames(config.get_timecode_format());
+	return Temporal::timecode_has_drop_frames(config.get_timecode_format());
 }
 
 void
@@ -99,11 +99,11 @@ Session::sync_time_vars ()
 }
 
 void
-Session::timecode_to_sample( Timecode::Time& timecode, samplepos_t& sample, bool use_offset, bool use_subframes ) const
+Session::timecode_to_sample( Temporal::Time& timecode, samplepos_t& sample, bool use_offset, bool use_subframes ) const
 {
 	timecode.rate = timecode_frames_per_second();
 
-	Timecode::timecode_to_sample(
+	Temporal::timecode_to_sample(
 		timecode, sample, use_offset, use_subframes,
 		_current_sample_rate,
 		config.get_subframes_per_frame(),
@@ -113,9 +113,9 @@ Session::timecode_to_sample( Timecode::Time& timecode, samplepos_t& sample, bool
 }
 
 void
-Session::sample_to_timecode (samplepos_t sample, Timecode::Time& timecode, bool use_offset, bool use_subframes ) const
+Session::sample_to_timecode (samplepos_t sample, Temporal::Time& timecode, bool use_offset, bool use_subframes ) const
 {
-	Timecode::sample_to_timecode (
+	Temporal::sample_to_timecode (
 		sample, timecode, use_offset, use_subframes,
 
 		timecode_frames_per_second(),
@@ -128,7 +128,7 @@ Session::sample_to_timecode (samplepos_t sample, Timecode::Time& timecode, bool 
 }
 
 void
-Session::timecode_time (samplepos_t when, Timecode::Time& timecode)
+Session::timecode_time (samplepos_t when, Temporal::Time& timecode)
 {
 	if (last_timecode_valid && when == last_timecode_when) {
 		timecode = last_timecode;
@@ -143,7 +143,7 @@ Session::timecode_time (samplepos_t when, Timecode::Time& timecode)
 }
 
 void
-Session::timecode_time_subframes (samplepos_t when, Timecode::Time& timecode)
+Session::timecode_time_subframes (samplepos_t when, Temporal::Time& timecode)
 {
 	if (last_timecode_valid && when == last_timecode_when) {
 		timecode = last_timecode;
@@ -158,7 +158,7 @@ Session::timecode_time_subframes (samplepos_t when, Timecode::Time& timecode)
 }
 
 void
-Session::timecode_duration (samplecnt_t when, Timecode::Time& timecode) const
+Session::timecode_duration (samplecnt_t when, Temporal::Time& timecode) const
 {
 	this->sample_to_timecode( when, timecode, false /* use_offset */, true /* use_subframes */ );
 }
@@ -166,14 +166,14 @@ Session::timecode_duration (samplecnt_t when, Timecode::Time& timecode) const
 void
 Session::timecode_duration_string (char* buf, size_t len, samplepos_t when) const
 {
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 
 	timecode_duration (when, timecode);
 	snprintf (buf, len, "%02" PRIu32 ":%02" PRIu32 ":%02" PRIu32 ":%02" PRIu32, timecode.hours, timecode.minutes, timecode.seconds, timecode.frames);
 }
 
 void
-Session::timecode_time (Timecode::Time &t)
+Session::timecode_time (Temporal::Time &t)
 
 {
 	timecode_time (_transport_sample, t);
@@ -233,7 +233,7 @@ Session::convert_to_samples (AnyTime const & position)
 
 	switch (position.type) {
 	case AnyTime::BBT:
-		return _tempo_map->sample_at_bbt (position.bbt);
+		return _tempo_map->sample_at (position.bbt);
 		break;
 
 	case AnyTime::Timecode:
@@ -268,7 +268,8 @@ Session::any_duration_to_samples (samplepos_t position, AnyTime const & duration
 
 	switch (duration.type) {
 	case AnyTime::BBT:
-		return (samplecnt_t) ( _tempo_map->samplepos_plus_bbt (position, duration.bbt) - position);
+		/* XXX could optimize this by looking up meter and BBT in one step */
+		return (samplecnt_t) (_tempo_map->samplepos_plus_bbt (position, duration.bbt)) - position;
 		break;
 
 	case AnyTime::Timecode:

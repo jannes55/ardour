@@ -35,6 +35,7 @@
 #include "pbd/enumwriter.h"
 #include "pbd/types_convert.h"
 
+#include "ardour/beats_samples_converter.h"
 #include "ardour/debug.h"
 #include "ardour/profile.h"
 #include "ardour/session.h"
@@ -265,7 +266,7 @@ Source::mark_for_remove ()
 }
 
 void
-Source::set_timeline_position (samplepos_t pos)
+Source::set_timeline_position (timepos_t const & pos)
 {
 	_timeline_position = pos;
 }
@@ -311,3 +312,26 @@ Source::writable () const
         return (_flags & Writable) && _session.writable();
 }
 
+bool
+Source::empty () const
+{
+	return _length == timecnt_t();
+}
+
+timecnt_t
+Source::length() const
+{
+	return _length;
+}
+
+samplecnt_t
+Source::length_samples (timepos_t const & pos) const
+{
+	assert (_length.style() != Temporal::BarTime);
+
+	if (_length.style() == Temporal::AudioTime) {
+		return _length.samples();
+	}
+
+	return BeatsSamplesConverter (_session.tempo_map(), pos.sample()).to (_length.beats());
+}

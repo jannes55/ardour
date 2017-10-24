@@ -44,8 +44,8 @@ public:
 	float sample_rate () const { return _session.nominal_sample_rate(); }
 
 	samplepos_t natural_position() const { return _source->natural_position() * _ratio;}
-	samplecnt_t readable_length() const { return _source->readable_length() * _ratio; }
-	samplecnt_t length (samplepos_t pos) const { return _source->length(pos) * _ratio; }
+	samplecnt_t readable_length_samples() const { return _source->readable_length_samples() * _ratio; }
+	samplecnt_t length_samples (timepos_t const & pos) const { return _source->length_samples(pos) * _ratio; }
 
 	bool destructive() const { return false; }
 	bool can_be_analysed() const { return false; }

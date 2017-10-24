@@ -261,9 +261,9 @@ Session::post_engine_init ()
 		/* tempo map requires sample rate knowledge */
 
 		delete _tempo_map;
-		_tempo_map = new TempoMap (_current_sample_rate);
-		_tempo_map->PropertyChanged.connect_same_thread (*this, boost::bind (&Session::tempo_map_changed, this, _1));
-		_tempo_map->MetricPositionChanged.connect_same_thread (*this, boost::bind (&Session::tempo_map_changed, this, _1));
+		_tempo_map = new Temporal::TempoMap (Temporal::Tempo (120), Temporal::Meter (4, 4), _current_sample_rate);
+		timepos_t::set_tempo_map (*_tempo_map);
+		_tempo_map->Changed.connect_same_thread (*this, boost::bind (&Session::tempo_map_changed, this, _1, _2));
 	} catch (std::exception const & e) {
 		error << _("Unexpected exception during session setup: ") << e.what() << endmsg;
 		return -2;
@@ -379,7 +379,7 @@ Session::post_engine_init ()
 	_engine.transport_locate (0);
 
 	send_immediate_mmc (MIDI::MachineControlCommand (MIDI::MachineControl::cmdMmcReset));
-	send_immediate_mmc (MIDI::MachineControlCommand (Timecode::Time ()));
+	send_immediate_mmc (MIDI::MachineControlCommand (Temporal::Time ()));
 
 	MIDI::Name::MidiPatchManager::instance().add_search_path (session_directory().midi_patch_path() );
 
@@ -1384,7 +1384,7 @@ Session::state (bool save_template, snapshot_t snapshot_type, bool only_used_ass
 		// for a template, just create a new Locations, populate it
 		// with the default start and end, and get the state for that.
 		Location* range = new Location (*this, 0, 0, _("session"), Location::IsSessionRange, 0);
-		range->set (max_samplepos, 0);
+		range->set_sample (max_samplepos, 0);
 		loc.add (range);
 		XMLNode& locations_state = loc.get_state();
 
@@ -1619,7 +1619,7 @@ Session::set_state (const XMLNode& node, int version)
 	locations_changed ();
 
 	if (_session_range_location) {
-		AudioFileSource::set_header_position_offset (_session_range_location->start());
+		AudioFileSource::set_header_position_offset (_session_range_location->start_sample());
 	}
 
 	if ((child = find_named_node (node, "Regions")) == 0) {
@@ -2180,7 +2180,7 @@ Session::XMLAudioRegionFactory (const XMLNode& node, bool /*full*/)
 			for (SourceList::iterator sx = sources.begin(); sx != sources.end(); ++sx) {
 				boost::shared_ptr<SilentFileSource> sfp = boost::dynamic_pointer_cast<SilentFileSource> (*sx);
 				if (sfp) {
-					sfp->set_length (region->length());
+					sfp->set_length (region->length_samples());
 				}
 			}
 		}
@@ -2249,7 +2249,7 @@ Session::XMLMidiRegionFactory (const XMLNode& node, bool /*full*/)
 			for (SourceList::iterator sx = sources.begin(); sx != sources.end(); ++sx) {
 				boost::shared_ptr<SilentFileSource> sfp = boost::dynamic_pointer_cast<SilentFileSource> (*sx);
 				if (sfp) {
-					sfp->set_length (region->length());
+					sfp->set_length (region->length_samples());
 				}
 			}
 		}
@@ -3369,7 +3369,7 @@ Session::cleanup_sources (CleanupReport& rep)
 		 * capture files.
 		 */
 
-		if (!i->second->used() && (i->second->length(i->second->timeline_position()) > 0)) {
+		if (!i->second->used() && !i->second->empty()) {
 			dead_sources.push_back (i->second);
 			i->second->drop_references ();
 		}
@@ -5402,7 +5402,7 @@ Session::archive_session (const std::string& dest,
 
 		for (SourceMap::const_iterator i = sources.begin(); i != sources.end(); ++i) {
 			boost::shared_ptr<AudioFileSource> afs = boost::dynamic_pointer_cast<AudioFileSource> (i->second);
-			if (!afs || afs->readable_length () == 0) {
+			if (!afs || afs->readable_length_samples () == 0) {
 				continue;
 			}
 
@@ -5418,7 +5418,7 @@ Session::archive_session (const std::string& dest,
 			std::string from = afs->path();
 
 			if (compress_audio != NO_ENCODE) {
-				total_size += afs->readable_length ();
+				total_size += afs->readable_length_samples ();
 			} else {
 				/* copy files as-is */
 				if (!afs->within_session()) {
@@ -5463,7 +5463,7 @@ Session::archive_session (const std::string& dest,
 		Glib::Threads::Mutex::Lock lm (source_lock);
 		for (SourceMap::const_iterator i = sources.begin(); i != sources.end(); ++i) {
 			boost::shared_ptr<AudioFileSource> afs = boost::dynamic_pointer_cast<AudioFileSource> (i->second);
-			if (!afs || afs->readable_length () == 0) {
+			if (!afs || afs->readable_length_samples () == 0) {
 				continue;
 			}
 
@@ -5498,7 +5498,7 @@ Session::archive_session (const std::string& dest,
 			}
 
 			if (progress) {
-				progress->descend ((float)afs->readable_length () / total_size);
+				progress->descend ((float)afs->readable_length_samples () / total_size);
 			}
 
 			try {

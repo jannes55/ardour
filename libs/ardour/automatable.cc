@@ -473,7 +473,8 @@ Automatable::control_factory(const Evoral::Parameter& param)
 				if (!Variant::type_is_numeric(desc.datatype)) {
 					make_list = false;  // Can't automate non-numeric data yet
 				} else {
-					list = boost::shared_ptr<AutomationList>(new AutomationList(param, desc));
+					/* XXX does it HAVE to be AudioTime ? */
+					list = boost::shared_ptr<AutomationList>(new AutomationList(param, desc, Temporal::AudioTime));
 				}
 				control = new PluginInsert::PluginPropertyControl(pi, param, desc, list);
 			}
@@ -515,7 +516,8 @@ Automatable::control_factory(const Evoral::Parameter& param)
 	}
 
 	if (make_list && !list) {
-		list = boost::shared_ptr<AutomationList>(new AutomationList(param, desc));
+		/* XXX does it HAVE to be audio time? */
+		list = boost::shared_ptr<AutomationList>(new AutomationList(param, desc, Temporal::AudioTime));
 	}
 
 	if (!control) {

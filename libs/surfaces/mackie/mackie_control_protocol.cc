@@ -1100,7 +1100,7 @@ MackieControlProtocol::set_state (const XMLNode & node, int version)
 string
 MackieControlProtocol::format_bbt_timecode (samplepos_t now_sample)
 {
-	Timecode::BBT_Time bbt_time;
+	Temporal::BBT_Time bbt_time;
 
 	session->bbt_time (now_sample, bbt_time);
 
@@ -1127,7 +1127,7 @@ MackieControlProtocol::format_bbt_timecode (samplepos_t now_sample)
 string
 MackieControlProtocol::format_timecode_timecode (samplepos_t now_sample)
 {
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 	session->timecode_time (now_sample, timecode);
 
 	// According to the Logic docs

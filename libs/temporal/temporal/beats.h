@@ -28,13 +28,16 @@
 #include <limits>
 
 #include "temporal/visibility.h"
+#include "temporal/types.h"
 
 namespace Temporal {
 
-/** Musical time in beats. */
+/** Musical time in beats, which are widely assumed to be quarter-notes 
+ */
+
 class /*LIBTEMPORAL_API*/ Beats {
 public:
-	LIBTEMPORAL_API static const int32_t PPQN = 1920;
+	LIBTEMPORAL_API static const int32_t PPQN = Temporal::ticks_per_beat;
 
 	Beats() : _beats(0), _ticks(0) {}
 

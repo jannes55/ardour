@@ -59,14 +59,19 @@ public:
 
 	/** This constructor does NOT notify others (session) */
 	MidiPlaylist (boost::shared_ptr<const MidiPlaylist> other,
-	              samplepos_t                            start,
-	              samplecnt_t                            cnt,
+	              timepos_t                             start,
+	              timecnt_t                             cnt,
 	              std::string                           name,
 	              bool                                  hidden = false);
 
 	~MidiPlaylist ();
 
 	/** Read a range from the playlist into an event sink.
+	 *
+	 * This is where time conversion happens. The playlist contains
+	 * regions timestamped with timepos_t (probably BeatTime), and the
+	 * regions contain events timestamped with Beats. The target event sink
+	 * is timestamped in samples, for use inside process() context.
 	 *
 	 * @param buf Destination for events.
 	 * @param start First sample of read range.
@@ -75,19 +80,18 @@ public:
 	 * @param chan_n Must be 0 (this is the audio-style "channel", where each
 	 * channel is backed by a separate region, not MIDI channels, which all
 	 * exist in the same region and are not handled here).
-	 * @return The number of samples read (time, not an event count).
+	 * @return zero if read was successful, non-zero otherwise
 	 */
-	samplecnt_t read (Evoral::EventSink<samplepos_t>& buf,
-	                 samplepos_t                     start,
-	                 samplecnt_t                     cnt,
-	                 Evoral::Range<samplepos_t>*     loop_range,
-	                 uint32_t                       chan_n = 0,
-	                 MidiChannelFilter*             filter = NULL);
+	int read (Evoral::EventSink<samplepos_t>& buf,
+	          timepos_t                       start,
+	          timecnt_t                       cnt,
+	          Temporal::Range<samplepos_t>*   loop_range,
+	          uint32_t                        chan_n = 0,
+	          MidiChannelFilter*              filter = NULL);
 
 	int set_state (const XMLNode&, int version);
 
 	bool destroy_region (boost::shared_ptr<Region>);
-	void _split_region (boost::shared_ptr<Region>, const MusicSample& position);
 
 	void set_note_mode (NoteMode m) { _note_mode = m; }
 
@@ -118,7 +122,6 @@ protected:
 
 private:
 	typedef Evoral::Note<Temporal::Beats> Note;
-	typedef Evoral::Event<samplepos_t>   Event;
 
 	struct RegionTracker : public boost::noncopyable {
 		MidiCursor       cursor;   ///< Cursor (iterator and read state)
@@ -132,11 +135,9 @@ private:
 
 	NoteTrackers _note_trackers;
 	NoteMode     _note_mode;
-	samplepos_t   _read_end;
+	timepos_t   _read_end;
 };
 
 } /* namespace ARDOUR */
 
 #endif	/* __ardour_midi_playlist_h__ */
-
-

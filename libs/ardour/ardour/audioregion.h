@@ -74,9 +74,9 @@ class LIBARDOUR_API AudioRegion : public Region
 
 	boost::shared_ptr<AudioSource> audio_source (uint32_t n=0) const;
 
-    // if several audio files associated with a region,
-    // information about file with MAX channel count will be provided
-    uint32_t get_related_audio_file_channel_count () const;
+	// if several audio files associated with a region,
+	// information about file with MAX channel count will be provided
+	uint32_t get_related_audio_file_channel_count () const;
 
 	void   set_scale_amplitude (gain_t);
 	gain_t scale_amplitude() const { return _scale_amplitude; }
@@ -103,24 +103,25 @@ class LIBARDOUR_API AudioRegion : public Region
 	boost::shared_ptr<AutomationList> inverse_fade_out()  { return _inverse_fade_out.val (); }
 	boost::shared_ptr<AutomationList> envelope() { return _envelope.val (); }
 
-	Evoral::Range<samplepos_t> body_range () const;
+	Temporal::Range<samplepos_t> body_range () const;
 
 	virtual samplecnt_t read_peaks (PeakData *buf, samplecnt_t npeaks,
-			samplecnt_t offset, samplecnt_t cnt,
-			uint32_t chan_n=0, double samples_per_pixel = 1.0) const;
+	                                samplecnt_t offset, samplecnt_t cnt,
+	                                uint32_t chan_n=0, double samples_per_pixel = 1.0) const;
 
 	/* Readable interface */
 
 	virtual samplecnt_t read (Sample*, samplepos_t pos, samplecnt_t cnt, int channel) const;
-	virtual samplecnt_t readable_length() const { return length(); }
 
-	virtual samplecnt_t read_at (Sample *buf, Sample *mixdown_buf, float *gain_buf,
-				    samplepos_t position,
-				    samplecnt_t cnt,
-				    uint32_t   chan_n = 0) const;
+	/* Region interface */
 
-	virtual samplecnt_t master_read_at (Sample *buf, Sample *mixdown_buf, float *gain_buf,
-					   samplepos_t position, samplecnt_t cnt, uint32_t chan_n=0) const;
+	samplecnt_t read_at (Sample *buf, Sample *mixdown_buf, float *gain_buf,
+	                     samplepos_t position,
+	                     samplecnt_t cnt,
+	                     uint32_t   chan_n = 0) const;
+
+	samplecnt_t master_read_at (Sample *buf, Sample *mixdown_buf, float *gain_buf,
+	                            samplepos_t position, samplecnt_t cnt, uint32_t chan_n=0) const;
 
 	virtual samplecnt_t read_raw_internal (Sample*, samplepos_t, samplecnt_t, int channel) const;
 
@@ -128,7 +129,7 @@ class LIBARDOUR_API AudioRegion : public Region
 	XMLNode& get_basic_state ();
 	int set_state (const XMLNode&, int version);
 
-	void fade_range (samplepos_t, samplepos_t);
+	void fade_range (samplecnt_t, samplecnt_t);
 
 	bool fade_in_is_default () const;
 	bool fade_out_is_default () const;
@@ -189,7 +190,7 @@ class LIBARDOUR_API AudioRegion : public Region
 	AudioRegion (boost::shared_ptr<AudioSource>);
 	AudioRegion (const SourceList &);
 	AudioRegion (boost::shared_ptr<const AudioRegion>);
-	AudioRegion (boost::shared_ptr<const AudioRegion>, ARDOUR::MusicSample offset);
+	AudioRegion (boost::shared_ptr<const AudioRegion>, timecnt_t const & offset);
 	AudioRegion (boost::shared_ptr<const AudioRegion>, const SourceList&);
 	AudioRegion (SourceList &);
 
@@ -244,7 +245,7 @@ class LIBARDOUR_API AudioRegion : public Region
   protected:
 	/* default constructor for derived (compound) types */
 
-	AudioRegion (Session& s, samplepos_t, samplecnt_t, std::string name);
+	AudioRegion (Session& s, timepos_t, timecnt_t, std::string name);
 
 	int _set_state (const XMLNode&, int version, PBD::PropertyChange& what_changed, bool send_signal);
 };

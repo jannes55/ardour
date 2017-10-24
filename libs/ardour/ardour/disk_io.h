@@ -185,7 +185,7 @@ class LIBARDOUR_API DiskIOProcessor : public Processor
 
 	virtual void playlist_changed (const PBD::PropertyChange&) {}
 	virtual void playlist_deleted (boost::weak_ptr<Playlist>);
-	virtual void playlist_ranges_moved (std::list< Evoral::RangeMove<samplepos_t> > const &, bool) {}
+	virtual void playlist_ranges_moved (std::list< Temporal::RangeMove<timepos_t> > const &, bool) {}
 
 	/* The MIDI stuff */
 

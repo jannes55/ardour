@@ -271,16 +271,16 @@ MiniTimeline::format_time (samplepos_t when)
 	switch (_clock_mode) {
 		case AudioClock::Timecode:
 			{
-				Timecode::Time TC;
+				Temporal::Time TC;
 				_session->timecode_time (when, TC);
 				// chop of leading space or minus.
-				_layout->set_text (Timecode::timecode_format_time (TC).substr(1));
+				_layout->set_text (Temporal::timecode_format_time (TC).substr(1));
 			}
 			break;
 		case AudioClock::BBT:
 			{
 				char buf[64];
-				Timecode::BBT_Time BBT = _session->tempo_map().bbt_at_sample (when);
+				Temporal::BBT_Time BBT = _session->tempo_map().bbt_at_sample (when);
 				snprintf (buf, sizeof (buf), "%03" PRIu32 BBT_BAR_CHAR "%02" PRIu32 BBT_BAR_CHAR "%04" PRIu32,
 						BBT.bars, BBT.beats, BBT.ticks);
 				_layout->set_text (buf);

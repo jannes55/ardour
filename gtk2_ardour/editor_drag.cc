@@ -2747,7 +2747,7 @@ VideoTimeLineDrag::start_grab (GdkEvent* event, Gdk::Cursor*)
 	DEBUG_TRACE (DEBUG::Drags, string_compose("VideoTimeLineDrag: max backwards-drag: %1\n", _max_backwards_drag));
 
 	char buf[128];
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 	_editor->session()->sample_to_timecode(abs(_startdrag_video_offset), timecode, true /* use_offset */, false /* use_subframes */ );
 	snprintf (buf, sizeof (buf), "Video Start:\n%c%02" PRId32 ":%02" PRId32 ":%02" PRId32 ":%02" PRId32, (_startdrag_video_offset<0?'-':' '), timecode.hours, timecode.minutes, timecode.seconds, timecode.frames);
 	show_verbose_cursor_text (buf);
@@ -2790,8 +2790,8 @@ VideoTimeLineDrag::motion (GdkEvent* event, bool first_move)
 	}
 
 	const samplepos_t offset = ARDOUR_UI::instance()->video_timeline->get_offset();
-	Timecode::Time timecode;
-	Timecode::Time timediff;
+	Temporal::Time timecode;
+	Temporal::Time timediff;
 	char buf[128];
 	_editor->session()->sample_to_timecode(abs(offset), timecode, true /* use_offset */, false /* use_subframes */ );
 	_editor->session()->sample_to_timecode(abs(dt), timediff, false /* use_offset */, false /* use_subframes */ );
@@ -3283,7 +3283,7 @@ MeterMarkerDrag::motion (GdkEvent* event, bool first_move)
 		} else {
 			_editor->begin_reversible_command (_("copy meter mark"));
 
-			Timecode::BBT_Time bbt = _real_section->bbt();
+			Temporal::BBT_Time bbt = _real_section->bbt();
 
 			/* we can't add a meter where one currently exists */
 			if (_real_section->sample() < adjusted_current_sample (event, false)) {

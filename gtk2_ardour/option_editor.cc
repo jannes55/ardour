@@ -573,9 +573,9 @@ ClockOption::ClockOption (string const & i, string const & n, sigc::slot<std::st
 void
 ClockOption::set_state_from_config ()
 {
-	Timecode::Time TC;
+	Temporal::Time TC;
 	samplepos_t when;
-	if (!Timecode::parse_timecode_format(_get(), TC)) {
+	if (!Temporal::parse_timecode_format(_get(), TC)) {
 		_clock.set (0, true);
 	}
 	TC.rate = _session->samples_per_timecode_frame();
@@ -588,9 +588,9 @@ ClockOption::set_state_from_config ()
 void
 ClockOption::save_clock_time ()
 {
-	Timecode::Time TC;
+	Temporal::Time TC;
 	_session->sample_to_timecode(_clock.current_time(), TC, false, false);
-	_set (Timecode::timecode_format_time(TC));
+	_set (Temporal::timecode_format_time(TC));
 }
 
 void

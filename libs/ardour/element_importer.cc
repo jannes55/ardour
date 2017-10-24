@@ -73,7 +73,7 @@ ElementImporter::cancel_move ()
 }
 
 string
-ElementImporter::timecode_to_string(Timecode::Time & time) const
+ElementImporter::timecode_to_string(Temporal::Time & time) const
 {
 	std::ostringstream oss;
 	oss << std::setfill('0') << std::right <<

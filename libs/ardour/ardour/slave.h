@@ -40,9 +40,12 @@
 #define PLUSMINUS(A) ( ((A)<0) ? "-" : (((A)>0) ? "+" : "\u00B1") )
 #define LEADINGZERO(A) ( (A)<10 ? "   " : (A)<100 ? "  " : (A)<1000 ? " " : "" )
 
+namespace Temporal {
+class TempoMap;
+}
+
 namespace ARDOUR {
 
-class TempoMap;
 class Session;
 class AudioEngine;
 class MidiPort;
@@ -183,14 +186,14 @@ class LIBARDOUR_API Slave {
 class LIBARDOUR_API ISlaveSessionProxy {
   public:
 	virtual ~ISlaveSessionProxy() {}
-	virtual TempoMap&  tempo_map()                  const   { return *((TempoMap *) 0); }
-	virtual samplecnt_t sample_rate()                 const   { return 0; }
+	virtual Temporal::TempoMap&  tempo_map()         const   { return *((Temporal::TempoMap *) 0); }
+	virtual samplecnt_t sample_rate()                const   { return 0; }
 	virtual pframes_t  samples_per_cycle()           const   { return 0; }
-	virtual samplepos_t audible_sample ()             const   { return 0; }
-	virtual samplepos_t transport_sample ()           const   { return 0; }
+	virtual samplepos_t audible_sample ()            const   { return 0; }
+	virtual samplepos_t transport_sample ()          const   { return 0; }
 	virtual pframes_t  samples_since_cycle_start ()  const   { return 0; }
 	virtual samplepos_t sample_time_at_cycle_start() const   { return 0; }
-	virtual samplepos_t sample_time ()                const   { return 0; }
+	virtual samplepos_t sample_time ()               const   { return 0; }
 
 	virtual void request_locate (samplepos_t /*sample*/, bool with_roll = false) {
 		(void) with_roll;
@@ -206,14 +209,14 @@ class LIBARDOUR_API SlaveSessionProxy : public ISlaveSessionProxy {
   public:
 	SlaveSessionProxy(Session &s) : session(s) {}
 
-	TempoMap&  tempo_map()                   const;
-	samplecnt_t sample_rate()                  const;
+	Temporal::TempoMap&  tempo_map()          const;
+	samplecnt_t sample_rate()                 const;
 	pframes_t  samples_per_cycle()            const;
-	samplepos_t audible_sample ()              const;
-	samplepos_t transport_sample ()            const;
+	samplepos_t audible_sample ()             const;
+	samplepos_t transport_sample ()           const;
 	pframes_t  samples_since_cycle_start ()   const;
 	samplepos_t sample_time_at_cycle_start()  const;
-	samplepos_t sample_time ()                 const;
+	samplepos_t sample_time ()                const;
 
 	void request_locate (samplepos_t sample, bool with_roll = false);
 	void request_transport_speed (double speed);
@@ -239,7 +242,7 @@ class LIBARDOUR_API TimecodeSlave : public Slave {
   public:
 	TimecodeSlave () {}
 
-	virtual Timecode::TimecodeFormat apparent_timecode_format() const = 0;
+	virtual Temporal::TimecodeFormat apparent_timecode_format() const = 0;
 
 	/* this is intended to be used by a UI and polled from a timeout. it should
 	   return a string describing the current position of the TC source. it
@@ -271,7 +274,7 @@ class LIBARDOUR_API MTC_Slave : public TimecodeSlave {
 	samplecnt_t seekahead_distance() const;
 	bool give_slave_full_control_over_transport_speed() const;
 
-        Timecode::TimecodeFormat apparent_timecode_format() const;
+        Temporal::TimecodeFormat apparent_timecode_format() const;
         std::string approximate_current_position() const;
 	std::string approximate_current_delta() const;
 
@@ -293,7 +296,7 @@ class LIBARDOUR_API MTC_Slave : public TimecodeSlave {
 	samplepos_t     window_end;
 	samplepos_t     first_mtc_timestamp;
 	bool           did_reset_tc_format;
-	Timecode::TimecodeFormat saved_tc_format;
+	Temporal::TimecodeFormat saved_tc_format;
 	Glib::Threads::Mutex    reset_lock;
 	uint32_t       reset_pending;
 	bool           reset_position;
@@ -303,9 +306,9 @@ class LIBARDOUR_API MTC_Slave : public TimecodeSlave {
 
 	double         speedup_due_to_tc_mismatch;
 	double         quarter_frame_duration;
-	Timecode::TimecodeFormat mtc_timecode;
-	Timecode::TimecodeFormat a3e_timecode;
-	Timecode::Time timecode;
+	Temporal::TimecodeFormat mtc_timecode;
+	Temporal::TimecodeFormat a3e_timecode;
+	Temporal::Time timecode;
 	bool           printed_timecode_warning;
 	sampleoffset_t  current_delta;
 
@@ -353,7 +356,7 @@ public:
 	samplecnt_t seekahead_distance () const { return 0; }
 	bool give_slave_full_control_over_transport_speed() const { return true; }
 
-	Timecode::TimecodeFormat apparent_timecode_format() const;
+	Temporal::TimecodeFormat apparent_timecode_format() const;
 	std::string approximate_current_position() const;
 	std::string approximate_current_delta() const;
 
@@ -372,11 +375,11 @@ public:
 
 	Session&       session;
 	bool           did_reset_tc_format;
-	Timecode::TimecodeFormat saved_tc_format;
+	Temporal::TimecodeFormat saved_tc_format;
 
 	LTCDecoder *   decoder;
 	double         samples_per_ltc_frame;
-	Timecode::Time timecode;
+	Temporal::Time timecode;
 	LTCFrameExt    prev_sample;
 	bool           fps_detected;
 
@@ -391,8 +394,8 @@ public:
 	int            ltc_detect_fps_max;
 	bool           printed_timecode_warning;
 	bool           sync_lock_broken;
-	Timecode::TimecodeFormat ltc_timecode;
-	Timecode::TimecodeFormat a3e_timecode;
+	Temporal::TimecodeFormat ltc_timecode;
+	Temporal::TimecodeFormat a3e_timecode;
 
 	PBD::ScopedConnectionList port_connections;
 	PBD::ScopedConnection     config_connection;

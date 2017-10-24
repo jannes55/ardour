@@ -757,8 +757,8 @@ DiskReader::audio_read (Sample* buf, Sample* mixdown_buffer, float* gain_buffer,
 		*/
 
 		if ((loc = loop_location) != 0) {
-			loop_start = loc->start();
-			loop_end = loc->end();
+			loop_start = loc->start_sample();
+			loop_end = loc->end_sample();
 			loop_length = loop_end - loop_start;
 		}
 
@@ -1131,8 +1131,11 @@ DiskReader::refill_audio (Sample* mixdown_buffer, float* gain_buffer, samplecnt_
 }
 
 void
-DiskReader::playlist_ranges_moved (list< Evoral::RangeMove<samplepos_t> > const & movements_samples, bool from_undo)
+DiskReader::playlist_ranges_moved (list< Temporal::RangeMove<timepos_t> > const & movements, bool from_undo)
 {
+	/* XXX IS IT PRETTY WIERD FOR DiskReader TO BE THE OBJECT HANDLING
+	 * THIS. IS IT BECAUSE IT KNOWS ABOUT THE PLAYLIST? */
+
 	/* If we're coming from an undo, it will have handled
 	   automation undo (it must, since automation-follows-regions
 	   can lose automation data).  Hence we can do nothing here.
@@ -1146,13 +1149,10 @@ DiskReader::playlist_ranges_moved (list< Evoral::RangeMove<samplepos_t> > const 
 		return;
 	}
 
-	list< Evoral::RangeMove<double> > movements;
+	list< Temporal::RangeMove<Evoral::ControlEvent::when_t> > event_movements;
 
-	for (list< Evoral::RangeMove<samplepos_t> >::const_iterator i = movements_samples.begin();
-	     i != movements_samples.end();
-	     ++i) {
-
-		movements.push_back(Evoral::RangeMove<double>(i->from, i->length, i->to));
+	for (list< Temporal::RangeMove<timepos_t> >::const_iterator i = movements.begin(); i != movements.end(); ++i) {
+		event_movements.push_back(Temporal::RangeMove<Evoral::ControlEvent::when_t> (i->from.sample(), i->length.sample(), i->to.sample()));
 	}
 
 	/* move panner automation */
@@ -1169,27 +1169,21 @@ DiskReader::playlist_ranges_moved (list< Evoral::RangeMove<samplepos_t> > const 
 			continue;
 		}
                 XMLNode & before = alist->get_state ();
-                bool const things_moved = alist->move_ranges (movements);
+                bool const things_moved = alist->move_ranges (event_movements);
                 if (things_moved) {
-                        _session.add_command (new MementoCommand<AutomationList> (
-                                                      *alist.get(), &before, &alist->get_state ()));
+                        _session.add_command (new MementoCommand<AutomationList> (*alist.get(), &before, &alist->get_state ()));
                 }
         }
 	/* move processor automation */
-        _route->foreach_processor (boost::bind (&DiskReader::move_processor_automation, this, _1, movements_samples));
+        _route->foreach_processor (boost::bind (&DiskReader::move_processor_automation, this, _1, event_movements));
 }
 
 void
-DiskReader::move_processor_automation (boost::weak_ptr<Processor> p, list< Evoral::RangeMove<samplepos_t> > const & movements_samples)
+DiskReader::move_processor_automation (boost::weak_ptr<Processor> p, list<Temporal::RangeMove<Evoral::ControlEvent::when_t> > const & movements)
 {
 	boost::shared_ptr<Processor> processor (p.lock ());
 	if (!processor) {
 		return;
-	}
-
-	list< Evoral::RangeMove<double> > movements;
-	for (list< Evoral::RangeMove<samplepos_t> >::const_iterator i = movements_samples.begin(); i != movements_samples.end(); ++i) {
-		movements.push_back(Evoral::RangeMove<double>(i->from, i->length, i->to));
 	}
 
 	set<Evoral::Parameter> const a = processor->what_can_be_automated ();
@@ -1202,11 +1196,7 @@ DiskReader::move_processor_automation (boost::weak_ptr<Processor> p, list< Evora
 		XMLNode & before = al->get_state ();
 		bool const things_moved = al->move_ranges (movements);
 		if (things_moved) {
-			_session.add_command (
-				new MementoCommand<AutomationList> (
-					*al.get(), &before, &al->get_state ()
-					)
-				);
+			_session.add_command (new MementoCommand<AutomationList> (*al.get(), &before, &al->get_state ()));
 		}
 	}
 }
@@ -1259,7 +1249,7 @@ DiskReader::get_midi_playback (MidiBuffer& dst, samplepos_t start_sample, sample
 		DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose (
 			             "%1 MDS pre-read read %8 offset = %9 @ %4..%5 from %2 write to %3, LOOPED ? %6 .. %7\n", _name,
 			             _midi_buf->get_read_ptr(), _midi_buf->get_write_ptr(), start_sample, end_sample,
-			             (loc ? loc->start() : -1), (loc ? loc->end() : -1), nframes, Port::port_offset()));
+			             (loc ? loc->start_sample() : -1), (loc ? loc->end_sample() : -1), nframes, Port::port_offset()));
 
 		//cerr << "======== PRE ========\n";
 		//_midi_buf->dump (cerr);
@@ -1268,14 +1258,12 @@ DiskReader::get_midi_playback (MidiBuffer& dst, samplepos_t start_sample, sample
 		size_t events_read = 0;
 
 		if (loc) {
-			samplepos_t effective_start;
-
-			Evoral::Range<samplepos_t> loop_range (loc->start(), loc->end() - 1);
-			effective_start = loop_range.squish (start_sample);
+			Temporal::Range<samplepos_t> loop_range (loc->start_sample(), loc->end_sample() - 1);
+			samplepos_t effective_start = loop_range.squish (start_sample);
 
 			DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("looped, effective start adjusted to %1\n", effective_start));
 
-			if (effective_start == loc->start()) {
+			if (effective_start == loc->start_sample()) {
 				/* We need to turn off notes that may extend
 				   beyond the loop end.
 				*/
@@ -1285,7 +1273,7 @@ DiskReader::get_midi_playback (MidiBuffer& dst, samplepos_t start_sample, sample
 
 			/* for split-cycles we need to offset the events */
 
-			if (loc->end() >= effective_start && loc->end() < effective_start + nframes) {
+			if (loc->end_sample() >= effective_start && loc->end_sample() < effective_start + nframes) {
 
 				/* end of loop is within the range we are reading, so
 				   split the read in two, and lie about the location
@@ -1294,11 +1282,11 @@ DiskReader::get_midi_playback (MidiBuffer& dst, samplepos_t start_sample, sample
 
 				samplecnt_t first, second;
 
-				first = loc->end() - effective_start;
+				first = loc->end_sample() - effective_start;
 				second = nframes - first;
 
 				DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("loop read for eff %1 end %2: %3 and %4, cycle offset %5\n",
-				                                                      effective_start, loc->end(), first, second));
+				                                                      effective_start, loc->end_sample(), first, second));
 
 				if (first) {
 					DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("loop read #1, from %1 for %2\n",
@@ -1308,8 +1296,8 @@ DiskReader::get_midi_playback (MidiBuffer& dst, samplepos_t start_sample, sample
 
 				if (second) {
 					DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("loop read #2, from %1 for %2\n",
-					                                                      loc->start(), second));
-					events_read += _midi_buf->read (*target, loc->start(), second);
+					                                                      loc->start_sample(), second));
+					events_read += _midi_buf->read (*target, loc->start_sample(), second);
 				}
 
 			} else {
@@ -1381,7 +1369,7 @@ DiskReader::midi_read (samplepos_t& start, samplecnt_t dur, bool reversed)
 	samplecnt_t loop_length = 0;
 	Location*  loc         = loop_location;
 	samplepos_t effective_start = start;
-	Evoral::Range<samplepos_t>*  loop_range (0);
+	Temporal::Range<samplepos_t>*  loop_range (0);
 
 	DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("MDS::midi_read @ %1 cnt %2\n", start, dur));
 
@@ -1400,7 +1388,7 @@ DiskReader::midi_read (samplepos_t& start, samplecnt_t dur, bool reversed)
 		if (loc && !reversed) {
 
 			if (!loop_range) {
-				loop_range = new Evoral::Range<samplepos_t> (loop_start, loop_end-1); // inclusive semantics require -1
+				loop_range = new Temporal::Range<samplepos_t> (loop_start, loop_end-1); // inclusive semantics require -1
 			}
 
 			/* if we are (seamlessly) looping, ensure that the first sample we read is at the correct
@@ -1430,7 +1418,7 @@ DiskReader::midi_read (samplepos_t& start, samplecnt_t dur, bool reversed)
 
 		DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("MDS ::read at %1 for %2 loffset %3\n", effective_start, this_read, loop_offset));
 
-		if (midi_playlist()->read (*_midi_buf, effective_start, this_read, loop_range, 0, filter) != this_read) {
+		if (midi_playlist()->read (*_midi_buf, effective_start, this_read, loop_range, 0, filter)) {
 			error << string_compose(
 					_("MidiDiskstream %1: cannot read %2 from playlist at sample %3"),
 					id(), this_read, start) << endmsg;

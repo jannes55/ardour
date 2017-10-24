@@ -292,13 +292,13 @@ class LIBMIDIPP_API MachineControlCommand
 public:
 	MachineControlCommand () : _command (MachineControl::Command (0)) {}
 	MachineControlCommand (MachineControl::Command);
-	MachineControlCommand (Timecode::Time);
+	MachineControlCommand (Temporal::Time);
 
 	MIDI::byte* fill_buffer (MachineControl *mmc, MIDI::byte *) const;
 
 private:
 	MachineControl::Command _command;
-	Timecode::Time _time;
+	Temporal::Time _time;
 };
 
 } // namespace MIDI

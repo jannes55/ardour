@@ -1,6 +1,6 @@
 /* This file is part of Evoral.
  * Copyright (C) 2008 David Robillard <http://drobilla.net>
- * Copyright (C) 2000-2008 Paul Davis
+ * Copyright (C) 2000-2017 Paul Davis
  *
  * Evoral is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the Free Software
@@ -30,8 +30,12 @@
 
 #include "pbd/signals.h"
 
+#include "temporal/timeline.h"
+#include "temporal/types.h"
+#include "temporal/range.h"
+
 #include "evoral/visibility.h"
-#include "evoral/Range.hpp"
+
 #include "evoral/Parameter.hpp"
 #include "evoral/ParameterDescriptor.hpp"
 
@@ -44,7 +48,13 @@ class TypeMap;
  */
 class LIBEVORAL_API ControlEvent {
 public:
-	ControlEvent (double w, double v)
+	/* This is a deliberately ambiguous time type. It is interpreted as
+	   samples if the ControlList owning the event uses the AudioTime
+	   domain, and as Beats (fixed point) if the ControlList uses BeatTime.
+	*/
+	typedef int64_t when_t;
+
+	ControlEvent (when_t w, double v)
 		: when (w), value (v), coeff (0)
 	{}
 
@@ -67,10 +77,11 @@ public:
 		coeff[0] = coeff[1] = coeff[2] = coeff[3] = 0.0;
 	}
 
-	double  when;
+	when_t  when;
 	double  value;
 	double* coeff; ///< double[4] allocated by Curve as needed
 };
+
 
 /** A list (sequence) of time-stamped values for a control
  */
@@ -83,12 +94,14 @@ public:
 	typedef EventList::const_iterator const_iterator;
 	typedef EventList::const_reverse_iterator const_reverse_iterator;
 
-	ControlList (const Parameter& id, const ParameterDescriptor& desc);
+	ControlList (const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle);
+	ControlList (const ControlList&, ControlEvent::when_t start, ControlEvent::when_t end);
 	ControlList (const ControlList&);
-	ControlList (const ControlList&, double start, double end);
 	virtual ~ControlList();
 
-	virtual boost::shared_ptr<ControlList> create(const Parameter& id, const ParameterDescriptor& desc);
+	Temporal::LockStyle time_style() const { return _time_style; }
+
+	virtual boost::shared_ptr<ControlList> create(const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle);
 
 	void dump (std::ostream&);
 
@@ -107,7 +120,7 @@ public:
 	void                       set_descriptor(const ParameterDescriptor& d) { _desc = d; }
 
 	EventList::size_type size() const { return _events.size(); }
-	double length() const {
+	ControlEvent::when_t length() const {
 		Glib::Threads::RWLock::ReaderLock lm (_lock);
 		return _events.empty() ? 0.0 : _events.back()->when;
 	}
@@ -115,9 +128,9 @@ public:
 
 	void clear ();
 	void x_scale (double factor);
-	bool extend_to (double);
-	void slide (iterator before, double distance);
-	void shift (double before, double distance);
+	bool extend_to (ControlEvent::when_t);
+	void slide (iterator before, ControlEvent::when_t distance);
+	void shift (ControlEvent::when_t before, ControlEvent::when_t distance);
 
 	void y_transform (boost::function<double(double)> callback);
 	void list_merge (ControlList const& other, boost::function<double(double, double)> callback);
@@ -128,19 +141,19 @@ public:
 	 * @param with_guards if true, add guard-points
 	 * @param with_initial if true, add an initial point if the list is empty
 	 */
-	virtual void add (double when, double value, bool with_guards=true, bool with_initial=true);
+	virtual void add (ControlEvent::when_t when, double value, bool with_guards=true, bool with_initial=true);
 
-	virtual bool editor_add (double when, double value, bool with_guard);
+	virtual bool editor_add (ControlEvent::when_t when, double value, bool with_guard);
 
 	/* to be used only for loading pre-sorted data from saved state */
-	void fast_simple_add (double when, double value);
+	void fast_simple_add (ControlEvent::when_t when, double value);
 
-	void erase_range (double start, double end);
+	void erase_range (ControlEvent::when_t start, ControlEvent::when_t end);
 	void erase (iterator);
 	void erase (iterator, iterator);
-	void erase (double, double);
-	bool move_ranges (std::list< RangeMove<double> > const &);
-	void modify (iterator, double, double);
+	void erase (ControlEvent::when_t, double);
+	bool move_ranges (std::list<Temporal::RangeMove<ControlEvent::when_t> > const &);
+	void modify (iterator, ControlEvent::when_t, double);
 
 	/** Thin the number of events in this list.
 	 *
@@ -162,25 +175,25 @@ public:
 	 */
 	void thin (double thinning_factor);
 
-	boost::shared_ptr<ControlList> cut (double, double);
-	boost::shared_ptr<ControlList> copy (double, double);
+	boost::shared_ptr<ControlList> cut (ControlEvent::when_t, ControlEvent::when_t);
+	boost::shared_ptr<ControlList> copy (ControlEvent::when_t, ControlEvent::when_t);
 
 	/** remove all automation events between the given time range
 	 * @param start start of range (inclusive) in audio samples
 	 * @param end end of range (inclusive) in audio samples
 	 */
-	void clear (double start, double end);
+	void clear (ControlEvent::when_t start, ControlEvent::when_t end);
 
-	bool paste (const ControlList&, double position);
+	bool paste (const ControlList&, ControlEvent::when_t position);
 
 	/** truncate the event list after the given time
 	 * @param last_coordinate last event to include
 	 */
-	void truncate_end (double last_coordinate);
+	void truncate_end (ControlEvent::when_t last_coordinate);
 	/** truncate the event list to the given time
 	 * @param overall_length overall length
 	 */
-	void truncate_start (double overall_length);
+	void truncate_start (ControlEvent::when_t overall_length);
 
 	iterator            begin()       { return _events.begin(); }
 	const_iterator      begin() const { return _events.begin(); }
@@ -195,7 +208,7 @@ public:
 	ControlEvent*       front()       { return _events.front(); }
 	const ControlEvent* front() const { return _events.front(); }
 
-	std::pair<ControlList::iterator,ControlList::iterator> control_points_adjacent (double when);
+	std::pair<ControlList::iterator,ControlList::iterator> control_points_adjacent (ControlEvent::when_t when);
 
 	template<class T> void apply_to_points (T& obj, void (T::*method)(const ControlList&)) {
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -206,7 +219,7 @@ public:
 	 * @param where absolute time in samples
 	 * @returns parameter value
 	 */
-	double eval (double where) const {
+	double eval (ControlEvent::when_t where) const {
 		Glib::Threads::RWLock::ReaderLock lm (_lock);
 		return unlocked_eval (where);
 	}
@@ -216,7 +229,7 @@ public:
 	 * @param ok boolean reference if returned value is valid
 	 * @returns parameter value
 	 */
-	double rt_safe_eval (double where, bool& ok) const {
+	double rt_safe_eval (ControlEvent::when_t where, bool& ok) const {
 
 		Glib::Threads::RWLock::ReaderLock lm (_lock, Glib::Threads::TRY_LOCK);
 
@@ -257,12 +270,12 @@ public:
 	 *
 	 * FIXME: Should this be private?  Curve needs it..
 	 */
-	double unlocked_eval (double x) const;
+	double unlocked_eval (ControlEvent::when_t x) const;
 
-	bool rt_safe_earliest_event (double start, double& x, double& y, bool start_inclusive=false) const;
-	bool rt_safe_earliest_event_unlocked (double start, double& x, double& y, bool start_inclusive=false) const;
-	bool rt_safe_earliest_event_linear_unlocked (double start, double& x, double& y, bool inclusive) const;
-	bool rt_safe_earliest_event_discrete_unlocked (double start, double& x, double& y, bool inclusive) const;
+	bool rt_safe_earliest_event (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool start_inclusive=false) const;
+	bool rt_safe_earliest_event_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool start_inclusive=false) const;
+	bool rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const;
+	bool rt_safe_earliest_event_discrete_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const;
 
 	void create_curve();
 	void destroy_curve();
@@ -301,9 +314,9 @@ public:
 	virtual bool touching() const { return false; }
 	virtual bool writing() const { return false; }
 	virtual bool touch_enabled() const { return false; }
-	void start_write_pass (double when);
-	void write_pass_finished (double when, double thinning_factor=0.0);
-	void set_in_write_pass (bool, bool add_point = false, double when = 0.0);
+	void start_write_pass (ControlEvent::when_t when);
+	void write_pass_finished (ControlEvent::when_t when, double thinning_factor=0.0);
+	void set_in_write_pass (bool, bool add_point = false, ControlEvent::when_t when = 0.0);
 	bool in_write_pass () const;
 	bool in_new_write_pass () { return new_write_pass; }
 
@@ -320,16 +333,16 @@ public:
 protected:
 
 	/** Called by unlocked_eval() to handle cases of 3 or more control points. */
-	double multipoint_eval (double x) const;
+	double multipoint_eval (ControlEvent::when_t x) const;
 
-	void build_search_cache_if_necessary (double start) const;
+	void build_search_cache_if_necessary (ControlEvent::when_t start) const;
 
-	boost::shared_ptr<ControlList> cut_copy_clear (double, double, int op);
-	bool erase_range_internal (double start, double end, EventList &);
+	boost::shared_ptr<ControlList> cut_copy_clear (ControlEvent::when_t, ControlEvent::when_t, int op);
+	bool erase_range_internal (ControlEvent::when_t start, ControlEvent::when_t end, EventList &);
 
-	void     maybe_add_insert_guard (double when);
-	iterator erase_from_iterator_to (iterator iter, double when);
-	bool     maybe_insert_straight_line (double when, double value);
+	void     maybe_add_insert_guard (ControlEvent::when_t when);
+	iterator erase_from_iterator_to (iterator iter, ControlEvent::when_t when);
+	bool     maybe_insert_straight_line (ControlEvent::when_t when, double value);
 
 	virtual void maybe_signal_changed ();
 
@@ -347,6 +360,7 @@ protected:
 	int8_t                _frozen;
 	bool                  _changed_when_thawed;
 	bool                  _sort_pending;
+	Temporal::LockStyle   _time_style;
 
 	Curve* _curve;
 
@@ -359,7 +373,7 @@ private:
 
 	void unlocked_remove_duplicates ();
 	void unlocked_invalidate_insert_iterator ();
-	void add_guard_point (double when, double offset);
+	void add_guard_point (ControlEvent::when_t when, double offset);
 
 	bool is_sorted () const;
 };
@@ -367,4 +381,3 @@ private:
 } // namespace Evoral
 
 #endif // EVORAL_CONTROL_LIST_HPP
-

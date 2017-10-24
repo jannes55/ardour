@@ -25,7 +25,7 @@
 
 #include "temporal/visibility.h"
 
-namespace Timecode {
+namespace Temporal {
 
 enum Wrap {
 	NONE = 0,
@@ -108,7 +108,7 @@ bool LIBTEMPORAL_API timecode_has_drop_frames(TimecodeFormat const t);
 
 std::string LIBTEMPORAL_API timecode_format_name (TimecodeFormat const t);
 
-std::string LIBTEMPORAL_API timecode_format_time (Timecode::Time const timecode);
+std::string LIBTEMPORAL_API timecode_format_time (Temporal::Time const timecode);
 
 std::string LIBTEMPORAL_API timecode_format_sampletime (
 		int64_t sample,
@@ -116,12 +116,12 @@ std::string LIBTEMPORAL_API timecode_format_sampletime (
 		double timecode_frames_per_second, bool timecode_drop_frames
 		);
 
-bool LIBTEMPORAL_API parse_timecode_format(std::string tc, Timecode::Time &TC);
+bool LIBTEMPORAL_API parse_timecode_format(std::string tc, Temporal::Time &TC);
 
 void LIBTEMPORAL_API timecode_to_sample(
-		Timecode::Time& timecode, int64_t& sample,
+		Temporal::Time& timecode, int64_t& sample,
 		bool use_offset, bool use_subframes,
-    /* Note - framerate info is taken from Timecode::Time& */
+    /* Note - framerate info is taken from Temporal::Time& */
 		double sample_sample_rate /**< may include pull up/down */,
 		uint32_t subframes_per_frame /**< must not be 0 if use_subframes==true */,
     /* optional offset  - can be improved: function pointer to lazily query this*/
@@ -129,7 +129,7 @@ void LIBTEMPORAL_API timecode_to_sample(
 		);
 
 void LIBTEMPORAL_API sample_to_timecode (
-		int64_t sample, Timecode::Time& timecode,
+		int64_t sample, Temporal::Time& timecode,
 		bool use_offset, bool use_subframes,
     /* framerate info */
 		double timecode_frames_per_second,
@@ -141,8 +141,8 @@ void LIBTEMPORAL_API sample_to_timecode (
 		);
 
 
-} // namespace Timecode
+} // namespace Temporal
 
-extern LIBTEMPORAL_API std::ostream& operator<< (std::ostream& ostr, const Timecode::Time& t);
+extern LIBTEMPORAL_API std::ostream& operator<< (std::ostream& ostr, const Temporal::Time& t);
 
 #endif  // __timecode_time_h__

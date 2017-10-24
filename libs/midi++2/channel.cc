@@ -24,6 +24,7 @@
 #include "midi++/channel.h"
 
 using namespace MIDI;
+using Temporal::samplecnt_t;
 
 Channel::Channel (MIDI::byte channelnum, Port &p)
 	: _port (p)

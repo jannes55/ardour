@@ -32,12 +32,12 @@
 #include "ardour/types.h"
 
 namespace Evoral { template<typename Time> class EventSink; }
+namespace Temporal { class TempoMap; }
 
 namespace ARDOUR {
 
 class BeatsSamplesConverter;
 class MidiStateTracker;
-class TempoMap;
 
 /** A tracker and compensator for note edit operations.
  *
@@ -65,10 +65,10 @@ public:
 	 * @param origin Timeline position of edited source.
 	 * @param pos Current read position (last read end).
 	 */
-	void prepare(TempoMap&                          tempo_map,
+	void prepare(Temporal::TempoMap&                tempo_map,
 	             const MidiModel::NoteDiffCommand*  cmd,
-	             samplepos_t                         origin,
-	             samplepos_t                         pos,
+	             samplepos_t                        origin,
+	             samplepos_t                        pos,
 	             std::set< boost::weak_ptr<Note> >& active_notes);
 
 	/** Emit any pending edit compensation events.

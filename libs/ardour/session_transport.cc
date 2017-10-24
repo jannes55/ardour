@@ -234,7 +234,7 @@ Session::request_play_loop (bool yn, bool change_transport_roll)
 				   to set up position for the new loop. Don't
 				   do this if we're rolling already.
 				*/
-				request_locate (location->start(), false);
+				request_locate (location->start_sample(), false);
 			}
 		}
 	} else {
@@ -247,7 +247,7 @@ Session::request_play_loop (bool yn, bool change_transport_roll)
 }
 
 void
-Session::request_play_range (list<AudioRange>* range, bool leave_rolling)
+Session::request_play_range (list<TimelineRange>* range, bool leave_rolling)
 {
 	SessionEvent* ev = new SessionEvent (SessionEvent::SetPlayAudioRange, SessionEvent::Add, SessionEvent::Immediate, 0, (leave_rolling ? 1.0 : 0.0));
 	if (range) {
@@ -525,15 +525,15 @@ Session::non_realtime_locate ()
 
 		Location *loc  = _locations->auto_loop_location();
 
-		if (!loc || (_transport_sample < loc->start() || _transport_sample >= loc->end())) {
+		if (!loc || (_transport_sample < loc->start_sample() || _transport_sample >= loc->end_sample())) {
 			/* jumped out of loop range: stop tracks from looping,
 			   but leave loop (mode) enabled.
 			 */
 			set_track_loop (false);
 
 		} else if (loc && Config->get_seamless_loop() &&
-                   ((loc->start() <= _transport_sample) ||
-                   (loc->end() > _transport_sample) ) ) {
+                   ((loc->start_sample() <= _transport_sample) ||
+                   (loc->end_sample() > _transport_sample) ) ) {
 
 			/* jumping to start of loop. This  might have been done before but it is
 			 * idempotent and cheap. Doing it here ensures that when we start playback
@@ -1058,7 +1058,7 @@ Session::set_play_loop (bool yn, double speed)
 			samplecnt_t dcl;
 			auto_loop_declick_range (loc, dcp, dcl);
 			merge_event (new SessionEvent (SessionEvent::AutoLoopDeclick, SessionEvent::Replace, dcp, dcl, 0.0f));
-			merge_event (new SessionEvent (SessionEvent::AutoLoop, SessionEvent::Replace, loc->end(), loc->start(), 0.0f));
+			merge_event (new SessionEvent (SessionEvent::AutoLoop, SessionEvent::Replace, loc->end_sample(), loc->start_sample(), 0.0f));
 
 			/* if requested to roll, locate to start of loop and
 			 * roll but ONLY if we're not already rolling.
@@ -1071,11 +1071,11 @@ Session::set_play_loop (bool yn, double speed)
 				   rolling, do not locate to loop start.
 				*/
 				if (!transport_rolling() && (speed != 0.0)) {
-					start_locate (loc->start(), true, true, false, true);
+					start_locate (loc->start_sample(), true, true, false, true);
 				}
 			} else {
 				if (speed != 0.0) {
-					start_locate (loc->start(), true, true, false, true);
+					start_locate (loc->start_sample(), true, true, false, true);
 				}
 			}
 		}
@@ -1293,7 +1293,7 @@ Session::locate (samplepos_t target_sample, bool with_roll, bool with_flush, boo
 		Location* al = _locations->auto_loop_location();
 
 		if (al) {
-			if (_transport_sample < al->start() || _transport_sample >= al->end()) {
+			if (_transport_sample < al->start_sample() || _transport_sample >= al->end_sample()) {
 
 				// located outside the loop: cancel looping directly, this is called from event handling context
 
@@ -1311,13 +1311,13 @@ Session::locate (samplepos_t target_sample, bool with_roll, bool with_flush, boo
 					}
 				}
 
-			} else if (_transport_sample == al->start()) {
+			} else if (_transport_sample == al->start_sample()) {
 
 				// located to start of loop - this is looping, basically
 
 				if (!have_looped) {
 					/* first time */
-					if (_last_roll_location != al->start()) {
+					if (_last_roll_location != al->start_sample()) {
 						/* didn't start at loop start - playback must have
 						 * started before loop since we've now hit the loop
 						 * end.
@@ -1438,7 +1438,7 @@ Session::set_transport_speed (double speed, samplepos_t destination_sample, bool
 			Location *location = _locations->auto_loop_location();
 
 			if (location != 0) {
-				if (_transport_sample != location->start()) {
+				if (_transport_sample != location->start_sample()) {
 
 					if (Config->get_seamless_loop()) {
 						/* force tracks to do their thing */
@@ -1447,7 +1447,7 @@ Session::set_transport_speed (double speed, samplepos_t destination_sample, bool
 
 					/* jump to start and then roll from there */
 
-					request_locate (location->start(), true);
+					request_locate (location->start_sample(), true);
 					return;
 				}
 			}
@@ -1626,6 +1626,8 @@ Session::stop_transport (bool abort, bool clear_state)
 void
 Session::start_transport ()
 {
+	using namespace Temporal;
+
 	DEBUG_TRACE (DEBUG::Transport, "start_transport\n");
 
 	_last_roll_location = _transport_sample;
@@ -1668,7 +1670,7 @@ Session::start_transport ()
 	_target_transport_speed = _transport_speed;
 
 	if (!_engine.freewheeling()) {
-		Timecode::Time time;
+		Temporal::Time time;
 		timecode_time_subframes (_transport_sample, time);
 		if (!dynamic_cast<MTC_Slave*>(_slave)) {
 			send_immediate_mmc (MIDI::MachineControlCommand (MIDI::MachineControl::cmdDeferredPlay));
@@ -1680,13 +1682,13 @@ Session::start_transport ()
 			 * - use [fixed] tempo/meter at _transport_sample
 			 * - calc duration of 1 bar + time-to-beat before or at transport_sample
 			 */
-			const Tempo& tempo = _tempo_map->tempo_at_sample (_transport_sample);
-			const Meter& meter = _tempo_map->meter_at_sample (_transport_sample);
+			const Tempo& tempo = _tempo_map->tempo_at (_transport_sample);
+			const Meter& meter = _tempo_map->meter_at (_transport_sample);
 
 			const double num = meter.divisions_per_bar ();
-			const double den = meter.note_divisor ();
-			const double barbeat = _tempo_map->exact_qn_at_sample (_transport_sample, 0) * den / (4. * num);
-			const double bar_fract = fmod (barbeat, 1.0); // fraction of bar elapsed.
+			/* XXX possible optimization: get meter and BBT time in one call */
+			const Temporal::BBT_Time bbt = _tempo_map->bbt_at (_transport_sample);
+			const double bar_fract = (double) bbt.beats / meter.divisions_per_bar();
 
 			_count_in_samples = meter.samples_per_bar (tempo, _current_sample_rate);
 
@@ -1943,7 +1945,7 @@ Session::unset_play_range ()
 }
 
 void
-Session::set_play_range (list<AudioRange>& range, bool leave_rolling)
+Session::set_play_range (list<TimelineRange>& range, bool leave_rolling)
 {
 	SessionEvent* ev;
 
@@ -1967,12 +1969,12 @@ Session::set_play_range (list<AudioRange>& range, bool leave_rolling)
 	/* cancel loop play */
 	unset_play_loop ();
 
-	list<AudioRange>::size_type sz = range.size();
+	list<TimelineRange>::size_type sz = range.size();
 
 	if (sz > 1) {
 
-		list<AudioRange>::iterator i = range.begin();
-		list<AudioRange>::iterator next;
+		list<TimelineRange>::iterator i = range.begin();
+		list<TimelineRange>::iterator next;
 
 		while (i != range.end()) {
 
@@ -1982,7 +1984,7 @@ Session::set_play_range (list<AudioRange>& range, bool leave_rolling)
 			/* locating/stopping is subject to delays for declicking.
 			 */
 
-			samplepos_t requested_sample = i->end;
+			samplepos_t requested_sample = i->to.sample();
 
 			if (requested_sample > current_block_size) {
 				requested_sample -= current_block_size;
@@ -1993,7 +1995,7 @@ Session::set_play_range (list<AudioRange>& range, bool leave_rolling)
 			if (next == range.end()) {
 				ev = new SessionEvent (SessionEvent::RangeStop, SessionEvent::Add, requested_sample, 0, 0.0f);
 			} else {
-				ev = new SessionEvent (SessionEvent::RangeLocate, SessionEvent::Add, requested_sample, (*next).start, 0.0f);
+				ev = new SessionEvent (SessionEvent::RangeLocate, SessionEvent::Add, requested_sample, (*next).from.sample(), 0.0f);
 			}
 
 			merge_event (ev);
@@ -2003,7 +2005,7 @@ Session::set_play_range (list<AudioRange>& range, bool leave_rolling)
 
 	} else if (sz == 1) {
 
-		ev = new SessionEvent (SessionEvent::RangeStop, SessionEvent::Add, range.front().end, 0, 0.0f);
+		ev = new SessionEvent (SessionEvent::RangeStop, SessionEvent::Add, range.front().to.sample(), 0, 0.0f);
 		merge_event (ev);
 
 	}
@@ -2014,7 +2016,7 @@ Session::set_play_range (list<AudioRange>& range, bool leave_rolling)
 
 	/* now start rolling at the right place */
 
-	ev = new SessionEvent (SessionEvent::LocateRoll, SessionEvent::Add, SessionEvent::Immediate, range.front().start, 0.0f, false);
+	ev = new SessionEvent (SessionEvent::LocateRoll, SessionEvent::Add, SessionEvent::Immediate, range.front().from.sample(), 0.0f, false);
 	merge_event (ev);
 
 	DEBUG_TRACE (DEBUG::Transport, string_compose ("send TSC5 with speed = %1\n", _transport_speed));
@@ -2024,11 +2026,11 @@ Session::set_play_range (list<AudioRange>& range, bool leave_rolling)
 void
 Session::request_bounded_roll (samplepos_t start, samplepos_t end)
 {
-	AudioRange ar (start, end, 0);
-	list<AudioRange> lar;
+	TimelineRange r (start, end, 0);
+	list<TimelineRange> lr;
 
-	lar.push_back (ar);
-	request_play_range (&lar, true);
+	lr.push_back (r);
+	request_play_range (&lr, true);
 }
 
 void
@@ -2138,7 +2140,7 @@ Session::send_mmc_locate (samplepos_t t)
 	}
 
 	if (!_engine.freewheeling()) {
-		Timecode::Time time;
+		Temporal::Time time;
 		timecode_time_subframes (t, time);
 		send_immediate_mmc (MIDI::MachineControlCommand (time));
 	}

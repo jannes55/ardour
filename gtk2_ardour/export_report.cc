@@ -333,11 +333,11 @@ ExportReport::init (const AnalysisResults & ar, bool with_file)
 				png_y0 += linesp;
 
 				if (_session) {
-					Timecode::Time tct;
+					Temporal::Time tct;
 					_session->sample_to_timecode (start_off, tct, false, false);
-					IMGLABEL (lx0, _("Timecode:"), Timecode::timecode_format_time (tct));
+					IMGLABEL (lx0, _("Timecode:"), Temporal::timecode_format_time (tct));
 				}
-				IMGLABEL (lx1, _("Duration:"), Timecode::timecode_format_sampletime (file_length, sample_rate, 1000, false));
+				IMGLABEL (lx1, _("Duration:"), Temporal::timecode_format_sampletime (file_length, sample_rate, 1000, false));
 				png_y0 += linesp;
 			}
 		}

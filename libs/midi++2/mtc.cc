@@ -32,6 +32,7 @@
 using namespace std;
 using namespace sigc;
 using namespace MIDI;
+using Temporal::samplecnt_t;
 
 #undef DEBUG_MTC
 

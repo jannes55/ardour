@@ -43,7 +43,7 @@ using namespace PBD;
  * is necessary to pull in all the symbols from libtimecode
  * so they are exported for other users of libtimecode.
  */
-double tmp = Timecode::BBT_Time::ticks_per_beat;
+double tmp = Temporal::ticks_per_beat;
 
 static std::map<int,string> mmc_cmd_map;
 static void build_mmc_cmd_map ()
@@ -690,7 +690,7 @@ MachineControlCommand::MachineControlCommand (MachineControl::Command c)
 
 }
 
-MachineControlCommand::MachineControlCommand (Timecode::Time t)
+MachineControlCommand::MachineControlCommand (Temporal::Time t)
 	: _command (MachineControl::cmdLocate)
 	, _time (t)
 {

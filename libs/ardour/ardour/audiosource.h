@@ -47,12 +47,10 @@ class LIBARDOUR_API AudioSource : virtual public Source,
 	AudioSource (Session&, const XMLNode&);
 	virtual ~AudioSource ();
 
-	samplecnt_t readable_length() const { return _length; }
+	samplecnt_t readable_length_samples() const { return length_samples (0); }
 	virtual uint32_t n_channels()      const { return 1; }
 
-	virtual bool       empty() const;
-	samplecnt_t length (samplepos_t pos) const;
-	void       update_length (samplecnt_t cnt);
+	void update_length (timecnt_t const & cnt);
 
 	virtual samplecnt_t available_peaks (double zoom) const;
 
@@ -68,8 +66,7 @@ class LIBARDOUR_API AudioSource : virtual public Source,
 	void set_captured_for (std::string str) { _captured_for = str; }
 	std::string captured_for() const { return _captured_for; }
 
-	int read_peaks (PeakData *peaks, samplecnt_t npeaks,
-			samplepos_t start, samplecnt_t cnt, double samples_per_visual_peak) const;
+	int read_peaks (PeakData *peaks, samplecnt_t npeaks, samplepos_t start, samplecnt_t cnt, double samples_per_visual_peak) const;
 
 	int  build_peaks ();
 	bool peaks_ready (boost::function<void()> callWhenReady, PBD::ScopedConnection** connection_created_if_not_ready, PBD::EventLoop* event_loop) const;
@@ -123,7 +120,6 @@ class LIBARDOUR_API AudioSource : virtual public Source,
 	static void ensure_buffers_for_level (uint32_t, samplecnt_t);
 	static void ensure_buffers_for_level_locked (uint32_t, samplecnt_t);
 
-	samplecnt_t           _length;
 	std::string         _peakpath;
 	std::string        _captured_for;
 

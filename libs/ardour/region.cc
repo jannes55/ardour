@@ -63,17 +63,16 @@ namespace ARDOUR {
 		PBD::PropertyDescriptor<bool> hidden;
 		PBD::PropertyDescriptor<bool> position_locked;
 		PBD::PropertyDescriptor<bool> valid_transients;
-		PBD::PropertyDescriptor<samplepos_t> start;
-		PBD::PropertyDescriptor<samplecnt_t> length;
-		PBD::PropertyDescriptor<samplepos_t> position;
-		PBD::PropertyDescriptor<double> beat;
-		PBD::PropertyDescriptor<samplecnt_t> sync_position;
+		PBD::PropertyDescriptor<timepos_t> start;
+		PBD::PropertyDescriptor<timecnt_t> length;
+		PBD::PropertyDescriptor<timepos_t> position;
+		PBD::PropertyDescriptor<timepos_t> sync_position;
 		PBD::PropertyDescriptor<layer_t> layer;
-		PBD::PropertyDescriptor<samplepos_t> ancestral_start;
-		PBD::PropertyDescriptor<samplecnt_t> ancestral_length;
+		PBD::PropertyDescriptor<timepos_t> ancestral_start;
+		PBD::PropertyDescriptor<timecnt_t> ancestral_length;
 		PBD::PropertyDescriptor<float> stretch;
 		PBD::PropertyDescriptor<float> shift;
-		PBD::PropertyDescriptor<PositionLockStyle> position_lock_style;
+		PBD::PropertyDescriptor<Temporal::LockStyle> position_lock_style;
 		PBD::PropertyDescriptor<uint64_t> layering_index;
 	}
 }
@@ -117,8 +116,6 @@ Region::make_property_quarks ()
 	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for length = %1\n",	Properties::length.property_id));
 	Properties::position.property_id = g_quark_from_static_string (X_("position"));
 	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for position = %1\n",	Properties::position.property_id));
-	Properties::beat.property_id = g_quark_from_static_string (X_("beat"));
-	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for beat = %1\n",	Properties::beat.property_id));
 	Properties::sync_position.property_id = g_quark_from_static_string (X_("sync-position"));
 	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for sync-position = %1\n",	Properties::sync_position.property_id));
 	Properties::layer.property_id = g_quark_from_static_string (X_("layer"));
@@ -131,8 +128,6 @@ Region::make_property_quarks ()
 	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for stretch = %1\n",	Properties::stretch.property_id));
 	Properties::shift.property_id = g_quark_from_static_string (X_("shift"));
 	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for shift = %1\n",	Properties::shift.property_id));
-	Properties::position_lock_style.property_id = g_quark_from_static_string (X_("positional-lock-style"));
-	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for position_lock_style = %1\n",		Properties::position_lock_style.property_id));
 	Properties::layering_index.property_id = g_quark_from_static_string (X_("layering-index"));
 	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for layering_index = %1\n",	Properties::layering_index.property_id));
 }
@@ -159,13 +154,11 @@ Region::register_properties ()
 	add_property (_start);
 	add_property (_length);
 	add_property (_position);
-	add_property (_beat);
 	add_property (_sync_position);
 	add_property (_ancestral_start);
 	add_property (_ancestral_length);
 	add_property (_stretch);
 	add_property (_shift);
-	add_property (_position_lock_style);
 	add_property (_layering_index);
 }
 
@@ -177,16 +170,14 @@ Region::register_properties ()
 	, _start (Properties::start, (s))	\
 	, _length (Properties::length, (l))	\
 	, _position (Properties::position, 0) \
-	, _beat (Properties::beat, 0.0) \
 	, _sync_position (Properties::sync_position, (s)) \
-	, _quarter_note (0.0) \
 	, _transient_user_start (0) \
 	, _transient_analysis_start (0) \
 	, _transient_analysis_end (0) \
 	, _muted (Properties::muted, false) \
 	, _opaque (Properties::opaque, true) \
 	, _locked (Properties::locked, false) \
-  , _video_locked (Properties::video_locked, false) \
+        , _video_locked (Properties::video_locked, false) \
 	, _automatic (Properties::automatic, false) \
 	, _whole_file (Properties::whole_file, false) \
 	, _import (Properties::import, false) \
@@ -197,7 +188,6 @@ Region::register_properties ()
 	, _ancestral_length (Properties::ancestral_length, (l)) \
 	, _stretch (Properties::stretch, 1.0) \
 	, _shift (Properties::shift, 1.0) \
-	, _position_lock_style (Properties::position_lock_style, _type == DataType::AUDIO ? AudioTime : MusicTime) \
 	, _layering_index (Properties::layering_index, 0)
 
 #define REGION_COPY_STATE(other) \
@@ -208,9 +198,7 @@ Region::register_properties ()
 	, _start(Properties::start, other->_start)		\
 	, _length(Properties::length, other->_length)		\
 	, _position(Properties::position, other->_position)	\
-	, _beat (Properties::beat, other->_beat)                \
 	, _sync_position(Properties::sync_position, other->_sync_position) \
-	, _quarter_note (other->_quarter_note)                                \
 	, _user_transients (other->_user_transients) \
 	, _transient_user_start (other->_transient_user_start) \
 	, _transients (other->_transients) \
@@ -219,7 +207,7 @@ Region::register_properties ()
 	, _muted (Properties::muted, other->_muted)	        \
 	, _opaque (Properties::opaque, other->_opaque)		\
 	, _locked (Properties::locked, other->_locked)		\
-  , _video_locked (Properties::video_locked, other->_video_locked) \
+	, _video_locked (Properties::video_locked, other->_video_locked) \
 	, _automatic (Properties::automatic, other->_automatic)	\
 	, _whole_file (Properties::whole_file, other->_whole_file) \
 	, _import (Properties::import, other->_import)		\
@@ -230,11 +218,10 @@ Region::register_properties ()
 	, _ancestral_length (Properties::ancestral_length, other->_ancestral_length) \
 	, _stretch (Properties::stretch, other->_stretch)	\
 	, _shift (Properties::shift, other->_shift)		\
-	, _position_lock_style (Properties::position_lock_style, other->_position_lock_style) \
 	, _layering_index (Properties::layering_index, other->_layering_index)
 
 /* derived-from-derived constructor (no sources in constructor) */
-Region::Region (Session& s, samplepos_t start, samplecnt_t length, const string& name, DataType type)
+Region::Region (Session& s, timepos_t start, timecnt_t length, const string& name, DataType type)
 	: SessionObject(s, name)
 	, _type(type)
 	, REGION_DEFAULT_STATE(start,length)
@@ -252,7 +239,7 @@ Region::Region (Session& s, samplepos_t start, samplecnt_t length, const string&
 Region::Region (const SourceList& srcs)
 	: SessionObject(srcs.front()->session(), "toBeRenamed")
 	, _type (srcs.front()->type())
-	, REGION_DEFAULT_STATE(0,0)
+	, REGION_DEFAULT_STATE(timepos_t(), timecnt_t())
 	, _last_length (0)
 	, _last_position (0)
 	, _first_edit (EditChangesNothing)
@@ -291,12 +278,9 @@ Region::Region (boost::shared_ptr<const Region> other)
 	use_sources (other->_sources);
 	set_master_sources (other->_master_sources);
 
-	_position_lock_style = other->_position_lock_style;
 	_first_edit = other->_first_edit;
 
 	_start = other->_start;
-	_beat = other->_beat;
-	_quarter_note = other->_quarter_note;
 
 	/* sync pos is relative to start of file. our start-in-file is now zero,
 	   so set our sync position to whatever the the difference between
@@ -310,9 +294,9 @@ Region::Region (boost::shared_ptr<const Region> other)
 	*/
 
 	if (other->sync_marked()) {
-		if (other->_start < other->_sync_position) {
+		if (other->start() < other->sync_position()) {
 			/* sync pos was after the start point of the other region */
-			_sync_position = other->_sync_position - other->_start;
+			_sync_position = other->sync_position() - other->start();
 		} else {
 			/* sync pos was before the start point of the other region. not possible here. */
 			_sync_marked = false;
@@ -331,7 +315,7 @@ Region::Region (boost::shared_ptr<const Region> other)
     the start within \a other is given by \a offset
     (i.e. relative to the start of \a other's sources, the start is \a offset + \a other.start()
 */
-Region::Region (boost::shared_ptr<const Region> other, MusicSample offset)
+Region::Region (boost::shared_ptr<const Region> other, timecnt_t const & offset)
 	: SessionObject(other->session(), other->name())
 	, _type (other->data_type())
 	, REGION_COPY_STATE (other)
@@ -352,19 +336,8 @@ Region::Region (boost::shared_ptr<const Region> other, MusicSample offset)
 	use_sources (other->_sources);
 	set_master_sources (other->_master_sources);
 
-	_position = other->_position + offset.sample;
-	_start = other->_start + offset.sample;
-
-	/* prevent offset of 0 from altering musical position */
-	if (offset.sample != 0) {
-		const double offset_qn = _session.tempo_map().exact_qn_at_sample (other->_position + offset.sample, offset.division)
-			- other->_quarter_note;
-
-		_quarter_note = other->_quarter_note + offset_qn;
-		_beat = _session.tempo_map().beat_at_quarter_note (_quarter_note);
-	} else {
-		_quarter_note = _session.tempo_map().quarter_note_at_beat (_beat);
-	}
+	_position = other->position() + offset;
+	_start = other->start() + offset;
 
 	/* if the other region had a distinct sync point
 	   set, then continue to use it as best we can.
@@ -372,7 +345,7 @@ Region::Region (boost::shared_ptr<const Region> other, MusicSample offset)
 	*/
 
 	if (other->sync_marked()) {
-		if (other->_sync_position < _start) {
+		if (other->_sync_position.val() < _start) {
 			_sync_marked = false;
 			_sync_position = _start;
 		} else {
@@ -439,7 +412,7 @@ Region::set_name (const std::string& str)
 }
 
 void
-Region::set_length (samplecnt_t len, const int32_t sub_num)
+Region::set_length (timecnt_t const & len)
 {
 	//cerr << "Region::set_length() len = " << len << endl;
 	if (locked()) {
@@ -452,16 +425,17 @@ Region::set_length (samplecnt_t len, const int32_t sub_num)
 		   length impossible.
 		*/
 
-		if (max_samplepos - len < _position) {
+		if (timepos_t::max() - len < position()) {
 			return;
 		}
 
-		if (!verify_length (len)) {
+		timecnt_t l = len;
+
+		if (!verify_length (l)) {
 			return;
 		}
 
-
-		set_length_internal (len, sub_num);
+		set_length_internal (l);
 		_whole_file = false;
 		first_edit ();
 		maybe_uncopy ();
@@ -476,7 +450,7 @@ Region::set_length (samplecnt_t len, const int32_t sub_num)
 }
 
 void
-Region::set_length_internal (samplecnt_t len, const int32_t sub_num)
+Region::set_length_internal (timecnt_t const & len)
 {
 	_last_length = _length;
 	_length = len;
@@ -541,7 +515,7 @@ Region::move_to_natural_position ()
 }
 
 void
-Region::special_set_position (samplepos_t pos)
+Region::special_set_position (timepos_t const & pos)
 {
 	/* this is used when creating a whole file region as
 	   a way to store its "natural" or "captured" position.
@@ -552,13 +526,14 @@ Region::special_set_position (samplepos_t pos)
 }
 
 void
-Region::set_position_lock_style (PositionLockStyle ps)
+Region::set_position_lock_style (Temporal::LockStyle ps)
 {
-	if (_position_lock_style != ps) {
+	if (_position.val().lock_style() != ps) {
 
 		boost::shared_ptr<Playlist> pl (playlist());
 
-		_position_lock_style = ps;
+#warning paul you need to fix this for locking regions to time to work
+		//_position->set_lock_style (ps);
 
 		send_change (Properties::position_lock_style);
 	}
@@ -573,16 +548,13 @@ Region::update_after_tempo_map_change (bool send)
 		return;
 	}
 
-	if (_position_lock_style == AudioTime) {
-		/* don't signal as the actual position has not chnged */
-		recompute_position_from_lock_style (0);
+	if (_position.val().lock_style() == Temporal::AudioTime) {
 		return;
 	}
 
-	/* prevent movement before 0 */
-	const samplepos_t pos = max ((samplepos_t) 0, _session.tempo_map().sample_at_beat (_beat));
-	/* we have _beat. update sample position non-musically */
-	set_position_internal (pos, false, 0);
+	/* XXX do we need to prevent movement before 0? Can this ever happen
+	 * with nutempo?
+	 */
 
 	/* do this even if the position is the same. this helps out
 	   a GUI that has moved its representation already.
@@ -594,7 +566,7 @@ Region::update_after_tempo_map_change (bool send)
 }
 
 void
-Region::set_position (samplepos_t pos, int32_t sub_num)
+Region::set_position (timepos_t const & pos)
 {
 	if (!can_move()) {
 		return;
@@ -607,27 +579,24 @@ Region::set_position (samplepos_t pos, int32_t sub_num)
 
 	p_and_l.add (Properties::position);
 
-	if (position_lock_style() == AudioTime) {
-		set_position_internal (pos, true, sub_num);
-	} else {
-		if (!_session.loading()) {
-			_beat = _session.tempo_map().exact_beat_at_sample (pos, sub_num);
-			_quarter_note = _session.tempo_map().quarter_note_at_beat (_beat);
-		}
+	set_position_internal (pos);
 
-		set_position_internal (pos, false, sub_num);
-	}
+	/* if locked to beats or bbt, changing position can potentially change
+	 * the length, because the tempo map may differ at the two different
+	 * positions. Theoretically we could check this, but the cost of
+	 * notifying about a (potential) length change is not that expensive
+	 * given that we already are notifying about position change.
+	 */
 
-	if (position_lock_style() == MusicTime) {
+	if (_position.val().lock_style() != Temporal::AudioTime) {
 		p_and_l.add (Properties::length);
 	}
 
 	send_change (p_and_l);
-
 }
 
 void
-Region::set_position_internal (samplepos_t pos, bool allow_bbt_recompute, const int32_t sub_num)
+Region::set_position_internal (timepos_t const & pos)
 {
 	/* We emit a change of Properties::position even if the position hasn't changed
 	   (see Region::set_position), so we must always set this up so that
@@ -638,74 +607,14 @@ Region::set_position_internal (samplepos_t pos, bool allow_bbt_recompute, const 
 	if (_position != pos) {
 		_position = pos;
 
-		if (allow_bbt_recompute) {
-			recompute_position_from_lock_style (sub_num);
-		} else {
-			/* MusicTime dictates that we glue to ardour beats. the pulse may have changed.*/
-			_quarter_note = _session.tempo_map().quarter_note_at_beat (_beat);
-		}
-
 		/* check that the new _position wouldn't make the current
 		   length impossible - if so, change the length.
 
 		   XXX is this the right thing to do?
 		*/
-		if (max_samplepos - _length < _position) {
+		if (timepos_t::max() - _length < _position) {
 			_last_length = _length;
-			_length = max_samplepos - _position;
-		}
-	}
-}
-
-void
-Region::set_position_music (double qn)
-{
-	if (!can_move()) {
-		return;
-	}
-
-	/* do this even if the position is the same. this helps out
-	   a GUI that has moved its representation already.
-	*/
-	PropertyChange p_and_l;
-
-	p_and_l.add (Properties::position);
-
-	if (!_session.loading()) {
-		_beat = _session.tempo_map().beat_at_quarter_note (qn);
-	}
-
-	/* will set sample accordingly */
-	set_position_music_internal (qn);
-
-	if (position_lock_style() == MusicTime) {
-		p_and_l.add (Properties::length);
-	}
-
-	send_change (p_and_l);
-}
-
-void
-Region::set_position_music_internal (double qn)
-{
-	/* We emit a change of Properties::position even if the position hasn't changed
-	   (see Region::set_position), so we must always set this up so that
-	   e.g. Playlist::notify_region_moved doesn't use an out-of-date last_position.
-	*/
-	_last_position = _position;
-
-	if (_quarter_note != qn) {
-		_position = _session.tempo_map().sample_at_quarter_note (qn);
-		_quarter_note = qn;
-
-		/* check that the new _position wouldn't make the current
-		   length impossible - if so, change the length.
-
-		   XXX is this the right thing to do?
-		*/
-		if (max_samplepos - _length < _position) {
-			_last_length = _length;
-			_length = max_samplepos - _position;
+			_length = timepos_t::max() - _position;
 		}
 	}
 }
@@ -716,7 +625,7 @@ Region::set_position_music_internal (double qn)
  *  _last_position to prevent an implied move.
  */
 void
-Region::set_initial_position (samplepos_t pos)
+Region::set_initial_position (timepos_t const & pos)
 {
 	if (!can_move()) {
 		return;
@@ -731,12 +640,11 @@ Region::set_initial_position (samplepos_t pos)
 		   XXX is this the right thing to do?
 		*/
 
-		if (max_samplepos - _length < _position) {
+		if (timepos_t::max() - _length < _position) {
 			_last_length = _length;
-			_length = max_samplepos - _position;
+			_length = timepos_t::max() - _position;
 		}
 
-		recompute_position_from_lock_style (0);
 		/* ensure that this move doesn't cause a range move */
 		_last_position = _position;
 	}
@@ -749,14 +657,7 @@ Region::set_initial_position (samplepos_t pos)
 }
 
 void
-Region::recompute_position_from_lock_style (const int32_t sub_num)
-{
-	_beat = _session.tempo_map().exact_beat_at_sample (_position, sub_num);
-	_quarter_note = _session.tempo_map().exact_qn_at_sample (_position, sub_num);
-}
-
-void
-Region::nudge_position (sampleoffset_t n)
+Region::nudge_position (timecnt_t const & n)
 {
 	if (locked() || video_locked()) {
 		return;
@@ -766,29 +667,29 @@ Region::nudge_position (sampleoffset_t n)
 		return;
 	}
 
-	samplepos_t new_position = _position;
+	timepos_t new_position = _position;
 
 	if (n > 0) {
-		if (_position > max_samplepos - n) {
-			new_position = max_samplepos;
+		if (position() > timepos_t::max() - n) {
+			new_position = timepos_t::max();
 		} else {
 			new_position += n;
 		}
 	} else {
-		if (_position < -n) {
+		if (position() < -n) {
 			new_position = 0;
 		} else {
 			new_position += n;
 		}
 	}
 	/* assumes non-musical nudge */
-	set_position_internal (new_position, true, 0);
+	set_position_internal (new_position);
 
 	send_change (Properties::position);
 }
 
 void
-Region::set_ancestral_data (samplepos_t s, samplecnt_t l, float st, float sh)
+Region::set_ancestral_data (timepos_t const & s, timecnt_t const & l, float st, float sh)
 {
 	_ancestral_length = l;
 	_ancestral_start = s;
@@ -797,7 +698,7 @@ Region::set_ancestral_data (samplepos_t s, samplecnt_t l, float st, float sh)
 }
 
 void
-Region::set_start (samplepos_t pos)
+Region::set_start (timepos_t const & pos)
 {
 	if (locked() || position_locked() || video_locked()) {
 		return;
@@ -809,11 +710,13 @@ Region::set_start (samplepos_t pos)
 
 	if (_start != pos) {
 
-		if (!verify_start (pos)) {
+		timepos_t p = pos;
+
+		if (!verify_start (p)) {
 			return;
 		}
 
-		set_start_internal (pos);
+		set_start_internal (p);
 		_whole_file = false;
 		first_edit ();
 		maybe_invalidate_transients ();
@@ -823,20 +726,20 @@ Region::set_start (samplepos_t pos)
 }
 
 void
-Region::move_start (sampleoffset_t distance, const int32_t sub_num)
+Region::move_start (timecnt_t const & distance)
 {
 	if (locked() || position_locked() || video_locked()) {
 		return;
 	}
 
-	samplepos_t new_start;
+	timepos_t new_start;
 
 	if (distance > 0) {
 
-		if (_start > max_samplepos - distance) {
-			new_start = max_samplepos; // makes no sense
+		if (start() > timepos_t::max() - distance) {
+			new_start = timepos_t::max(); // makes no sense
 		} else {
-			new_start = _start + distance;
+			new_start = start() + distance;
 		}
 
 		if (!verify_start (new_start)) {
@@ -845,21 +748,21 @@ Region::move_start (sampleoffset_t distance, const int32_t sub_num)
 
 	} else if (distance < 0) {
 
-		if (_start < -distance) {
+		if (start() < -distance) {
 			new_start = 0;
 		} else {
-			new_start = _start + distance;
+			new_start = start() + distance;
 		}
 
 	} else {
 		return;
 	}
 
-	if (new_start == _start) {
+	if (new_start == start()) {
 		return;
 	}
 
-	set_start_internal (new_start, sub_num);
+	set_start_internal (new_start);
 
 	_whole_file = false;
 	first_edit ();
@@ -868,55 +771,56 @@ Region::move_start (sampleoffset_t distance, const int32_t sub_num)
 }
 
 void
-Region::trim_front (samplepos_t new_position, const int32_t sub_num)
+Region::trim_front (timepos_t const & new_position)
 {
-	modify_front (new_position, false, sub_num);
+	modify_front (new_position, false);
 }
 
 void
-Region::cut_front (samplepos_t new_position, const int32_t sub_num)
+Region::cut_front (timepos_t const & new_position)
 {
-	modify_front (new_position, true, sub_num);
+	modify_front (new_position, true);
 }
 
 void
-Region::cut_end (samplepos_t new_endpoint, const int32_t sub_num)
+Region::cut_end (timepos_t const & new_endpoint)
 {
-	modify_end (new_endpoint, true, sub_num);
+	modify_end (new_endpoint, true);
 }
 
 void
-Region::modify_front (samplepos_t new_position, bool reset_fade, const int32_t sub_num)
+Region::modify_front (timepos_t const & new_position, bool reset_fade)
 {
 	if (locked()) {
 		return;
 	}
 
-	samplepos_t end = last_sample();
-	samplepos_t source_zero;
+	timepos_t end = last();
+	timepos_t source_zero;
 
-	if (_position > _start) {
-		source_zero = _position - _start;
+	if (position() > start()) {
+		source_zero = position() - start();
 	} else {
 		source_zero = 0; // its actually negative, but this will work for us
 	}
 
 	if (new_position < end) { /* can't trim it zero or negative length */
 
-		samplecnt_t newlen = 0;
+		timecnt_t newlen = 0;
+		timepos_t np = new_position;
 
 		if (!can_trim_start_before_source_start ()) {
 			/* can't trim it back past where source position zero is located */
-			new_position = max (new_position, source_zero);
+			np = max (np, source_zero);
 		}
 
-		if (new_position > _position) {
-			newlen = _length - (new_position - _position);
+		if (np > position()) {
+			newlen = length() - (np - position());
 		} else {
-			newlen = _length + (_position - new_position);
+			newlen = length() + (position() - np);
 		}
 
-		trim_to_internal (new_position, newlen, sub_num);
+		trim_to_internal (np, newlen);
 
 		if (reset_fade) {
 			_right_of_split = true;
@@ -931,14 +835,14 @@ Region::modify_front (samplepos_t new_position, bool reset_fade, const int32_t s
 }
 
 void
-Region::modify_end (samplepos_t new_endpoint, bool reset_fade, const int32_t sub_num)
+Region::modify_end (timepos_t const & new_endpoint, bool reset_fade)
 {
 	if (locked()) {
 		return;
 	}
 
 	if (new_endpoint > _position) {
-		trim_to_internal (_position, new_endpoint - _position, sub_num);
+		trim_to_internal (_position, new_endpoint - position());
 		if (reset_fade) {
 			_left_of_split = true;
 		}
@@ -953,19 +857,19 @@ Region::modify_end (samplepos_t new_endpoint, bool reset_fade, const int32_t sub
  */
 
 void
-Region::trim_end (samplepos_t new_endpoint, const int32_t sub_num)
+Region::trim_end (timepos_t const & new_endpoint)
 {
-	modify_end (new_endpoint, false, sub_num);
+	modify_end (new_endpoint, false);
 }
 
 void
-Region::trim_to (samplepos_t position, samplecnt_t length, const int32_t sub_num)
+Region::trim_to (timepos_t const & position, timecnt_t const &length)
 {
 	if (locked()) {
 		return;
 	}
 
-	trim_to_internal (position, length, sub_num);
+	trim_to_internal (position, length);
 
 	if (!property_changes_suspended()) {
 		recompute_at_start ();
@@ -974,47 +878,49 @@ Region::trim_to (samplepos_t position, samplecnt_t length, const int32_t sub_num
 }
 
 void
-Region::trim_to_internal (samplepos_t position, samplecnt_t length, const int32_t sub_num)
+Region::trim_to_internal (timepos_t const & pos, timecnt_t const & len)
 {
-	samplepos_t new_start;
+	timepos_t new_start;
 
 	if (locked()) {
 		return;
 	}
 
-	sampleoffset_t const start_shift = position - _position;
+	timecnt_t const start_shift = pos - position();
 
 	if (start_shift > 0) {
 
-		if (_start > max_samplepos - start_shift) {
-			new_start = max_samplepos;
+		if (start() > timepos_t::max() - start_shift) {
+			new_start = timepos_t::max();
 		} else {
-			new_start = _start + start_shift;
+			new_start = start() + start_shift;
 		}
 
 	} else if (start_shift < 0) {
 
-		if (_start < -start_shift && !can_trim_start_before_source_start ()) {
+		if (start() < -start_shift && !can_trim_start_before_source_start ()) {
 			new_start = 0;
 		} else {
-			new_start = _start + start_shift;
+			new_start = start() + start_shift;
 		}
 
 	} else {
-		new_start = _start;
+		new_start = start();
 	}
 
-	if (!verify_start_and_length (new_start, length)) {
+	timepos_t ns = new_start;
+	timecnt_t nl = len;
+
+	if (!verify_start_and_length (ns, nl)) {
 		return;
 	}
 
 	PropertyChange what_changed;
 
-	if (_start != new_start) {
-		set_start_internal (new_start, sub_num);
+	if (start() != ns) {
+		set_start_internal (ns);
 		what_changed.add (Properties::start);
 	}
-
 
 	/* Set position before length, otherwise for MIDI regions this bad thing happens:
 	 * 1. we call set_length_internal; length in beats is computed using the region's current
@@ -1024,19 +930,19 @@ Region::trim_to_internal (samplepos_t position, samplecnt_t length, const int32_
 	 *    straddles a tempo/meter change.
 	 */
 
-	if (_position != position) {
+	if (position() != pos) {
 		if (!property_changes_suspended()) {
 			_last_position = _position;
 		}
-		set_position_internal (position, true, sub_num);
+		set_position_internal (pos);
 		what_changed.add (Properties::position);
 	}
 
-	if (_length != length) {
+	if (length() != nl) {
 		if (!property_changes_suspended()) {
 			_last_length = _length;
 		}
-		set_length_internal (length, sub_num);
+		set_length_internal (nl);
 		what_changed.add (Properties::length);
 	}
 
@@ -1128,10 +1034,10 @@ Region::set_position_locked (bool yn)
  *  @param absolute_pos Session time.
  */
 void
-Region::set_sync_position (samplepos_t absolute_pos)
+Region::set_sync_position (timepos_t const & absolute_pos)
 {
 	/* position within our file */
-	samplepos_t const file_pos = _start + (absolute_pos - _position);
+	timepos_t const file_pos = start() + (absolute_pos - position());
 
 	if (file_pos != _sync_position) {
 		_sync_marked = true;
@@ -1158,16 +1064,16 @@ Region::clear_sync_position ()
 }
 
 /* @return the sync point relative the first sample of the region */
-sampleoffset_t
+timecnt_t
 Region::sync_offset (int& dir) const
 {
 	if (sync_marked()) {
-		if (_sync_position > _start) {
+		if (sync_position() > start()) {
 			dir = 1;
-			return _sync_position - _start;
+			return sync_position() - start();
 		} else {
 			dir = -1;
-			return _start - _sync_position;
+			return start() - sync_position();
 		}
 	} else {
 		dir = 0;
@@ -1175,38 +1081,39 @@ Region::sync_offset (int& dir) const
 	}
 }
 
-samplepos_t
-Region::adjust_to_sync (samplepos_t pos) const
+timepos_t
+Region::adjust_to_sync (timepos_t const & pos) const
 {
 	int sync_dir;
-	sampleoffset_t offset = sync_offset (sync_dir);
+	timepos_t p = pos;
+	timecnt_t offset = sync_offset (sync_dir);
 
 	// cerr << "adjusting pos = " << pos << " to sync at " << _sync_position << " offset = " << offset << " with dir = " << sync_dir << endl;
 
 	if (sync_dir > 0) {
 		if (pos > offset) {
-			pos -= offset;
+			p -= offset;
 		} else {
-			pos = 0;
+			p = 0;
 		}
 	} else {
-		if (max_samplepos - pos > offset) {
-			pos += offset;
+		if (timepos_t::max() - p > offset) {
+			p += offset;
 		}
 	}
 
-	return pos;
+	return p;
 }
 
 /** @return Sync position in session time */
-samplepos_t
+timepos_t
 Region::sync_position() const
 {
 	if (sync_marked()) {
-		return _position - _start + _sync_position;
+		return position() - start() + sync_position();
 	} else {
 		/* if sync has not been marked, use the start of the region */
-		return _position;
+		return position();
 	}
 }
 
@@ -1351,30 +1258,13 @@ Region::set_state (const XMLNode& node, int version)
 int
 Region::_set_state (const XMLNode& node, int /*version*/, PropertyChange& what_changed, bool send)
 {
-	Timecode::BBT_Time bbt_time;
+	Temporal::BBT_Time bbt_time;
 
 	Stateful::save_extra_xml (node);
 
 	what_changed = set_values (node);
 
 	set_id (node);
-
-	if (_position_lock_style == MusicTime) {
-		std::string bbt_str;
-		if (node.get_property ("bbt-position", bbt_str)) {
-			if (sscanf (bbt_str.c_str(), "%d|%d|%d",
-				    &bbt_time.bars,
-				    &bbt_time.beats,
-				    &bbt_time.ticks) != 3) {
-				_position_lock_style = AudioTime;
-				_beat = _session.tempo_map().beat_at_sample (_position);
-			} else {
-				_beat = _session.tempo_map().beat_at_bbt (bbt_time);
-			}
-			/* no position property change for legacy Property, so we do this here */
-			_quarter_note = _session.tempo_map().quarter_note_at_beat (_beat);
-		}
-	}
 
 	/* fix problems with old sessions corrupted by impossible
 	   values for _stretch or _shift
@@ -1453,22 +1343,22 @@ Region::send_change (const PropertyChange& what_changed)
 bool
 Region::overlap_equivalent (boost::shared_ptr<const Region> other) const
 {
-	return coverage (other->first_sample(), other->last_sample()) != Evoral::OverlapNone;
+	return coverage (other->position(), other->last()) != Temporal::OverlapNone;
 }
 
 bool
 Region::equivalent (boost::shared_ptr<const Region> other) const
 {
-	return _start == other->_start &&
-		_position == other->_position &&
-		_length == other->_length;
+	return start() == other->start() &&
+		position() == other->position() &&
+		length() == other->length();
 }
 
 bool
 Region::size_equivalent (boost::shared_ptr<const Region> other) const
 {
-	return _start == other->_start &&
-		_length == other->_length;
+	return start() == other->start() &&
+		length() == other->length();
 }
 
 bool
@@ -1669,24 +1559,24 @@ Region::uses_source (boost::shared_ptr<const Source> source, bool shallow) const
 }
 
 
-samplecnt_t
+timecnt_t
 Region::source_length(uint32_t n) const
 {
 	assert (n < _sources.size());
-	return _sources[n]->length (_position - _start);
+	return _sources[n]->length ();
 }
 
 bool
-Region::verify_length (samplecnt_t& len)
+Region::verify_length (timecnt_t& len)
 {
 	if (source() && (source()->destructive() || source()->length_mutable())) {
 		return true;
 	}
 
-	samplecnt_t maxlen = 0;
+	timecnt_t maxlen = 0;
 
 	for (uint32_t n = 0; n < _sources.size(); ++n) {
-		maxlen = max (maxlen, source_length(n) - _start);
+		maxlen = max (maxlen, source_length(n) - start());
 	}
 
 	len = min (len, maxlen);
@@ -1695,13 +1585,13 @@ Region::verify_length (samplecnt_t& len)
 }
 
 bool
-Region::verify_start_and_length (samplepos_t new_start, samplecnt_t& new_length)
+Region::verify_start_and_length (timepos_t const & new_start, timecnt_t& new_length)
 {
 	if (source() && (source()->destructive() || source()->length_mutable())) {
 		return true;
 	}
 
-	samplecnt_t maxlen = 0;
+	timecnt_t maxlen = 0;
 
 	for (uint32_t n = 0; n < _sources.size(); ++n) {
 		maxlen = max (maxlen, source_length(n) - new_start);
@@ -1713,14 +1603,14 @@ Region::verify_start_and_length (samplepos_t new_start, samplecnt_t& new_length)
 }
 
 bool
-Region::verify_start (samplepos_t pos)
+Region::verify_start (timepos_t const & pos)
 {
 	if (source() && (source()->destructive() || source()->length_mutable())) {
 		return true;
 	}
 
 	for (uint32_t n = 0; n < _sources.size(); ++n) {
-		if (pos > source_length(n) - _length) {
+		if (pos > source_length(n) - length()) {
 			return false;
 		}
 	}
@@ -1728,15 +1618,15 @@ Region::verify_start (samplepos_t pos)
 }
 
 bool
-Region::verify_start_mutable (samplepos_t& new_start)
+Region::verify_start_mutable (timepos_t & new_start)
 {
 	if (source() && (source()->destructive() || source()->length_mutable())) {
 		return true;
 	}
 
 	for (uint32_t n = 0; n < _sources.size(); ++n) {
-		if (new_start > source_length(n) - _length) {
-			new_start = source_length(n) - _length;
+		if (new_start > source_length(n) - length()) {
+			new_start = source_length(n) - length();
 		}
 	}
 	return true;
@@ -1783,8 +1673,8 @@ Region::transients (AnalysisFeatureList& afl)
 {
 	int cnt = afl.empty() ? 0 : 1;
 
-	Region::merge_features (afl, _onsets, _position);
-	Region::merge_features (afl, _user_transients, _position + _transient_user_start - _start);
+	Region::merge_features (afl, _onsets, position_sample());
+	Region::merge_features (afl, _user_transients, position_sample() + _transient_user_start - start_sample());
 	if (!_onsets.empty ()) {
 		++cnt;
 	}
@@ -1880,7 +1770,7 @@ Region::can_trim () const
 	}
 
 	if (!_sources.empty()) {
-		if ((start() + length()) < _sources.front()->length (0)) {
+		if ((start() + length()) < _sources.front()->length ()) {
 			ct = CanTrim (ct | EndTrimLater);
 		}
 	}
@@ -1909,22 +1799,21 @@ Region::is_compound () const
 void
 Region::post_set (const PropertyChange& pc)
 {
-	_quarter_note = _session.tempo_map().quarter_note_at_beat (_beat);
 }
 
 void
-Region::set_start_internal (samplecnt_t s, const int32_t sub_num)
+Region::set_start_internal (timepos_t const & s)
 {
 	_start = s;
 }
 
-samplepos_t
+timepos_t
 Region::earliest_possible_position () const
 {
-	if (_start > _position) {
+	if (start() > position()) {
 		return 0;
 	} else {
-		return _position - _start;
+		return position() - start();
 	}
 }
 
@@ -1937,12 +1826,26 @@ Region::latest_possible_sample () const
 		/* non-audio regions have a length that may vary based on their
 		 * position, so we have to pass it in the call.
 		 */
-		minlen = min (minlen, (*i)->length (_position));
+		minlen = min (minlen, (*i)->length_samples ((*i)->timeline_position()));
 	}
 
 	/* the latest possible last sample is determined by the current
 	 * position, plus the shortest source extent past _start.
 	 */
 
-	return _position + (minlen - _start) - 1;
+	return position_sample() + (minlen - start_sample()) - 1;
+}
+
+Temporal::LockStyle
+Region::position_lock_style() const
+{
+	return _position.val().lock_style();
+}
+
+void
+Region::recompute_position_from_lock_style ()
+{
+	/* XXX currently do nothing, but if we wanted to reduce lazy evaluation
+	 * of timepos_t non-canonical values, we could possibly do it here.
+	 */
 }

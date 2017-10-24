@@ -40,7 +40,7 @@ using namespace std;
 using namespace ARDOUR;
 using namespace MIDI;
 using namespace PBD;
-using namespace Timecode;
+using namespace Temporal;
 
 /* length (in timecode frames) of the "window" that we consider legal given receipt of
    a given timecode position. Ardour will try to chase within this window, and will
@@ -111,8 +111,8 @@ MTC_Slave::rebind (MidiPort& p)
 
 void
 MTC_Slave::parse_timecode_offset() {
-	Timecode::Time offset_tc;
-	Timecode::parse_timecode_format(session.config.get_slave_timecode_offset(), offset_tc);
+	Temporal::Time offset_tc;
+	Temporal::parse_timecode_format(session.config.get_slave_timecode_offset(), offset_tc);
 	offset_tc.rate = session.timecode_frames_per_second();
 	offset_tc.drop = session.timecode_drop_frames();
 	session.timecode_to_sample(offset_tc, timecode_offset, false, false);
@@ -342,7 +342,7 @@ MTC_Slave::update_mtc_time (const MIDI::byte *msg, bool was_full, samplepos_t no
 		break;
 	case MTC_30_FPS_DROP:
 		if (Config->get_timecode_source_2997()) {
-			tc_format = Timecode::timecode_2997000drop;
+			tc_format = Temporal::timecode_2997000drop;
 			timecode.rate = (29970.0/1000.0);
 		} else {
 			tc_format = timecode_2997drop;
@@ -379,10 +379,10 @@ MTC_Slave::update_mtc_time (const MIDI::byte *msg, bool was_full, samplepos_t no
 				did_reset_tc_format = true;
 			}
 			if (cur_timecode != tc_format) {
-				if (ceil(Timecode::timecode_to_frames_per_second(cur_timecode)) != ceil(Timecode::timecode_to_frames_per_second(tc_format))) {
+				if (ceil(Temporal::timecode_to_frames_per_second(cur_timecode)) != ceil(Temporal::timecode_to_frames_per_second(tc_format))) {
 					warning << string_compose(_("Session framerate adjusted from %1 TO: MTC's %2."),
-							Timecode::timecode_format_name(cur_timecode),
-							Timecode::timecode_format_name(tc_format))
+							Temporal::timecode_format_name(cur_timecode),
+							Temporal::timecode_format_name(tc_format))
 						<< endmsg;
 				}
 			}
@@ -393,11 +393,11 @@ MTC_Slave::update_mtc_time (const MIDI::byte *msg, bool was_full, samplepos_t no
 			if (a3e_timecode != cur_timecode) printed_timecode_warning = false;
 
 			if (cur_timecode != tc_format && ! printed_timecode_warning) {
-				if (ceil(Timecode::timecode_to_frames_per_second(cur_timecode)) != ceil(Timecode::timecode_to_frames_per_second(tc_format))) {
+				if (ceil(Temporal::timecode_to_frames_per_second(cur_timecode)) != ceil(Temporal::timecode_to_frames_per_second(tc_format))) {
 					warning << string_compose(_("Session and MTC framerate mismatch: MTC:%1 %2:%3."),
-								  Timecode::timecode_format_name(tc_format),
+								  Temporal::timecode_format_name(tc_format),
 								  PROGRAM_NAME,
-								  Timecode::timecode_format_name(cur_timecode))
+								  Temporal::timecode_format_name(cur_timecode))
 						<< endmsg;
 				}
 				printed_timecode_warning = true;
@@ -406,7 +406,7 @@ MTC_Slave::update_mtc_time (const MIDI::byte *msg, bool was_full, samplepos_t no
 		mtc_timecode = tc_format;
 		a3e_timecode = cur_timecode;
 
-		speedup_due_to_tc_mismatch = timecode.rate / Timecode::timecode_to_frames_per_second(a3e_timecode);
+		speedup_due_to_tc_mismatch = timecode.rate / Temporal::timecode_to_frames_per_second(a3e_timecode);
 	}
 
 	/* do a careful conversion of the timecode value to a position
@@ -416,7 +416,7 @@ MTC_Slave::update_mtc_time (const MIDI::byte *msg, bool was_full, samplepos_t no
 
 	quarter_frame_duration = (double(session.sample_rate()) / (double) timecode.rate / 4.0);
 
-	Timecode::timecode_to_sample (timecode, mtc_frame, true, false,
+	Temporal::timecode_to_sample (timecode, mtc_frame, true, false,
 		double(session.sample_rate()),
 		session.config.get_subframes_per_frame(),
 		timecode_negative_offset, timecode_offset
@@ -691,7 +691,7 @@ MTC_Slave::speed_and_position (double& speed, samplepos_t& pos)
 	return true;
 }
 
-Timecode::TimecodeFormat
+Temporal::TimecodeFormat
 MTC_Slave::apparent_timecode_format () const
 {
 	return mtc_timecode;
@@ -705,11 +705,11 @@ MTC_Slave::approximate_current_position() const
 	if (last.timestamp == 0 || reset_pending) {
 		return " --:--:--:--";
 	}
-	return Timecode::timecode_format_sampletime(
+	return Temporal::timecode_format_sampletime(
 		last.position,
 		double(session.sample_rate()),
-		Timecode::timecode_to_frames_per_second(mtc_timecode),
-		Timecode::timecode_has_drop_frames(mtc_timecode));
+		Temporal::timecode_to_frames_per_second(mtc_timecode),
+		Temporal::timecode_has_drop_frames(mtc_timecode));
 }
 
 std::string

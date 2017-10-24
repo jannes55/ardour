@@ -35,6 +35,8 @@
 #include "pbd/enumwriter.h"
 #include "pbd/convert.h"
 
+#include "temporal/superclock.h"
+
 #include "evoral/Curve.hpp"
 
 #include "ardour/audioregion.h"
@@ -57,6 +59,8 @@
 
 #include "pbd/i18n.h"
 #include <locale.h>
+
+#define ASSERT_AUDIO_TIME_LOCK() assert (_position.val().lock_style() == Temporal::AudioTime)
 
 using namespace std;
 using namespace ARDOUR;
@@ -198,10 +202,10 @@ AudioRegion::register_properties ()
 	, _fade_in_active (Properties::fade_in_active, true) \
 	, _fade_out_active (Properties::fade_out_active, true) \
 	, _scale_amplitude (Properties::scale_amplitude, 1.0) \
-	, _fade_in (Properties::fade_in, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeInAutomation)))) \
-	, _inverse_fade_in (Properties::inverse_fade_in, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeInAutomation)))) \
-	, _fade_out (Properties::fade_out, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeOutAutomation)))) \
-	, _inverse_fade_out (Properties::inverse_fade_out, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeOutAutomation))))
+	, _fade_in (Properties::fade_in, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeInAutomation), Temporal::AudioTime))) \
+	, _inverse_fade_in (Properties::inverse_fade_in, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeInAutomation), Temporal::AudioTime))) \
+	, _fade_out (Properties::fade_out, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeOutAutomation), Temporal::AudioTime))) \
+	, _inverse_fade_out (Properties::inverse_fade_out, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (FadeOutAutomation), Temporal::AudioTime)))
 
 #define AUDIOREGION_COPY_STATE(other) \
 	_envelope_active (Properties::envelope_active, other->_envelope_active) \
@@ -232,10 +236,10 @@ AudioRegion::init ()
 }
 
 /** Constructor for use by derived types only */
-AudioRegion::AudioRegion (Session& s, samplepos_t start, samplecnt_t len, std::string name)
+AudioRegion::AudioRegion (Session& s, timepos_t start, timecnt_t len, std::string name)
 	: Region (s, start, len, name, DataType::AUDIO)
 	, AUDIOREGION_STATE_DEFAULT
-	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter(EnvelopeAutomation))))
+	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter(EnvelopeAutomation), Temporal::AudioTime)))
 	, _automatable (s)
 	, _fade_in_suspended (0)
 	, _fade_out_suspended (0)
@@ -248,7 +252,7 @@ AudioRegion::AudioRegion (Session& s, samplepos_t start, samplecnt_t len, std::s
 AudioRegion::AudioRegion (const SourceList& srcs)
 	: Region (srcs)
 	, AUDIOREGION_STATE_DEFAULT
-	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter(EnvelopeAutomation))))
+	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter(EnvelopeAutomation), Temporal::AudioTime)))
 	, _automatable(srcs[0]->session())
 	, _fade_in_suspended (0)
 	, _fade_out_suspended (0)
@@ -263,7 +267,7 @@ AudioRegion::AudioRegion (boost::shared_ptr<const AudioRegion> other)
 	  /* As far as I can see, the _envelope's times are relative to region position, and have nothing
 	     to do with sources (and hence _start).  So when we copy the envelope, we just use the supplied offset.
 	  */
-	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (*other->_envelope.val(), 0, other->_length)))
+	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (*other->_envelope.val(), 0, other->length_samples())))
 	, _automatable (other->session())
 	, _fade_in_suspended (0)
 	, _fade_out_suspended (0)
@@ -279,13 +283,13 @@ AudioRegion::AudioRegion (boost::shared_ptr<const AudioRegion> other)
 	assert (_sources.size() == _master_sources.size());
 }
 
-AudioRegion::AudioRegion (boost::shared_ptr<const AudioRegion> other, MusicSample offset)
+AudioRegion::AudioRegion (boost::shared_ptr<const AudioRegion> other, timecnt_t const & offset)
 	: Region (other, offset)
 	, AUDIOREGION_COPY_STATE (other)
 	  /* As far as I can see, the _envelope's times are relative to region position, and have nothing
 	     to do with sources (and hence _start).  So when we copy the envelope, we just use the supplied offset.
 	  */
-	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (*other->_envelope.val(), offset.sample, other->_length)))
+	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (*other->_envelope.val(), offset, offset + other->length())))
 	, _automatable (other->session())
 	, _fade_in_suspended (0)
 	, _fade_out_suspended (0)
@@ -323,7 +327,7 @@ AudioRegion::AudioRegion (boost::shared_ptr<const AudioRegion> other, const Sour
 AudioRegion::AudioRegion (SourceList& srcs)
 	: Region (srcs)
 	, AUDIOREGION_STATE_DEFAULT
-	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList(Evoral::Parameter(EnvelopeAutomation))))
+	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList(Evoral::Parameter(EnvelopeAutomation), Temporal::AudioTime)))
 	, _automatable(srcs[0]->session())
 	, _fade_in_suspended (0)
 	, _fade_out_suspended (0)
@@ -348,7 +352,7 @@ AudioRegion::post_set (const PropertyChange& /*ignored*/)
 	/* return to default fades if the existing ones are too long */
 
 	if (_left_of_split) {
-		if (_fade_in->back()->when >= _length) {
+		if (_fade_in->back()->when >= length_samples()) {
 			set_default_fade_in ();
 		}
 		set_default_fade_out ();
@@ -356,7 +360,7 @@ AudioRegion::post_set (const PropertyChange& /*ignored*/)
 	}
 
 	if (_right_of_split) {
-		if (_fade_out->back()->when >= _length) {
+		if (_fade_out->back()->when >= length_samples()) {
 			set_default_fade_out ();
 		}
 
@@ -365,7 +369,7 @@ AudioRegion::post_set (const PropertyChange& /*ignored*/)
 	}
 
 	/* If _length changed, adjust our gain envelope accordingly */
-	_envelope->truncate_end (_length);
+	_envelope->truncate_end (length().samples());
 }
 
 void
@@ -451,7 +455,8 @@ samplecnt_t
 AudioRegion::read (Sample* buf, samplepos_t pos, samplecnt_t cnt, int channel) const
 {
 	/* raw read, no fades, no gain, nada */
-	return read_from_sources (_sources, _length, buf, _position + pos, cnt, channel);
+	ASSERT_AUDIO_TIME_LOCK ();
+	return read_from_sources (_sources, length().samples(), buf, position_sample() + pos, cnt, channel);
 }
 
 samplecnt_t
@@ -461,10 +466,7 @@ AudioRegion::master_read_at (Sample *buf, Sample* /*mixdown_buffer*/, float* /*g
 	/* do not read gain/scaling/fades and do not count this disk i/o in statistics */
 
 	assert (cnt >= 0);
-	return read_from_sources (
-		_master_sources, _master_sources.front()->length (_master_sources.front()->timeline_position()),
-		buf, position, cnt, chan_n
-		);
+	return read_from_sources (_master_sources, _master_sources.front()->length_samples(_master_sources.front()->timeline_position()), buf, position, cnt, chan_n);
 }
 
 /** @param buf Buffer to mix data into.
@@ -498,14 +500,15 @@ AudioRegion::read_at (Sample *buf, Sample *mixdown_buffer, float *gain_buffer,
 
 	samplecnt_t to_read;
 
-	assert (position >= _position);
-	sampleoffset_t const internal_offset = position - _position;
+	ASSERT_AUDIO_TIME_LOCK ();
+	assert (position >= this->position_sample());
+	sampleoffset_t const internal_offset = position - this->position_sample();
 
-	if (internal_offset >= _length) {
+	if (internal_offset >= length_samples()) {
 		return 0; /* read nothing */
 	}
 
-	if ((to_read = min (cnt, _length - internal_offset)) == 0) {
+	if ((to_read = min (cnt, length_samples() - internal_offset)) == 0) {
 		return 0; /* read nothing */
 	}
 
@@ -561,8 +564,8 @@ AudioRegion::read_at (Sample *buf, Sample *mixdown_buffer, float *gain_buffer,
 		 *
 		 */
 
-		fade_interval_start = max (internal_offset, _length - samplecnt_t (_fade_out->back()->when));
-		samplecnt_t fade_interval_end = min(internal_offset + to_read, _length.val());
+		fade_interval_start = max (internal_offset, length_samples() - samplecnt_t (_fade_out->back()->when));
+		samplecnt_t fade_interval_end = min(internal_offset + to_read, length_samples());
 
 		if (fade_interval_end > fade_interval_start) {
 			/* (part of the) the fade out is in this buffer */
@@ -577,7 +580,7 @@ AudioRegion::read_at (Sample *buf, Sample *mixdown_buffer, float *gain_buffer,
 	   may need to mix with the existing data.
 	*/
 
-	if (read_from_sources (_sources, _length, mixdown_buffer, position, to_read, chan_n) != to_read) {
+	if (read_from_sources (_sources, length_samples(), mixdown_buffer, position, to_read, chan_n) != to_read) {
 		return 0;
 	}
 
@@ -650,7 +653,7 @@ AudioRegion::read_at (Sample *buf, Sample *mixdown_buffer, float *gain_buffer,
 
 	if (fade_out_limit != 0) {
 
-		samplecnt_t const curve_offset = fade_interval_start - (_length - _fade_out->back()->when);
+		samplecnt_t const curve_offset = fade_interval_start - (length_samples() - _fade_out->back()->when);
 
 		if (opaque()) {
 			if (_inverse_fade_out) {
@@ -722,7 +725,7 @@ AudioRegion::read_at (Sample *buf, Sample *mixdown_buffer, float *gain_buffer,
 samplecnt_t
 AudioRegion::read_from_sources (SourceList const & srcs, samplecnt_t limit, Sample* buf, samplepos_t position, samplecnt_t cnt, uint32_t chan_n) const
 {
-	sampleoffset_t const internal_offset = position - _position;
+	sampleoffset_t const internal_offset = position - this->position_sample();
 	if (internal_offset >= limit) {
 		return 0;
 	}
@@ -735,7 +738,7 @@ AudioRegion::read_from_sources (SourceList const & srcs, samplecnt_t limit, Samp
 	if (chan_n < n_channels()) {
 
 		boost::shared_ptr<AudioSource> src = boost::dynamic_pointer_cast<AudioSource> (srcs[chan_n]);
-		if (src->read (buf, _start + internal_offset, to_read) != to_read) {
+		if (src->read (buf, start_sample() + internal_offset, to_read) != to_read) {
 			return 0; /* "read nothing" */
 		}
 
@@ -752,7 +755,7 @@ AudioRegion::read_from_sources (SourceList const & srcs, samplecnt_t limit, Samp
 			uint32_t channel = chan_n % n_channels();
 			boost::shared_ptr<AudioSource> src = boost::dynamic_pointer_cast<AudioSource> (srcs[channel]);
 
-			if (src->read (buf, _start + internal_offset, to_read) != to_read) {
+			if (src->read (buf, start_sample() + internal_offset, to_read) != to_read) {
 				return 0; /* "read nothing" */
 			}
 
@@ -792,7 +795,7 @@ AudioRegion::state ()
 	if (_envelope->size() == 2 &&
 	    _envelope->front()->value == GAIN_COEFF_UNITY &&
 	    _envelope->back()->value==GAIN_COEFF_UNITY) {
-		if (_envelope->front()->when == 0 && _envelope->back()->when == _length) {
+		if (_envelope->front()->when == 0 && _envelope->back()->when == Temporal::samples_to_superclock (length_samples(), playlist() ? playlist()->session().sample_rate() : 48000)) {
 			default_env = true;
 		}
 	}
@@ -877,7 +880,7 @@ AudioRegion::_set_state (const XMLNode& node, int version, PropertyChange& what_
 				set_default_envelope ();
 			}
 
-			_envelope->truncate_end (_length);
+			_envelope->truncate_end (length_samples());
 
 
 		} else if (child->name() == "FadeIn") {
@@ -958,19 +961,19 @@ AudioRegion::fade_range (samplepos_t start, samplepos_t end)
 	samplepos_t s, e;
 
 	switch (coverage (start, end)) {
-	case Evoral::OverlapStart:
+	case Temporal::OverlapStart:
 		trim_front(start);
-		s = _position;
+		s = position_sample();
 		e = end;
 		set_fade_in (FadeConstantPower, e - s);
 		break;
-	case Evoral::OverlapEnd:
+	case Temporal::OverlapEnd:
 		trim_end(end);
 		s = start;
-		e = _position + _length;
+		e = position_sample() + length_samples();
 		set_fade_out (FadeConstantPower, e - s);
 		break;
-	case Evoral::OverlapInternal:
+	case Temporal::OverlapInternal:
 		/* needs addressing, perhaps. Difficult to do if we can't
 		 * control one edge of the fade relative to the relevant edge
 		 * of the region, which we cannot - fades are currently assumed
@@ -1009,9 +1012,9 @@ void
 AudioRegion::set_fade_in (FadeShape shape, samplecnt_t len)
 {
 	const ARDOUR::ParameterDescriptor desc(FadeInAutomation);
-	boost::shared_ptr<Evoral::ControlList> c1 (new Evoral::ControlList (FadeInAutomation, desc));
-	boost::shared_ptr<Evoral::ControlList> c2 (new Evoral::ControlList (FadeInAutomation, desc));
-	boost::shared_ptr<Evoral::ControlList> c3 (new Evoral::ControlList (FadeInAutomation, desc));
+	boost::shared_ptr<Evoral::ControlList> c1 (new Evoral::ControlList (FadeInAutomation, desc, Temporal::AudioTime));
+	boost::shared_ptr<Evoral::ControlList> c2 (new Evoral::ControlList (FadeInAutomation, desc, Temporal::AudioTime));
+	boost::shared_ptr<Evoral::ControlList> c3 (new Evoral::ControlList (FadeInAutomation, desc, Temporal::AudioTime));
 
 	_fade_in->freeze ();
 	_fade_in->clear ();
@@ -1092,8 +1095,8 @@ void
 AudioRegion::set_fade_out (FadeShape shape, samplecnt_t len)
 {
 	const ARDOUR::ParameterDescriptor desc(FadeOutAutomation);
-	boost::shared_ptr<Evoral::ControlList> c1 (new Evoral::ControlList (FadeOutAutomation, desc));
-	boost::shared_ptr<Evoral::ControlList> c2 (new Evoral::ControlList (FadeOutAutomation, desc));
+	boost::shared_ptr<Evoral::ControlList> c1 (new Evoral::ControlList (FadeOutAutomation, desc, Temporal::AudioTime));
+	boost::shared_ptr<Evoral::ControlList> c2 (new Evoral::ControlList (FadeOutAutomation, desc, Temporal::AudioTime));
 
 	_fade_out->freeze ();
 	_fade_out->clear ();
@@ -1158,8 +1161,8 @@ AudioRegion::set_fade_out (FadeShape shape, samplecnt_t len)
 void
 AudioRegion::set_fade_in_length (samplecnt_t len)
 {
-	if (len > _length) {
-		len = _length - 1;
+	if (len > length_samples()) {
+		len = length_samples() - 1;
 	}
 
 	if (len < 64) {
@@ -1181,8 +1184,8 @@ AudioRegion::set_fade_in_length (samplecnt_t len)
 void
 AudioRegion::set_fade_out_length (samplecnt_t len)
 {
-	if (len > _length) {
-		len = _length - 1;
+	if (len > length_samples()) {
+		len = length_samples() - 1;
 	}
 
 	if (len < 64) {
@@ -1262,7 +1265,7 @@ AudioRegion::set_default_envelope ()
 	_envelope->freeze ();
 	_envelope->clear ();
 	_envelope->fast_simple_add (0, GAIN_COEFF_UNITY);
-	_envelope->fast_simple_add (_length, GAIN_COEFF_UNITY);
+	_envelope->fast_simple_add (length_samples(), GAIN_COEFF_UNITY);
 	_envelope->thaw ();
 }
 
@@ -1274,7 +1277,7 @@ AudioRegion::recompute_at_end ()
 	*/
 
 	_envelope->freeze ();
-	_envelope->truncate_end (_length);
+	_envelope->truncate_end (length_samples());
 	_envelope->thaw ();
 
 	suspend_property_changes();
@@ -1282,13 +1285,13 @@ AudioRegion::recompute_at_end ()
 	if (_left_of_split) {
 		set_default_fade_out ();
 		_left_of_split = false;
-	} else if (_fade_out->back()->when > _length) {
-		_fade_out->extend_to (_length);
+	} else if (_fade_out->back()->when > length_samples()) {
+		_fade_out->extend_to (length_samples());
 		send_change (PropertyChange (Properties::fade_out));
 	}
 
-	if (_fade_in->back()->when > _length) {
-		_fade_in->extend_to (_length);
+	if (_fade_in->back()->when > length_samples()) {
+		_fade_in->extend_to (length_samples());
 		send_change (PropertyChange (Properties::fade_in));
 	}
 
@@ -1300,20 +1303,20 @@ AudioRegion::recompute_at_start ()
 {
 	/* as above, but the shift was from the front */
 
-	_envelope->truncate_start (_length);
+	_envelope->truncate_start (length_samples());
 
 	suspend_property_changes();
 
 	if (_right_of_split) {
 		set_default_fade_in ();
 		_right_of_split = false;
-	} else if (_fade_in->back()->when > _length) {
-		_fade_in->extend_to (_length);
+	} else if (_fade_in->back()->when > length_samples()) {
+		_fade_in->extend_to (length_samples());
 		send_change (PropertyChange (Properties::fade_in));
 	}
 
-	if (_fade_out->back()->when > _length) {
-		_fade_out->extend_to (_length);
+	if (_fade_out->back()->when > length_samples()) {
+		_fade_out->extend_to (length_samples());
 		send_change (PropertyChange (Properties::fade_out));
 	}
 
@@ -1354,8 +1357,8 @@ AudioRegion::separate_by_channel (vector<boost::shared_ptr<Region> >& v) const
 
 		PropertyList plist;
 
-		plist.add (Properties::start, _start.val());
-		plist.add (Properties::length, _length.val());
+		plist.add (Properties::start, _start);
+		plist.add (Properties::length, _length);
 		plist.add (Properties::name, new_name);
 		plist.add (Properties::layer, layer ());
 
@@ -1395,8 +1398,8 @@ AudioRegion::set_scale_amplitude (gain_t g)
 double
 AudioRegion::maximum_amplitude (Progress* p) const
 {
-	samplepos_t fpos = _start;
-	samplepos_t const fend = _start + _length;
+	samplepos_t fpos = start_sample();
+	samplepos_t const fend = start_sample() + length_samples();
 	double maxamp = 0;
 
 	samplecnt_t const blocksize = 64 * 1024;
@@ -1421,7 +1424,7 @@ AudioRegion::maximum_amplitude (Progress* p) const
 
 		fpos += to_read;
 		if (p) {
-			p->set_progress (float (fpos - _start) / _length);
+			p->set_progress (float (fpos - start_sample()) / length_samples());
 			if (p->cancelled ()) {
 				return -1;
 			}
@@ -1434,8 +1437,8 @@ AudioRegion::maximum_amplitude (Progress* p) const
 double
 AudioRegion::rms (Progress* p) const
 {
-	samplepos_t fpos = _start;
-	samplepos_t const fend = _start + _length;
+	samplepos_t fpos = start_sample();
+	samplepos_t const fend = start_sample() + length_samples();
 	uint32_t const n_chan = n_channels ();
 	double rms = 0;
 
@@ -1461,7 +1464,7 @@ AudioRegion::rms (Progress* p) const
 		total += to_read;
 		fpos += to_read;
 		if (p) {
-			p->set_progress (float (fpos - _start) / _length);
+			p->set_progress (float (fpos - start_sample()) / length_samples());
 			if (p->cancelled ()) {
 				return -1;
 			}
@@ -1634,13 +1637,13 @@ AudioRegion::add_transient (samplepos_t where)
 	if (where < first_sample () || where >= last_sample ()) {
 		return;
 	}
-	where -= _position;
+	where -= position_sample();
 
 	if (!_valid_transients) {
-		_transient_user_start = _start;
+		_transient_user_start = start_sample();
 		_valid_transients = true;
 	}
-	sampleoffset_t offset = _transient_user_start - _start;
+	sampleoffset_t offset = _transient_user_start - start_sample();
 
 	if (where < offset) {
 		if (offset <= 0) {
@@ -1664,16 +1667,16 @@ AudioRegion::update_transient (samplepos_t old_position, samplepos_t new_positio
 {
 	bool changed = false;
 	if (!_onsets.empty ()) {
-		const samplepos_t p = old_position - _position;
+		const samplepos_t p = old_position - position_sample();
 		AnalysisFeatureList::iterator x = std::find (_onsets.begin (), _onsets.end (), p);
 		if (x != _transients.end ()) {
-			(*x) = new_position - _position;
+			(*x) = new_position - position_sample();
 			changed = true;
 		}
 	}
 
 	if (_valid_transients) {
-		const sampleoffset_t offset = _position + _transient_user_start - _start;
+		const sampleoffset_t offset = position_sample() + _transient_user_start - start_sample();
 		const samplepos_t p = old_position - offset;
 		AnalysisFeatureList::iterator x = std::find (_user_transients.begin (), _user_transients.end (), p);
 		if (x != _transients.end ()) {
@@ -1692,7 +1695,7 @@ AudioRegion::remove_transient (samplepos_t where)
 {
 	bool changed = false;
 	if (!_onsets.empty ()) {
-		const samplepos_t p = where - _position;
+		const samplepos_t p = where - position_sample();
 		AnalysisFeatureList::iterator i = std::find (_onsets.begin (), _onsets.end (), p);
 		if (i != _transients.end ()) {
 			_onsets.erase (i);
@@ -1701,7 +1704,7 @@ AudioRegion::remove_transient (samplepos_t where)
 	}
 
 	if (_valid_transients) {
-		const samplepos_t p = where - (_position + _transient_user_start - _start);
+		const samplepos_t p = where - (position_sample() + _transient_user_start - start_sample());
 		AnalysisFeatureList::iterator i = std::find (_user_transients.begin (), _user_transients.end (), p);
 		if (i != _transients.end ()) {
 			_transients.erase (i);
@@ -1752,11 +1755,11 @@ AudioRegion::build_transients ()
 			/* find the set of transients within the bounds of this region */
 			AnalysisFeatureList::iterator low = lower_bound ((*s)->transients.begin(),
 									 (*s)->transients.end(),
-									 _start);
+									 start_sample());
 
 			AnalysisFeatureList::iterator high = upper_bound ((*s)->transients.begin(),
 									  (*s)->transients.end(),
-									  _start + _length);
+									  start_sample() + length_samples());
 
 			/* and add them */
 			_transients.insert (_transients.end(), low, high);
@@ -1766,11 +1769,11 @@ AudioRegion::build_transients ()
 
 		/* translate all transients to current position */
 		for (AnalysisFeatureList::iterator x = _transients.begin(); x != _transients.end(); ++x) {
-			(*x) -= _start;
+			(*x) -= start_sample();
 		}
 
-		_transient_analysis_start = _start;
-		_transient_analysis_end = _start + _length;
+		_transient_analysis_start = start_sample();
+		_transient_analysis_end = start_sample() + length_samples();
 		return;
 	}
 
@@ -1817,12 +1820,12 @@ in this and future transient-detection operations.\n\
 	}
 
 	TransientDetector::cleanup_transients (_transients, pl->session().sample_rate(), 3.0);
-	_transient_analysis_start = _start;
-	_transient_analysis_end = _start + _length;
+	_transient_analysis_start = start_sample();
+	_transient_analysis_end = start_sample() + length_samples();
 }
 
 /* Transient analysis uses ::read() which is relative to _start,
- * at the time of analysis and spans _length samples.
+ * at the time of analysis and spans length_samples() samples.
  *
  * This is true for RhythmFerret::run_analysis and the
  * TransientDetector here.
@@ -1847,21 +1850,21 @@ AudioRegion::get_transients (AnalysisFeatureList& results)
 		return;
 	}
 
-	Region::merge_features (results, _user_transients, _position + _transient_user_start - _start);
+	Region::merge_features (results, _user_transients, position_sample() + _transient_user_start - start_sample());
 
 	if (!_onsets.empty ()) {
 		// onsets are invalidated when start or length changes
-		merge_features (results, _onsets, _position);
+		merge_features (results, _onsets, position_sample());
 		return;
 	}
 
 	if ((_transient_analysis_start == _transient_analysis_end)
-			|| _transient_analysis_start > _start
-			|| _transient_analysis_end < _start + _length) {
+			|| _transient_analysis_start > start_sample()
+			|| _transient_analysis_end < start_sample() + length_samples()) {
 		build_transients ();
 	}
 
-	merge_features (results, _transients, _position + _transient_analysis_start - _start);
+	merge_features (results, _transients, position_sample() + _transient_analysis_start - start_sample());
 }
 
 /** Find areas of `silence' within a region.
@@ -1881,13 +1884,13 @@ AudioRegion::find_silence (Sample threshold, samplecnt_t min_length, samplecnt_t
 	assert (fade_length >= 0);
 	assert (min_length > 0);
 
-	samplepos_t pos = _start;
-	samplepos_t const end = _start + _length;
+	samplepos_t pos = start_sample();
+	samplepos_t const end = start_sample() + length_samples();
 
 	AudioIntervalResult silent_periods;
 
 	bool in_silence = true;
-	sampleoffset_t silence_start = _start;
+	sampleoffset_t silence_start = start_sample();
 
 	while (pos < end && !itt.cancel) {
 
@@ -1923,7 +1926,7 @@ AudioRegion::find_silence (Sample threshold, samplecnt_t min_length, samplecnt_t
 		}
 
 		pos += cur_samples;
-		itt.progress = (end - pos) / (double)_length;
+		itt.progress = (end - pos) / (double)length_samples();
 
 		if (cur_samples == 0) {
 			assert (pos >= end);
@@ -1943,10 +1946,10 @@ AudioRegion::find_silence (Sample threshold, samplecnt_t min_length, samplecnt_t
 	return silent_periods;
 }
 
-Evoral::Range<samplepos_t>
+Temporal::Range<samplepos_t>
 AudioRegion::body_range () const
 {
-	return Evoral::Range<samplepos_t> (first_sample() + _fade_in->back()->when + 1, last_sample() - _fade_out->back()->when);
+	return Temporal::Range<samplepos_t> (first_sample() + _fade_in->back()->when + 1, last_sample() - _fade_out->back()->when);
 }
 
 boost::shared_ptr<Region>
@@ -1964,7 +1967,7 @@ AudioRegion::get_single_other_xfade_region (bool start) const
 	boost::shared_ptr<RegionList> rl;
 
 	if (start) {
-		rl = pl->regions_at (position());
+		rl = pl->regions_at (position_sample());
 	} else {
 		rl = pl->regions_at (last_sample());
 	}
@@ -2006,7 +2009,7 @@ AudioRegion::verify_xfade_bounds (samplecnt_t len, bool start)
 		/* zero or > 2 regions here, don't care about len, but
 		   it can't be longer than the region itself.
 		 */
-		return min (length(), len);
+		return min (length_samples(), len);
 	}
 
 	/* we overlap a single region. clamp the length of an xfade to
@@ -2015,12 +2018,11 @@ AudioRegion::verify_xfade_bounds (samplecnt_t len, bool start)
 	*/
 
 	if (start) {
-		maxlen = other->latest_possible_sample() - position();
+		maxlen = other->latest_possible_sample() - position_sample();
 	} else {
-		maxlen = last_sample() - other->earliest_possible_position();
+		maxlen = last_sample() - other->earliest_possible_position().sample();
 	}
 
-	return min (length(), min (maxlen, len));
-
+	return min (length_samples(), min (maxlen, len));
 }
 

@@ -22,10 +22,11 @@
 #include "pbd/openuri.h"
 
 #include "temporal/bbt_time.h"
+#include "temporal/range.h"
+#include "temporal/tempo.h"
 
 #include "evoral/Control.hpp"
 #include "evoral/ControlList.hpp"
-#include "evoral/Range.hpp"
 
 #include "ardour/amp.h"
 #include "ardour/audioengine.h"
@@ -76,7 +77,6 @@
 #include "ardour/solo_safe_control.h"
 #include "ardour/stripable.h"
 #include "ardour/track.h"
-#include "ardour/tempo.h"
 #include "ardour/vca.h"
 #include "ardour/vca_manager.h"
 
@@ -177,7 +177,6 @@ CLASSKEYS(std::list<Selectable*>);
 
 CLASSKEYS(ARDOUR::AudioEngine);
 CLASSKEYS(ARDOUR::BeatsSamplesConverter);
-CLASSKEYS(ARDOUR::DoubleBeatsSamplesConverter);
 CLASSKEYS(ARDOUR::BufferSet);
 CLASSKEYS(ARDOUR::ChanCount);
 CLASSKEYS(ARDOUR::ChanMapping);
@@ -231,7 +230,7 @@ CLASSKEYS(std::vector<boost::shared_ptr<ARDOUR::Source> >);
 
 CLASSKEYS(std::list<ArdourMarker*>);
 CLASSKEYS(std::list<TimeAxisView*>);
-CLASSKEYS(std::list<ARDOUR::AudioRange>);
+CLASSKEYS(std::list<ARDOUR::TimelineRange>);
 CLASSKEYS(std::list<boost::shared_ptr<ARDOUR::Port> >);
 CLASSKEYS(std::list<boost::shared_ptr<ARDOUR::Region> >);
 CLASSKEYS(std::list<boost::shared_ptr<ARDOUR::Route> >);
@@ -473,41 +472,41 @@ LuaBindings::common (lua_State* L)
 
 	luabridge::getGlobalNamespace (L)
 		.beginNamespace ("Timecode")
-		.beginClass <Timecode::BBT_Time> ("BBT_TIME")
+		.beginClass <Temporal::BBT_Time> ("BBT_TIME")
 		.addConstructor <void (*) (uint32_t, uint32_t, uint32_t)> ()
-		.addData ("bars", &Timecode::BBT_Time::bars)
-		.addData ("beats", &Timecode::BBT_Time::beats)
-		.addData ("ticks", &Timecode::BBT_Time::ticks)
-		//.addStaticData ("ticks_per_beat", &Timecode::BBT_Time::ticks_per_beat, false)
+		.addData ("bars", &Temporal::BBT_Time::bars)
+		.addData ("beats", &Temporal::BBT_Time::beats)
+		.addData ("ticks", &Temporal::BBT_Time::ticks)
+		//.addStaticData ("ticks_per_beat", &Temporal::BBT_Time::ticks_per_beat, false)
 		.endClass ()
 
-		.beginClass <Timecode::Time> ("Time")
+		.beginClass <Temporal::Time> ("Time")
 		.addConstructor <void (*) (double)> ()
-		.addData ("negative", &Timecode::Time::negative)
-		.addData ("hours", &Timecode::Time::hours)
-		.addData ("minutes", &Timecode::Time::minutes)
-		.addData ("seconds", &Timecode::Time::seconds)
-		.addData ("frames", &Timecode::Time::frames)
-		.addData ("subframes", &Timecode::Time::subframes)
-		.addData ("rate", &Timecode::Time::rate)
-		.addData ("drop", &Timecode::Time::drop)
+		.addData ("negative", &Temporal::Time::negative)
+		.addData ("hours", &Temporal::Time::hours)
+		.addData ("minutes", &Temporal::Time::minutes)
+		.addData ("seconds", &Temporal::Time::seconds)
+		.addData ("frames", &Temporal::Time::frames)
+		.addData ("subframes", &Temporal::Time::subframes)
+		.addData ("rate", &Temporal::Time::rate)
+		.addData ("drop", &Temporal::Time::drop)
 		.endClass ()
 
 		// TODO add increment, decrement; push it into the class
 
 		/* libtimecode enums */
 		.beginNamespace ("TimecodeFormat")
-		.addConst ("TC23976", Timecode::TimecodeFormat(Timecode::timecode_23976))
-		.addConst ("TC24", Timecode::TimecodeFormat(Timecode::timecode_24))
-		.addConst ("TC24976", Timecode::TimecodeFormat(Timecode::timecode_24976))
-		.addConst ("TC25", Timecode::TimecodeFormat(Timecode::timecode_25))
-		.addConst ("TC2997", Timecode::TimecodeFormat(Timecode::timecode_2997))
-		.addConst ("TC2997DF", Timecode::TimecodeFormat(Timecode::timecode_2997drop))
-		.addConst ("TC2997000", Timecode::TimecodeFormat(Timecode::timecode_2997000))
-		.addConst ("TC2997000DF", Timecode::TimecodeFormat(Timecode::timecode_2997000drop))
-		.addConst ("TC30", Timecode::TimecodeFormat(Timecode::timecode_30))
-		.addConst ("TC5994", Timecode::TimecodeFormat(Timecode::timecode_5994))
-		.addConst ("TC60", Timecode::TimecodeFormat(Timecode::timecode_60))
+		.addConst ("TC23976", Temporal::TimecodeFormat(Temporal::timecode_23976))
+		.addConst ("TC24", Temporal::TimecodeFormat(Temporal::timecode_24))
+		.addConst ("TC24976", Temporal::TimecodeFormat(Temporal::timecode_24976))
+		.addConst ("TC25", Temporal::TimecodeFormat(Temporal::timecode_25))
+		.addConst ("TC2997", Temporal::TimecodeFormat(Temporal::timecode_2997))
+		.addConst ("TC2997DF", Temporal::TimecodeFormat(Temporal::timecode_2997drop))
+		.addConst ("TC2997000", Temporal::TimecodeFormat(Temporal::timecode_2997000))
+		.addConst ("TC2997000DF", Temporal::TimecodeFormat(Temporal::timecode_2997000drop))
+		.addConst ("TC30", Temporal::TimecodeFormat(Temporal::timecode_30))
+		.addConst ("TC5994", Temporal::TimecodeFormat(Temporal::timecode_5994))
+		.addConst ("TC60", Temporal::TimecodeFormat(Temporal::timecode_60))
 		.endNamespace ()
 		.endNamespace ();
 
@@ -548,7 +547,7 @@ LuaBindings::common (lua_State* L)
 		.addFunction ("set_interpolation", &Evoral::ControlList::set_interpolation)
 		.addFunction ("truncate_end", &Evoral::ControlList::truncate_end)
 		.addFunction ("truncate_start", &Evoral::ControlList::truncate_start)
-		.addFunction ("clear", (void (Evoral::ControlList::*)(double, double))&Evoral::ControlList::clear)
+		.addFunction ("clear", (void (Evoral::ControlList::*)(Temporal::superclock_t,Temporal::superclock_t))&Evoral::ControlList::clear)
 		.addFunction ("clear_list", (void (Evoral::ControlList::*)())&Evoral::ControlList::clear)
 		.addFunction ("in_write_pass", &Evoral::ControlList::in_write_pass)
 		.addFunction ("events", &Evoral::ControlList::events)
@@ -570,10 +569,10 @@ LuaBindings::common (lua_State* L)
 		.addData ("logarithmic", &Evoral::ParameterDescriptor::logarithmic)
 		.endClass ()
 
-		.beginClass <Evoral::Range<samplepos_t> > ("Range")
+		.beginClass <Temporal::Range<samplepos_t> > ("Range")
 		.addConstructor <void (*) (samplepos_t, samplepos_t)> ()
-		.addData ("from", &Evoral::Range<samplepos_t>::from)
-		.addData ("to", &Evoral::Range<samplepos_t>::to)
+		.addData ("from", &Temporal::Range<samplepos_t>::from)
+		.addData ("to", &Temporal::Range<samplepos_t>::to)
 		.endClass ()
 
 		.deriveWSPtrClass <Evoral::Sequence<Temporal::Beats>, Evoral::ControlSet> ("Sequence")
@@ -728,20 +727,14 @@ LuaBindings::common (lua_State* L)
 		.beginClass <Progress> ("Progress")
 		.endClass ()
 
-		.beginClass <MusicSample> ("MusicSample")
-		.addConstructor <void (*) (samplepos_t, int32_t)> ()
-		.addFunction ("set", &MusicSample::set)
-		.addData ("frame", &MusicSample::sample)
-		.addData ("division", &MusicSample::division)
-		.endClass ()
-
-		.beginClass <AudioRange> ("AudioRange")
+		.beginClass <TimelineRange> ("TimelineRange")
 		.addConstructor <void (*) (samplepos_t, samplepos_t, uint32_t)> ()
-		.addFunction ("length", &AudioRange::length)
-		.addFunction ("equal", &AudioRange::equal)
-		.addData ("start", &AudioRange::start)
-		.addData ("_end", &AudioRange::end) // XXX "end" is a lua reserved word
-		.addData ("id", &AudioRange::id)
+		.addFunction ("length", &TimelineRange::length)
+		.addFunction ("equal", &TimelineRange::equal)
+		// g++ is having a hard time figuring out types here
+		//.addData ("to", &TimelineRange::to)
+		//.addData ("from", &TimelineRange::from)
+		.addData ("id", &TimelineRange::id)
 		.endClass ()
 
 		.beginWSPtrClass <PluginInfo> ("PluginInfo")
@@ -819,13 +812,13 @@ LuaBindings::common (lua_State* L)
 		.addFunction ("locked", &Location::locked)
 		.addFunction ("lock", &Location::lock)
 		.addFunction ("unlock", &Location::unlock)
-		.addFunction ("start", &Location::start)
-		.addFunction ("_end", &Location::end) // XXX "end" is a lua reserved word
-		.addFunction ("length", &Location::length)
-		.addFunction ("set_start", &Location::set_start)
-		.addFunction ("set_end", &Location::set_end)
-		.addFunction ("set_length", &Location::set)
-		.addFunction ("move_to", &Location::move_to)
+		.addFunction ("start", &Location::start_sample)
+		.addFunction ("_end", &Location::end_sample) // XXX "end" is a lua reserved word
+		.addFunction ("length", &Location::length_samples)
+		.addFunction ("set_start", &Location::set_start_sample)
+		.addFunction ("set_end", &Location::set_end_sample)
+		.addFunction ("set_length", &Location::set_sample)
+		.addFunction ("move_to", &Location::move_to_sample)
 		.addFunction ("matches", &Location::matches)
 		.addFunction ("flags", &Location::flags)
 		.addFunction ("is_auto_punch", &Location::is_auto_punch)
@@ -1103,14 +1096,14 @@ LuaBindings::common (lua_State* L)
 		.addFunction ("lower_region", &Playlist::lower_region)
 		.addFunction ("raise_region_to_top", &Playlist::raise_region_to_top)
 		.addFunction ("lower_region_to_bottom", &Playlist::lower_region_to_bottom)
-		.addFunction ("duplicate", (void (Playlist::*)(boost::shared_ptr<Region>, samplepos_t, samplecnt_t, float))&Playlist::duplicate)
+		.addFunction ("duplicate", (void (Playlist::*)(boost::shared_ptr<Region>, timepos_t, timecnt_t, float))&Playlist::duplicate)
 		.addFunction ("duplicate_until", &Playlist::duplicate_until)
 		.addFunction ("duplicate_range", &Playlist::duplicate_range)
 		.addFunction ("combine", &Playlist::combine)
 		.addFunction ("uncombine", &Playlist::uncombine)
 		.addFunction ("split_region", &Playlist::split_region)
 		.addFunction ("split", (void (Playlist::*)(samplepos_t))&Playlist::split)
-		.addFunction ("cut", (boost::shared_ptr<Playlist> (Playlist::*)(std::list<AudioRange>&, bool))&Playlist::cut)
+		.addFunction ("cut", (boost::shared_ptr<Playlist> (Playlist::*)(std::list<TimelineRange>&, bool))&Playlist::cut)
 #if 0
 		.addFunction ("copy", &Playlist::copy)
 		.addFunction ("paste", &Playlist::paste)
@@ -1144,7 +1137,7 @@ LuaBindings::common (lua_State* L)
 
 		.beginWSPtrClass <Readable> ("Readable")
 		.addFunction ("read", &Readable::read)
-		.addFunction ("readable_length", &Readable::readable_length)
+		.addFunction ("readable_length_samples", &Readable::readable_length_samples)
 		.addFunction ("n_channels", &Readable::n_channels)
 		.endClass ()
 
@@ -1204,7 +1197,6 @@ LuaBindings::common (lua_State* L)
 		.addFunction ("lower_to_bottom", &Region::lower_to_bottom)
 		.addFunction ("set_sync_position", &Region::set_sync_position)
 		.addFunction ("clear_sync_position", &Region::clear_sync_position)
-		.addFunction ("quarter_note", &Region::quarter_note)
 		.addFunction ("set_hidden", &Region::set_hidden)
 		.addFunction ("set_muted", &Region::set_muted)
 		.addFunction ("set_opaque", &Region::set_opaque)
@@ -1219,8 +1211,6 @@ LuaBindings::common (lua_State* L)
 		.addFunction ("do_export", &MidiRegion::do_export)
 		.addFunction ("midi_source", &MidiRegion::midi_source)
 		.addFunction ("model", (boost::shared_ptr<MidiModel> (MidiRegion::*)())&MidiRegion::model)
-		.addFunction ("start_beats", &MidiRegion::start_beats)
-		.addFunction ("length_beats", &MidiRegion::length_beats)
 		.endClass ()
 
 		.deriveWSPtrClass <AudioRegion, Region> ("AudioRegion")
@@ -1267,7 +1257,7 @@ LuaBindings::common (lua_State* L)
 
 		.deriveWSPtrClass <AudioSource, Source> ("AudioSource")
 		.addCast<Readable> ("to_readable")
-		.addFunction ("readable_length", &AudioSource::readable_length)
+		.addFunction ("readable_length_samples", &AudioSource::readable_length_samples)
 		.addFunction ("n_channels", &AudioSource::n_channels)
 		.addFunction ("empty", &Source::empty)
 		.addFunction ("length", &Source::length)
@@ -1545,7 +1535,7 @@ LuaBindings::common (lua_State* L)
 		.endClass ()
 
 		.deriveWSPtrClass <AudioSource, Source> ("AudioSource")
-		.addFunction ("readable_length", &AudioSource::readable_length)
+		.addFunction ("readable_length_samples", &AudioSource::readable_length_samples)
 		.addFunction ("n_channels", &AudioSource::n_channels)
 		.endClass ()
 
@@ -1620,7 +1610,7 @@ LuaBindings::common (lua_State* L)
 		.endClass ()
 
 		// used by Playlist::cut/copy
-		.beginConstStdList <AudioRange> ("AudioRangeList")
+		.beginConstStdList <TimelineRange> ("TimelineRangeList")
 		.endClass ()
 
 		.beginConstStdList <Location*> ("LocationList")
@@ -1651,36 +1641,29 @@ LuaBindings::common (lua_State* L)
 		.beginConstStdList <boost::weak_ptr<Source> > ("WeakSourceList")
 		.endClass ()
 
-		.beginClass <Tempo> ("Tempo")
-		.addConstructor <void (*) (double, double, double)> ()
-		.addFunction ("note_type", &Tempo::note_type)
-		.addFunction ("note_types_per_minute",  (double (Tempo::*)() const)&Tempo::note_types_per_minute)
-		.addFunction ("quarter_notes_per_minute", &Tempo::quarter_notes_per_minute)
-		.addFunction ("samples_per_quarter_note", &Tempo::samples_per_quarter_note)
-		.addFunction ("samples_per_note_type", &Tempo::samples_per_note_type)
+		.beginClass <Temporal::Tempo> ("Tempo")
+		.addConstructor <void (*) (double, int)> ()
+		.addFunction ("note_type", &Temporal::Tempo::note_type)
+		.addFunction ("note_types_per_minute",  (double (Temporal::Tempo::*)() const)&Temporal::Tempo::note_types_per_minute)
+		.addFunction ("quarter_notes_per_minute", &Temporal::Tempo::quarter_notes_per_minute)
+		.addFunction ("samples_per_quarter_note", &Temporal::Tempo::samples_per_quarter_note)
+		.addFunction ("samples_per_note_type", &Temporal::Tempo::samples_per_note_type)
 		.endClass ()
 
-		.beginClass <Meter> ("Meter")
+		.beginClass <Temporal::Meter> ("Meter")
 		.addConstructor <void (*) (double, double)> ()
-		.addFunction ("divisions_per_bar", &Meter::divisions_per_bar)
-		.addFunction ("note_divisor", &Meter::note_divisor)
-		.addFunction ("samples_per_bar", &Meter::samples_per_bar)
-		.addFunction ("samples_per_grid", &Meter::samples_per_grid)
+		.addFunction ("divisions_per_bar", &Temporal::Meter::divisions_per_bar)
+		.addFunction ("note_value", &Temporal::Meter::note_value)
 		.endClass ()
 
+#if 0
 		.beginClass <BeatsSamplesConverter> ("BeatsSamplesConverter")
 		.addConstructor <void (*) (const TempoMap&, samplepos_t)> ()
 		.addFunction ("to", &BeatsSamplesConverter::to)
 		.addFunction ("from", &BeatsSamplesConverter::from)
 		.endClass ()
 
-		.beginClass <DoubleBeatsSamplesConverter> ("DoubleBeatsSamplesConverter")
-		.addConstructor <void (*) (const TempoMap&, samplepos_t)> ()
-		.addFunction ("to", &DoubleBeatsSamplesConverter::to)
-		.addFunction ("from", &DoubleBeatsSamplesConverter::from)
-		.endClass ()
-
-		.beginClass <TempoMap> ("TempoMap")
+		.beginClass <Temporal::TempoMap> ("TempoMap")
 		.addFunction ("add_tempo", &TempoMap::add_tempo)
 		.addFunction ("add_meter", &TempoMap::add_meter)
 		.addFunction ("tempo_section_at_frame", (TempoSection& (TempoMap::*)(samplepos_t))&TempoMap::tempo_section_at_sample)
@@ -1708,7 +1691,7 @@ LuaBindings::common (lua_State* L)
 		.addFunction ("set_pulse", &MeterSection::set_pulse)
 		.addFunction ("set_beat", (void(MeterSection::*)(double))&MeterSection::set_beat)
 		.endClass ()
-
+#endif
 		.beginClass <ChanCount> ("ChanCount")
 		.addConstructor <void (*) (DataType, uint32_t)> ()
 		.addFunction ("get", &ChanCount::get)
@@ -1863,20 +1846,6 @@ LuaBindings::common (lua_State* L)
 		.addConst ("Start", ARDOUR::RegionPoint(Start))
 		.addConst ("End", ARDOUR::RegionPoint(End))
 		.addConst ("SyncPoint", ARDOUR::RegionPoint(SyncPoint))
-		.endNamespace ()
-
-		.beginNamespace ("TempoSection")
-		.beginNamespace ("PositionLockStyle")
-		.addConst ("AudioTime", ARDOUR::PositionLockStyle(AudioTime))
-		.addConst ("MusicTime", ARDOUR::PositionLockStyle(MusicTime))
-		.endNamespace ()
-		.endNamespace ()
-
-		.beginNamespace ("TempoSection")
-		.beginNamespace ("Type")
-		.addConst ("Ramp", ARDOUR::TempoSection::Type(TempoSection::Ramp))
-		.addConst ("Constant", ARDOUR::TempoSection::Type(TempoSection::Constant))
-		.endNamespace ()
 		.endNamespace ()
 
 		.beginNamespace ("TrackMode")
@@ -2204,7 +2173,7 @@ LuaBindings::common (lua_State* L)
 		.addFunction ("monitor_out", &Session::monitor_out)
 		.addFunction ("master_out", &Session::master_out)
 		.addFunction ("add_internal_sends", &Session::add_internal_sends)
-		.addFunction ("tempo_map", (TempoMap& (Session::*)())&Session::tempo_map)
+		.addFunction ("tempo_map", (Temporal::TempoMap& (Session::*)())&Session::tempo_map)
 		.addFunction ("locations", &Session::locations)
 		.addFunction ("soloing", &Session::soloing)
 		.addFunction ("listening", &Session::listening)

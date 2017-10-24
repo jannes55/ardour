@@ -36,6 +36,7 @@ using namespace MIDI;
 using namespace ARDOUR;
 using namespace std;
 using namespace PBD;
+using Temporal::samplecnt_t;
 
 pthread_t AsyncMIDIPort::_process_thread;
 
@@ -59,7 +60,7 @@ AsyncMIDIPort::~AsyncMIDIPort ()
 }
 
 void
-AsyncMIDIPort::set_timer (boost::function<MIDI::samplecnt_t (void)>& f)
+AsyncMIDIPort::set_timer (boost::function<samplecnt_t (void)>& f)
 {
 	timer = f;
 	have_timer = true;
@@ -326,7 +327,7 @@ AsyncMIDIPort::read (MIDI::byte *, size_t)
 }
 
 void
-AsyncMIDIPort::parse (MIDI::samplecnt_t)
+AsyncMIDIPort::parse (samplecnt_t)
 {
 	MIDI::byte buf[1];
 

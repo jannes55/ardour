@@ -1079,7 +1079,7 @@ AudioClock::set_minsec (samplepos_t when, bool /*force*/)
 void
 AudioClock::set_timecode (samplepos_t when, bool /*force*/)
 {
-	Timecode::Time TC;
+	Temporal::Time TC;
 	bool negative = false;
 
 	if (_off) {
@@ -1107,7 +1107,7 @@ AudioClock::set_timecode (samplepos_t when, bool /*force*/)
 
 	TC.negative = TC.negative || negative;
 
-	_layout->set_text (Timecode::timecode_format_time(TC));
+	_layout->set_text (Temporal::timecode_format_time(TC));
 
 	set_slave_info();
 }
@@ -1116,7 +1116,7 @@ void
 AudioClock::set_bbt (samplepos_t when, samplecnt_t offset, bool /*force*/)
 {
 	char buf[64];
-	Timecode::BBT_Time BBT;
+	Temporal::BBT_Time BBT;
 	bool negative = false;
 
 	if (_off || when >= _limit_pos || when < -_limit_pos) {
@@ -1145,7 +1145,7 @@ AudioClock::set_bbt (samplepos_t when, samplecnt_t offset, bool /*force*/)
 			}
 
 			const double divisions = tmap.meter_section_at_sample (offset).divisions_per_bar();
-			Timecode::BBT_Time sub_bbt;
+			Temporal::BBT_Time sub_bbt;
 
 			if (negative) {
 				BBT = tmap.bbt_at_beat (tmap.beat_at_sample (offset));
@@ -1164,7 +1164,7 @@ AudioClock::set_bbt (samplepos_t when, samplecnt_t offset, bool /*force*/)
 				} else {
 					BBT.beats--;
 				}
-				BBT.ticks = Timecode::BBT_Time::ticks_per_beat - (sub_bbt.ticks - BBT.ticks);
+				BBT.ticks = Temporal::BBT_Time::ticks_per_beat - (sub_bbt.ticks - BBT.ticks);
 			} else {
 				BBT.ticks -= sub_bbt.ticks;
 			}
@@ -1759,7 +1759,7 @@ samplepos_t
 AudioClock::get_sample_step (Field field, samplepos_t pos, int dir)
 {
 	samplecnt_t f = 0;
-	Timecode::BBT_Time BBT;
+	Temporal::BBT_Time BBT;
 	switch (field) {
 	case Timecode_Hours:
 		f = (samplecnt_t) floor (3600.0 * _session->sample_rate());
@@ -1858,7 +1858,7 @@ AudioClock::bbt_validate_edit (const string& str)
 		return false;
 	}
 
-	if (any.bbt.ticks > Timecode::BBT_Time::ticks_per_beat) {
+	if (any.bbt.ticks > Temporal::BBT_Time::ticks_per_beat) {
 		return false;
 	}
 
@@ -1876,7 +1876,7 @@ AudioClock::bbt_validate_edit (const string& str)
 bool
 AudioClock::timecode_validate_edit (const string&)
 {
-	Timecode::Time TC;
+	Temporal::Time TC;
 	int hours;
 	char ignored[2];
 
@@ -1937,7 +1937,7 @@ AudioClock::samples_from_timecode_string (const string& str) const
 		return 0;
 	}
 
-	Timecode::Time TC;
+	Temporal::Time TC;
 	samplepos_t sample;
 	char ignored[2];
 	int hours;
@@ -2011,7 +2011,7 @@ AudioClock::sample_duration_from_bbt_string (samplepos_t pos, const string& str)
 		return 0;
 	}
 
-	Timecode::BBT_Time bbt;
+	Temporal::BBT_Time bbt;
 
 	if (sscanf (str.c_str(), BBT_SCANF_FORMAT, &bbt.bars, &bbt.beats, &bbt.ticks) != 3) {
 		return 0;

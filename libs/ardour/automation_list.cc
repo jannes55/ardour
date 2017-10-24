@@ -54,8 +54,8 @@ static void dumpit (const AutomationList& al, string prefix = "")
 	cerr << "\n";
 }
 #endif
-AutomationList::AutomationList (const Evoral::Parameter& id, const Evoral::ParameterDescriptor& desc)
-	: ControlList(id, desc)
+AutomationList::AutomationList (const Evoral::Parameter& id, const Evoral::ParameterDescriptor& desc, Temporal::LockStyle ts)
+	: ControlList(id, desc, ts)
 	, _before (0)
 {
 	_state = Off;
@@ -68,8 +68,8 @@ AutomationList::AutomationList (const Evoral::Parameter& id, const Evoral::Param
 	AutomationListCreated(this);
 }
 
-AutomationList::AutomationList (const Evoral::Parameter& id)
-	: ControlList(id, ARDOUR::ParameterDescriptor(id))
+AutomationList::AutomationList (const Evoral::Parameter& id, Temporal::LockStyle ts)
+	: ControlList(id, ARDOUR::ParameterDescriptor(id), ts)
 	, _before (0)
 {
 	_state = Off;
@@ -96,8 +96,8 @@ AutomationList::AutomationList (const AutomationList& other)
 	AutomationListCreated(this);
 }
 
-AutomationList::AutomationList (const AutomationList& other, double start, double end)
-	: ControlList(other, start, end)
+AutomationList::AutomationList (const AutomationList& other, timecnt_t start, timecnt_t end)
+	: ControlList(other, start.samples(), end.samples())
 	, _before (0)
 {
 	_state = other._state;
@@ -113,7 +113,7 @@ AutomationList::AutomationList (const AutomationList& other, double start, doubl
  * in or below the AutomationList node.  It is used if @param id is non-null.
  */
 AutomationList::AutomationList (const XMLNode& node, Evoral::Parameter id)
-	: ControlList(id, ARDOUR::ParameterDescriptor(id))
+	: ControlList(id, ARDOUR::ParameterDescriptor(id), Temporal::AudioTime) // time style may be changed from XML
 	, _before (0)
 {
 	g_atomic_int_set (&_touching, 0);
@@ -139,9 +139,10 @@ AutomationList::~AutomationList()
 
 boost::shared_ptr<Evoral::ControlList>
 AutomationList::create(const Evoral::Parameter&           id,
-                       const Evoral::ParameterDescriptor& desc)
+                       const Evoral::ParameterDescriptor& desc,
+                       Temporal::LockStyle ts)
 {
-	return boost::shared_ptr<Evoral::ControlList>(new AutomationList(id, desc));
+	return boost::shared_ptr<Evoral::ControlList>(new AutomationList(id, desc, ts));
 }
 
 void
@@ -307,7 +308,7 @@ AutomationList::thaw ()
 }
 
 bool
-AutomationList::paste (const ControlList& alist, double pos, DoubleBeatsSamplesConverter const& bfc)
+AutomationList::paste (const ControlList& alist, double pos, BeatsSamplesConverter const& bfc)
 {
 	AutomationType src_type = (AutomationType)alist.parameter().type();
 	AutomationType dst_type = (AutomationType)_parameter.type();
@@ -322,9 +323,9 @@ AutomationList::paste (const ControlList& alist, double pos, DoubleBeatsSamplesC
 	for (const_iterator i = alist.begin ();i != alist.end (); ++i) {
 		double when = (*i)->when;
 		if (to_sample) {
-			when = bfc.to ((*i)->when);
+			when = bfc.to (Temporal::Beats::ticks ((*i)->when));
 		} else {
-			when = bfc.from ((*i)->when);
+			when = bfc.from ((samplecnt_t) (*i)->when).to_ticks();
 		}
 		cl.fast_simple_add (when, (*i)->value);
 	}

@@ -244,7 +244,7 @@ SndFileSource::SndFileSource (Session& s, const AudioFileSource& other, const st
 	, file_pos (0)
 	, xfade_buf (0)
 {
-	if (other.readable_length () == 0) {
+	if (other.readable_length_samples () == 0) {
 		throw failed_constructor();
 	}
 
@@ -303,7 +303,7 @@ SndFileSource::SndFileSource (Session& s, const AudioFileSource& other, const st
 		off += len;
 		len = other.read (buf, off, 8192, other.channel ());
 		if (progress) {
-			progress->set_progress (0.5f * (float) off / other.readable_length ());
+			progress->set_progress (0.5f * (float) off / other.readable_length_samples ());
 		}
 	}
 
@@ -325,7 +325,7 @@ SndFileSource::SndFileSource (Session& s, const AudioFileSource& other, const st
 		off += len;
 		len = other.read (buf, off, 8192, other.channel ());
 		if (progress) {
-			progress->set_progress (0.5f + 0.5f * (float) off / other.readable_length ());
+			progress->set_progress (0.5f + 0.5f * (float) off / other.readable_length_samples ());
 		}
 	}
 }
@@ -440,7 +440,7 @@ SndFileSource::open ()
 		/* newly created files will not have a BWF header at this point in time.
 		 * Import will have called Source::set_timeline_position() if one exists
 		 * in the original. */
-		header_position_offset = _timeline_position;
+		header_position_offset = _timeline_position.sample();
 	}
 
 	/* Set our timeline position to either the time reference from a BWF header or the current
@@ -532,7 +532,7 @@ SndFileSource::read_unlocked (Sample *dst, samplepos_t start, samplecnt_t cnt) c
 
 		/* read ends beyond end of data, read some, memset the rest */
 
-		file_cnt = _length - start;
+		file_cnt = _length.samples() - start;
 
 	} else {
 
@@ -626,13 +626,13 @@ SndFileSource::nondestructive_write_unlocked (Sample *data, samplecnt_t cnt)
 		return 0;
 	}
 
-	samplepos_t sample_pos = _length;
+	samplepos_t sample_pos = _length.samples();
 
 	if (write_float (data, sample_pos, cnt) != cnt) {
 		return 0;
 	}
 
-	update_length (_length + cnt);
+	update_length (_length.samples() + cnt);
 
 	if (_build_peakfiles) {
 		compute_and_write_peaks (data, sample_pos, cnt, true, true);
@@ -659,7 +659,7 @@ SndFileSource::destructive_write_unlocked (Sample* data, samplecnt_t cnt)
 		_capture_end = false;
 
 		/* move to the correct location place */
-		file_pos = capture_start_sample - _timeline_position;
+		file_pos = capture_start_sample - _timeline_position.sample();
 
 		// split cnt in half
 		samplecnt_t subcnt = cnt / 2;
@@ -691,7 +691,7 @@ SndFileSource::destructive_write_unlocked (Sample* data, samplecnt_t cnt)
 		_capture_end = false;
 
 		/* move to the correct location place */
-		file_pos = capture_start_sample - _timeline_position;
+		file_pos = capture_start_sample - _timeline_position.sample();
 
 		if (crossfade (data, cnt, 1) != cnt) {
 			return 0;
@@ -814,7 +814,7 @@ SndFileSource::set_header_timeline_position ()
 	}
 	assert (_broadcast_info);
 
-	_broadcast_info->set_time_reference (_timeline_position);
+	_broadcast_info->set_time_reference (_timeline_position.sample());
 
 	if (_sndfile == 0 || !_broadcast_info->write_to_file (_sndfile)) {
 		error << string_compose (_("cannot set broadcast info for audio file %1 (%2); dropping broadcast info for this file"),
@@ -849,7 +849,7 @@ SndFileSource::write_float (Sample* data, samplepos_t sample_pos, samplecnt_t cn
 samplepos_t
 SndFileSource::natural_position() const
 {
-	return _timeline_position;
+	return _timeline_position.sample();
 }
 
 void
@@ -909,7 +909,7 @@ SndFileSource::crossfade (Sample* data, samplecnt_t cnt, int fade_in)
 
 		/* read ends beyond end of data, read some, memset the rest */
 
-		file_cnt = _length - fade_position;
+		file_cnt = _length.samples() - fade_position;
 
 	} else {
 
@@ -1047,7 +1047,7 @@ SndFileSource::setup_standard_crossfades (Session const & s, samplecnt_t rate)
 }
 
 void
-SndFileSource::set_timeline_position (samplepos_t pos)
+SndFileSource::set_timeline_position (timepos_t const & pos)
 {
 	// destructive track timeline postion does not change
 	// except at instantion or when header_position_offset

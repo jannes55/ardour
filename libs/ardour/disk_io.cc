@@ -186,7 +186,7 @@ int
 DiskIOProcessor::set_loop (Location *location)
 {
 	if (location) {
-		if (location->start() >= location->end()) {
+		if (location->start_sample() >= location->end_sample()) {
 			error << string_compose(_("Location \"%1\" not valid for track loop (start >= end)"), location->name()) << endl;
 			return -1;
 		}
@@ -407,8 +407,8 @@ DiskIOProcessor::get_location_times(const Location* location,
                    samplepos_t*     length)
 {
 	if (location) {
-		*start  = location->start();
-		*end    = location->end();
+		*start  = location->start_sample();
+		*end    = location->end_sample();
 		*length = *end - *start;
 	}
 }

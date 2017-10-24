@@ -85,7 +85,7 @@ class LIBMIDIPP_API Port {
 		return !(write (msg, len, timestamp) == (int) len);
 	}
 
-	virtual void parse (samplecnt_t timestamp) = 0;
+	virtual void parse (Temporal::samplecnt_t timestamp) = 0;
 
 	bool clock (timestamp_t timestamp);
 

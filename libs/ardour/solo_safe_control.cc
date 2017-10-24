@@ -29,7 +29,7 @@ using namespace PBD;
 
 SoloSafeControl::SoloSafeControl (Session& session, std::string const & name)
 	: SlavableAutomationControl (session, SoloSafeAutomation, ParameterDescriptor (SoloSafeAutomation),
-	                             boost::shared_ptr<AutomationList>(new AutomationList(Evoral::Parameter(SoloSafeAutomation))),
+	                             boost::shared_ptr<AutomationList>(new AutomationList(Evoral::Parameter(SoloSafeAutomation), Temporal::AudioTime)),
 	                             name)
 	, _solo_safe (false)
 {

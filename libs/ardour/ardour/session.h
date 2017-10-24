@@ -51,7 +51,7 @@
 
 #include "lua/luastate.h"
 
-#include "evoral/Range.hpp"
+#include "temporal/range.h"
 
 #include "midi++/types.h"
 #include "midi++/mmc.h"
@@ -97,6 +97,10 @@ namespace luabridge {
 
 namespace Evoral {
 class Curve;
+}
+
+namespace Temoral {
+class TempoMap;
 }
 
 namespace ARDOUR {
@@ -150,7 +154,6 @@ class SessionPlaylists;
 class Slave;
 class Source;
 class Speakers;
-class TempoMap;
 class Track;
 class VCAManager;
 class WindowsVSTPlugin;
@@ -707,14 +710,14 @@ public:
 
 	void sync_time_vars();
 
-	void bbt_time (samplepos_t when, Timecode::BBT_Time&);
-	void timecode_to_sample(Timecode::Time& timecode, samplepos_t& sample, bool use_offset, bool use_subframes) const;
-	void sample_to_timecode(samplepos_t sample, Timecode::Time& timecode, bool use_offset, bool use_subframes) const;
-	void timecode_time (Timecode::Time &);
-	void timecode_time (samplepos_t when, Timecode::Time&);
-	void timecode_time_subframes (samplepos_t when, Timecode::Time&);
+	void bbt_time (samplepos_t when, Temporal::BBT_Time&);
+	void timecode_to_sample(Temporal::Time& timecode, samplepos_t& sample, bool use_offset, bool use_subframes) const;
+	void sample_to_timecode(samplepos_t sample, Temporal::Time& timecode, bool use_offset, bool use_subframes) const;
+	void timecode_time (Temporal::Time &);
+	void timecode_time (samplepos_t when, Temporal::Time&);
+	void timecode_time_subframes (samplepos_t when, Temporal::Time&);
 
-	void timecode_duration (samplecnt_t, Timecode::Time&) const;
+	void timecode_duration (samplecnt_t, Temporal::Time&) const;
 	void timecode_duration_string (char *, size_t len, samplecnt_t) const;
 
 	samplecnt_t convert_to_samples (AnyTime const & position);
@@ -734,8 +737,8 @@ public:
 
 	bool silent () { return _silent; }
 
-	TempoMap&       tempo_map()       { return *_tempo_map; }
-	const TempoMap& tempo_map() const { return *_tempo_map; }
+	Temporal::TempoMap&       tempo_map()       { return *_tempo_map; }
+	const Temporal::TempoMap& tempo_map() const { return *_tempo_map; }
 
 	unsigned int    get_xrun_count () const {return _xrun_count; }
 	void            reset_xrun_count () {_xrun_count = 0; }
@@ -1010,11 +1013,11 @@ public:
 
 	/* ranges */
 
-	void request_play_range (std::list<AudioRange>*, bool leave_rolling = false);
+	void request_play_range (std::list<TimelineRange>*, bool leave_rolling = false);
 	void request_cancel_play_range ();
 	bool get_play_range () const { return _play_range; }
 
-	void maybe_update_session_range (samplepos_t, samplepos_t);
+	void maybe_update_session_range (timepos_t, timepos_t);
 
 	/* preroll */
 	samplecnt_t preroll_samples (samplepos_t) const;
@@ -1514,7 +1517,7 @@ private:
 
 	void enable_record ();
 
-	void increment_transport_position (samplecnt_t val) {
+	void increment_transport_position (sampleoffset_t val) {
 		if (max_samplepos - val < _transport_sample) {
 			_transport_sample = max_samplepos;
 		} else {
@@ -1522,7 +1525,7 @@ private:
 		}
 	}
 
-	void decrement_transport_position (samplecnt_t val) {
+	void decrement_transport_position (sampleoffset_t val) {
 		if (val < _transport_sample) {
 			_transport_sample -= val;
 		} else {
@@ -1635,7 +1638,7 @@ private:
 	MIDI::byte mtc_timecode_bits;   /* encoding of SMTPE type for MTC */
 	MIDI::byte midi_msg[16];
 	double outbound_mtc_timecode_frame;
-	Timecode::Time transmitting_timecode_time;
+	Temporal::Time transmitting_timecode_time;
 	int next_quarter_frame_to_send;
 
 	double _samples_per_timecode_frame; /* has to be floating point because of drop sample */
@@ -1646,7 +1649,7 @@ private:
 	 * have multiple clocks showing the same time (e.g. the transport sample) */
 	bool last_timecode_valid;
 	samplepos_t last_timecode_when;
-	Timecode::Time last_timecode;
+	Temporal::Time last_timecode;
 
 	bool _send_timecode_update; ///< Flag to send a full sample (Timecode) MTC message this cycle
 
@@ -1655,7 +1658,7 @@ private:
 	LTCEncoder*       ltc_encoder;
 	ltcsnd_sample_t*  ltc_enc_buf;
 
-	Timecode::TimecodeFormat ltc_enc_tcformat;
+	Temporal::TimecodeFormat ltc_enc_tcformat;
 	int32_t           ltc_buf_off;
 	int32_t           ltc_buf_len;
 
@@ -1726,8 +1729,8 @@ private:
 	int  send_full_time_code (samplepos_t, pframes_t nframes);
 	void send_song_position_pointer (samplepos_t);
 
-	TempoMap    *_tempo_map;
-	void          tempo_map_changed (const PBD::PropertyChange&);
+	Temporal::TempoMap    *_tempo_map;
+	void tempo_map_changed (Temporal::samplepos_t, Temporal::samplepos_t);
 
 	/* edit/mix groups */
 
@@ -1810,8 +1813,8 @@ private:
 	void remove_playlist (boost::weak_ptr<Playlist>);
 	void track_playlist_changed (boost::weak_ptr<Track>);
 	void playlist_region_added (boost::weak_ptr<Region>);
-	void playlist_ranges_moved (std::list<Evoral::RangeMove<samplepos_t> > const &);
-	void playlist_regions_extended (std::list<Evoral::Range<samplepos_t> > const &);
+	void playlist_ranges_moved (std::list<Temporal::RangeMove<timepos_t> > const &);
+	void playlist_regions_extended (std::list<Temporal::Range<timepos_t> > const &);
 
 	/* CURVES and AUTOMATION LISTS */
 	std::map<PBD::ID, AutomationList*> automation_lists;
@@ -1945,16 +1948,16 @@ private:
 
 	/* range playback */
 
-	std::list<AudioRange> current_audio_range;
+	std::list<TimelineRange> current_audio_range;
 	bool _play_range;
-	void set_play_range (std::list<AudioRange>&, bool leave_rolling);
+	void set_play_range (std::list<TimelineRange>&, bool leave_rolling);
 	void unset_play_range ();
 
 	/* temporary hacks to allow selection to be pushed from GUI into backend
 	   Whenever we move the selection object into libardour, these will go away.
 	*/
-	Evoral::Range<samplepos_t> _range_selection;
-	Evoral::Range<samplepos_t> _object_selection;
+	Temporal::Range<samplepos_t> _range_selection;
+	Temporal::Range<samplepos_t> _object_selection;
 
 	void unset_preroll_record_trim ();
 
@@ -2045,8 +2048,6 @@ private:
 
 	/** true if timecode transmission by the transport is suspended, otherwise false */
 	mutable gint _suspend_timecode_transmission;
-
-	void update_locations_after_tempo_map_change (const Locations::LocationList &);
 
 	void start_time_changed (samplepos_t);
 	void end_time_changed (samplepos_t);

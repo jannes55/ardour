@@ -31,6 +31,7 @@
 #include "pbd/i18n.h"
 
 using namespace ARDOUR;
+using Temporal::TempoMap;
 
 PBD::Signal2<void,std::string,std::string> BasicUI::AccessAction;
 
@@ -116,7 +117,7 @@ BasicUI::loop_location (samplepos_t start, samplepos_t end)
 		session->set_auto_loop_location (loc);
 	} else {
 		tll->set_hidden (false, this);
-		tll->set (start, end);
+		tll->set_sample (start, end);
 	}
 }
 
@@ -406,7 +407,7 @@ void
 BasicUI::jump_by_bars (double bars)
 {
 	TempoMap& tmap (session->tempo_map());
-	Timecode::BBT_Time bbt (tmap.bbt_at_sample (session->transport_sample()));
+	Temporal::BBT_Time bbt (tmap.bbt_at (session->transport_sample()));
 
 	bars += bbt.bars;
 	if (bars < 0) {
@@ -542,21 +543,21 @@ BasicUI::timecode_frames_per_hour ()
 }
 
 void
-BasicUI::timecode_time (samplepos_t where, Timecode::Time& timecode)
+BasicUI::timecode_time (samplepos_t where, Temporal::Time& timecode)
 {
-	session->timecode_time (where, *((Timecode::Time *) &timecode));
+	session->timecode_time (where, *((Temporal::Time *) &timecode));
 }
 
 void
-BasicUI::timecode_to_sample (Timecode::Time& timecode, samplepos_t & sample, bool use_offset, bool use_subframes) const
+BasicUI::timecode_to_sample (Temporal::Time& timecode, samplepos_t & sample, bool use_offset, bool use_subframes) const
 {
-	session->timecode_to_sample (*((Timecode::Time*)&timecode), sample, use_offset, use_subframes);
+	session->timecode_to_sample (*((Temporal::Time*)&timecode), sample, use_offset, use_subframes);
 }
 
 void
-BasicUI::sample_to_timecode (samplepos_t sample, Timecode::Time& timecode, bool use_offset, bool use_subframes) const
+BasicUI::sample_to_timecode (samplepos_t sample, Temporal::Time& timecode, bool use_offset, bool use_subframes) const
 {
-	session->sample_to_timecode (sample, *((Timecode::Time*)&timecode), use_offset, use_subframes);
+	session->sample_to_timecode (sample, *((Temporal::Time*)&timecode), use_offset, use_subframes);
 }
 
 void
@@ -569,7 +570,7 @@ BasicUI::cancel_all_solo ()
 
 struct SortLocationsByPosition {
     bool operator() (Location* a, Location* b) {
-	    return a->start() < b->start();
+	    return a->start_sample() < b->start_sample();
     }
 };
 
@@ -590,7 +591,7 @@ BasicUI::goto_nth_marker (int n)
 	for (Locations::LocationList::iterator i = ordered.begin(); n >= 0 && i != ordered.end(); ++i) {
 		if ((*i)->is_mark() && !(*i)->is_hidden() && !(*i)->is_session_range()) {
 			if (n == 0) {
-				session->request_locate ((*i)->start(), session->transport_rolling());
+				session->request_locate ((*i)->start_sample(), session->transport_rolling());
 				break;
 			}
 			--n;

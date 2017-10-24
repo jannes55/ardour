@@ -1,6 +1,6 @@
-/* This file is part of Evoral.
+/*
  * Copyright (C) 2008 David Robillard <http://drobilla.net>
- * Copyright (C) 2000-2008 Paul Davis
+ * Copyright (C) 2000-2017 Paul Davis
  *
  * Evoral is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the Free Software
@@ -16,19 +16,19 @@
  * 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef EVORAL_RANGE_HPP
-#define EVORAL_RANGE_HPP
+#ifndef __libtemporal_range_hpp__
+#define __libtemporal_range_hpp__
 
 #include <list>
 #include <assert.h>
 #include <iostream>
-#include "evoral/visibility.h"
 
+#include "temporal/visibility.h"
+#include "temporal/timeline.h"
 
+namespace Temporal {
 
-namespace Evoral {
-
-enum /*LIBEVORAL_API*/ OverlapType {
+enum /*LIBTEMPORAL_API*/ OverlapType {
 	OverlapNone,      // no overlap
 	OverlapInternal,  // the overlap is 100% within the object
 	OverlapStart,     // overlap covers start, but ends within
@@ -37,7 +37,7 @@ enum /*LIBEVORAL_API*/ OverlapType {
 };
 
 template<typename T>
-/*LIBEVORAL_API*/ OverlapType coverage (T sa, T ea, T sb, T eb) {
+/*LIBTEMPORAL_API*/ OverlapType coverage (T sa, T ea, T sb, T eb) {
 	/* OverlapType returned reflects how the second (B)
 	 * range overlaps the first (A).
 	 *
@@ -124,19 +124,24 @@ template<typename T>
 		}
 	}
 
-	std::cerr << "unknown overlap type!" << sa << ", " << ea << "; " << sb << ", " << eb << std::endl;
+	//std::cerr << "unknown overlap type!" << sa << ", " << ea << "; " << sb << ", " << eb << std::endl;
+	std::cerr << "unknown overlap type!" << std::endl;
 	assert(!"unknown overlap type!");
 	return OverlapNone;
 }
 
 /** Type to describe a time range */
 template<typename T>
-struct /*LIBEVORAL_API*/ Range {
+struct /*LIBTEMPORAL_API*/ Range {
 	Range (T f, T t) : from (f), to (t) {}
 	T from; ///< start of the range
 	T to;   ///< end of the range (inclusive: to lies inside the range)
 	bool empty() const { return from == to; }
 	T length() const { return to - from + 1; }
+
+	bool operator== (Range const & other) const {
+		return other.from == from && other.to == to;
+	}
 
 	/** for a T, return a mapping of it into the range (used for
 	 * looping). If the argument is earlier than or equal to the end of
@@ -151,12 +156,7 @@ struct /*LIBEVORAL_API*/ Range {
 };
 
 template<typename T>
-bool operator== (Range<T> a, Range<T> b) {
-	return a.from == b.from && a.to == b.to;
-}
-
-template<typename T>
-class /*LIBEVORAL_API*/ RangeList {
+class /*LIBTEMPORAL_API*/ RangeList {
 public:
 	RangeList () : _dirty (false) {}
 
@@ -208,12 +208,12 @@ private:
 };
 
 /** Type to describe the movement of a time range */
-template<typename T>
-struct /*LIBEVORAL_API*/ RangeMove {
-	RangeMove (T f, double l, T t) : from (f), length (l), to (t) {}
-	T         from;   ///< start of the range
-	double    length; ///< length of the range
-	T         to;     ///< new start of the range
+template <typename T>
+struct /*LIBTEMPORAL_API*/ RangeMove {
+	RangeMove (T f, T l, T t) : from (f), length (l), to (t) {}
+	T from;   ///< start of the range
+	T length; ///< length of the range
+	T to;     ///< new start of the range
 };
 
 /** Subtract the ranges in `sub' from that in `range',
@@ -293,4 +293,4 @@ RangeList<T> subtract (Range<T> range, RangeList<T> sub)
 
 }
 
-#endif
+#endif /* __libtemporal_range_hpp__ */

@@ -96,8 +96,8 @@ void
 VerboseCursor::set_time (samplepos_t sample)
 {
 	char buf[128];
-	Timecode::Time timecode;
-	Timecode::BBT_Time bbt;
+	Temporal::Time timecode;
+	Temporal::BBT_Time bbt;
 
 	if (_editor->_session == 0) {
 		return;
@@ -115,7 +115,7 @@ VerboseCursor::set_time (samplepos_t sample)
 
 	case AudioClock::Timecode:
 		_editor->_session->timecode_time (sample, timecode);
-		snprintf (buf, sizeof (buf), "%s", Timecode::timecode_format_time (timecode).c_str());
+		snprintf (buf, sizeof (buf), "%s", Temporal::timecode_format_time (timecode).c_str());
 		break;
 
 	case AudioClock::MinSec:
@@ -134,9 +134,9 @@ void
 VerboseCursor::set_duration (samplepos_t start, samplepos_t end)
 {
 	char buf[128];
-	Timecode::Time timecode;
-	Timecode::BBT_Time sbbt;
-	Timecode::BBT_Time ebbt;
+	Temporal::Time timecode;
+	Temporal::BBT_Time sbbt;
+	Temporal::BBT_Time ebbt;
 	Meter meter_at_start (_editor->_session->tempo_map().meter_at_sample (start));
 
 	if (_editor->_session == 0) {
@@ -166,7 +166,7 @@ VerboseCursor::set_duration (samplepos_t start, samplepos_t end)
 
 		ticks -= sbbt.ticks;
 		if (ticks < 0) {
-			ticks += int (Timecode::BBT_Time::ticks_per_beat);
+			ticks += int (Temporal::BBT_Time::ticks_per_beat);
 			--beats;
 		}
 
@@ -184,7 +184,7 @@ VerboseCursor::set_duration (samplepos_t start, samplepos_t end)
 
 	case AudioClock::Timecode:
 		_editor->_session->timecode_duration (end - start, timecode);
-		snprintf (buf, sizeof (buf), "%s", Timecode::timecode_format_time (timecode).c_str());
+		snprintf (buf, sizeof (buf), "%s", Temporal::timecode_format_time (timecode).c_str());
 		break;
 
 	case AudioClock::MinSec:

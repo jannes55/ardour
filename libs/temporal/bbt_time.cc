@@ -21,19 +21,7 @@
 
 #include "temporal/bbt_time.h"
 
-using namespace Timecode;
-
-/* This defines the smallest division of a "beat".
-
-   The number is intended to have as many integer factors as possible so that
-   1/Nth divisions are integer numbers of ticks.
-
-   1920 has many factors, though going up to 3840 gets a couple more.
-
-   This needs to match Temporal::Beats::PPQN
-*/
-
-const double BBT_Time::ticks_per_beat = 1920.0;
+using namespace Temporal;
 
 BBT_Offset::BBT_Offset (double dbeats)
 {
@@ -46,5 +34,54 @@ BBT_Offset::BBT_Offset (double dbeats)
 
 	bars = 0;
 	beats = lrint (floor (dbeats));
-	ticks = lrint (floor (BBT_Time::ticks_per_beat * fmod (dbeats, 1.0)));
+	ticks = lrint (floor (Temporal::ticks_per_beat * fmod (dbeats, 1.0)));
+}
+
+
+std::ostream&
+std::operator<< (std::ostream& o, Temporal::BBT_Time const & bbt)
+{
+	o << bbt.bars << '|' << bbt.beats << '|' << bbt.ticks;
+	return o;
+}
+
+std::ostream&
+std::operator<< (std::ostream& o, const Temporal::BBT_Offset& bbt)
+{
+	o << bbt.bars << '|' << bbt.beats << '|' << bbt.ticks;
+	return o;
+}
+
+std::istream&
+std::operator>>(std::istream& i, Temporal::BBT_Offset& bbt)
+{
+	int32_t B, b, t;
+	char skip_pipe_char;
+
+	i >> B;
+	i >> skip_pipe_char;
+	i >> b;
+	i >> skip_pipe_char;
+	i >> t;
+
+	bbt = Temporal::BBT_Time (B, b, t);
+
+	return i;
+}
+
+std::istream&
+operator>>(std::istream& i, Temporal::BBT_Time& bbt)
+{
+	int32_t B, b, t;
+	char skip_pipe_char;
+
+	i >> B;
+	i >> skip_pipe_char;
+	i >> b;
+	i >> skip_pipe_char;
+	i >> t;
+
+	bbt = Temporal::BBT_Time (B, b, t);
+
+	return i;
 }

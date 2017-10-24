@@ -199,7 +199,7 @@ AudioEngine::process_callback (pframes_t nframes)
 
 	/* handle wrap around of total samples counter */
 
-	if (max_samplepos - _processed_samples < nframes) {
+	if (Temporal::max_samplepos - _processed_samples < nframes) {
 		next_processed_samples = nframes - (max_samplepos - _processed_samples);
 	} else {
 		next_processed_samples = _processed_samples + nframes;
@@ -726,6 +726,7 @@ AudioEngine::discover_backends ()
 		DEBUG_TRACE (DEBUG::AudioEngine, string_compose ("Checking possible backend in %1\n", *i));
 
 		if ((info = backend_discover (*i)) != 0) {
+			cerr << "Yes, got one\n";
 			_backends.insert (make_pair (info->name, info));
 		}
 	}
@@ -754,18 +755,24 @@ AudioEngine::backend_discover (const string& path)
 	if (!module) {
 		error << string_compose(_("AudioEngine: cannot load module \"%1\" (%2)"), path,
 					Glib::Module::get_last_error()) << endmsg;
+
+		cerr << string_compose(_("AudioEngine: cannot load module \"%1\" (%2)"), path,
+		                        Glib::Module::get_last_error()) << endl;
+		cerr << "E1\n";
 		return 0;
 	}
 
 	if (!module.get_symbol ("descriptor", func)) {
 		error << string_compose(_("AudioEngine: backend at \"%1\" has no descriptor function."), path) << endmsg;
 		error << Glib::Module::get_last_error() << endmsg;
+		cerr << "E2\n";
 		return 0;
 	}
 
 	dfunc = (AudioBackendInfo* (*)(void))func;
 	info = dfunc();
 	if (!info->available()) {
+		cerr << "E3\n";
 		return 0;
 	}
 

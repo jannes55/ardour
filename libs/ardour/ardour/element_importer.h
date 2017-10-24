@@ -113,7 +113,7 @@ class LIBARDOUR_API ElementImporter
 	samplecnt_t sample_rate;
 
 	/// Converts timecode time to a string
-	std::string timecode_to_string (Timecode::Time & time) const;
+	std::string timecode_to_string (Temporal::Time & time) const;
 
 	/// Converts samples so that times match the sessions sample rate
 	samplecnt_t rate_convert_samples (samplecnt_t samples) const;

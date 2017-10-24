@@ -30,7 +30,7 @@ using namespace std;
 
 MuteControl::MuteControl (Session& session, std::string const & name, Muteable& m)
 	: SlavableAutomationControl (session, MuteAutomation, ParameterDescriptor (MuteAutomation),
-	                             boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (MuteAutomation))),
+	                             boost::shared_ptr<AutomationList> (new AutomationList (Evoral::Parameter (MuteAutomation), Temporal::AudioTime)),
 	                             name)
 	, _muteable (m)
 {

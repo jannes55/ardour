@@ -614,9 +614,9 @@ AddVideoDialog::request_preview(std::string u)
 		clip_height = MIN(PREVIEW_HEIGHT, rint(clip_width / video_aspect_ratio));
 	}
 
-	pi_tcin.set_text(Timecode::timecode_format_sampletime(
+	pi_tcin.set_text(Temporal::timecode_format_sampletime(
 				video_start_offset, video_file_fps, video_file_fps, rint(video_file_fps*100.0)==2997));
-	pi_tcout.set_text(Timecode::timecode_format_sampletime(
+	pi_tcout.set_text(Temporal::timecode_format_sampletime(
 				video_start_offset + video_duration, video_file_fps, video_file_fps, rint(video_file_fps*100.0)==2997));
 
 	/* todo break out this code -> re-usability */

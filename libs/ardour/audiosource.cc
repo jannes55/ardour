@@ -78,7 +78,6 @@ bool AudioSource::_build_peakfiles = false;
 
 AudioSource::AudioSource (Session& s, const string& name)
 	: Source (s, DataType::AUDIO, name)
-	, _length (0)
 	, _peak_byte_max (0)
 	, _peaks_built (false)
 	, _peakfile_fd (-1)
@@ -94,7 +93,6 @@ AudioSource::AudioSource (Session& s, const string& name)
 
 AudioSource::AudioSource (Session& s, const XMLNode& node)
 	: Source (s, node)
-	, _length (0)
 	, _peak_byte_max (0)
 	, _peaks_built (false)
 	, _peakfile_fd (-1)
@@ -146,20 +144,8 @@ AudioSource::set_state (const XMLNode& node, int /*version*/)
 	return 0;
 }
 
-bool
-AudioSource::empty () const
-{
-        return _length == 0;
-}
-
-samplecnt_t
-AudioSource::length (samplepos_t /*pos*/) const
-{
-	return _length;
-}
-
 void
-AudioSource::update_length (samplecnt_t len)
+AudioSource::update_length (timecnt_t const & len)
 {
 	if (len > _length) {
 		_length = len;
@@ -266,7 +252,7 @@ AudioSource::initialize_peakfile (const string& audio_path, const bool in_sessio
 
 		/* we found it in the peaks dir, so check it out */
 
-		if (statbuf.st_size == 0 || (statbuf.st_size < (off_t) ((length(_timeline_position) / _FPP) * sizeof (PeakData)))) {
+		if (statbuf.st_size == 0 || (statbuf.st_size < (off_t) ((length_samples(_timeline_position) / _FPP) * sizeof (PeakData)))) {
 			DEBUG_TRACE(DEBUG::Peaks, string_compose("Peakfile %1 is empty\n", _peakpath));
 			_peaks_built = false;
 		} else {
@@ -378,7 +364,7 @@ AudioSource::read_peaks_with_fpp (PeakData *peaks, samplecnt_t npeaks, samplepos
 		 *
 		 */
 
-		const off_t expected_file_size = (_length / (double) samples_per_file_peak) * sizeof (PeakData);
+		const off_t expected_file_size = (_length.samples() / (double) samples_per_file_peak) * sizeof (PeakData);
 
 		if (statbuf.st_size < expected_file_size) {
 			warning << string_compose (_("peak file %1 is truncated from %2 to %3"), _peakpath, expected_file_size, statbuf.st_size) << endmsg;
@@ -410,9 +396,9 @@ AudioSource::read_peaks_with_fpp (PeakData *peaks, samplecnt_t npeaks, samplepos
 
 	/* fix for near-end-of-file conditions */
 
-	if (cnt > _length - start) {
+	if (cnt > _length.samples() - start) {
 		// cerr << "too close to end @ " << _length << " given " << start << " + " << cnt << " (" << _length - start << ")" << endl;
-		cnt = _length - start;
+		cnt = _length.samples() - start;
 		read_npeaks = min ((samplecnt_t) floor (cnt / samples_per_visual_peak), npeaks);
 		zero_fill = npeaks - read_npeaks;
 		expected_peaks = (cnt / (double) samples_per_file_peak);
@@ -656,9 +642,9 @@ AudioSource::read_peaks_with_fpp (PeakData *peaks, samplecnt_t npeaks, samplepos
 
 			if (i == samples_read) {
 
-				to_read = min (chunksize, (samplecnt_t)(_length - current_sample));
+				to_read = min (chunksize, (samplecnt_t)(_length.samples() - current_sample));
 
-				if (current_sample >= _length) {
+				if (current_sample >= _length.samples()) {
 
                                         /* hmm, error condition - we've reached the end of the file
                                            without generating all the peak data. cook up a zero-filled
@@ -671,12 +657,12 @@ AudioSource::read_peaks_with_fpp (PeakData *peaks, samplecnt_t npeaks, samplepos
 
                                 } else {
 
-                                        to_read = min (chunksize, (_length - current_sample));
+					to_read = min (chunksize, (_length.samples() - current_sample));
 
 
                                         if ((samples_read = read_unlocked (raw_staging.get(), current_sample, to_read)) == 0) {
                                                 error << string_compose(_("AudioSource[%1]: peak read - cannot read %2 samples at offset %3 of %4 (%5)"),
-                                                                        _name, to_read, current_sample, _length, strerror (errno))
+                                                                        _name, to_read, current_sample, _length.samples(), strerror (errno))
                                                       << endmsg;
                                                 return -1;
                                         }
@@ -731,7 +717,7 @@ AudioSource::build_peaks_from_scratch ()
 		}
 
 		samplecnt_t current_sample = 0;
-		samplecnt_t cnt = _length;
+		samplecnt_t cnt = _length.samples();
 
 		_peaks_built = false;
 		boost::scoped_array<Sample> buf(new Sample[bufsize]);
@@ -1062,7 +1048,7 @@ samplecnt_t
 AudioSource::available_peaks (double zoom_factor) const
 {
 	if (zoom_factor < _FPP) {
-		return length(_timeline_position); // peak data will come from the audio file
+		return length_samples(_timeline_position); // peak data will come from the audio file
 	}
 
 	/* peak data comes from peakfile, but the filesize might not represent

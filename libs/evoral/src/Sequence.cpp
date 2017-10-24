@@ -134,7 +134,8 @@ Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&            
 	_control_iters.reserve(seq._controls.size());
 	bool   found                  = false;
 	size_t earliest_control_index = 0;
-	double earliest_control_x     = DBL_MAX;
+	ControlEvent::when_t earliest_control_x = std::numeric_limits<ControlEvent::when_t>::max();
+
 	for (Controls::const_iterator i = seq._controls.begin(); i != seq._controls.end(); ++i) {
 
 		if (filtered.find (i->first) != filtered.end()) {
@@ -143,20 +144,19 @@ Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&            
 		}
 
 		DEBUG_TRACE (DEBUG::Sequence, string_compose ("Iterator: control: %1\n", seq._type_map.to_symbol(i->first)));
-		double x, y;
+		ControlEvent::when_t x;
+		double y;
 		bool ret;
 		if (_force_discrete || i->second->list()->interpolation() == ControlList::Discrete) {
-			ret = i->second->list()->rt_safe_earliest_event_discrete_unlocked (t.to_double(), x, y, true);
+			ret = i->second->list()->rt_safe_earliest_event_discrete_unlocked (t.to_ticks(), x, y, true);
 		} else {
-			ret = i->second->list()->rt_safe_earliest_event_unlocked(t.to_double(), x, y, true);
+			ret = i->second->list()->rt_safe_earliest_event_unlocked(t.to_ticks(), x, y, true);
 		}
 		if (!ret) {
 			DEBUG_TRACE (DEBUG::Sequence, string_compose ("Iterator: CC %1 (size %2) has no events past %3\n",
 			                                              i->first.id(), i->second->list()->size(), t));
 			continue;
 		}
-
-		assert(x >= 0);
 
 		const ParameterDescriptor& desc = seq.type_map().descriptor(i->first);
 		if (y < desc.lower || y > desc.upper) {
@@ -344,9 +344,9 @@ Sequence<Time>::const_iterator::operator++()
 		     << int(ev.buffer()[0]) << int(ev.buffer()[1]) << int(ev.buffer()[2]) << endl;
 	}
 
-	double x   = 0.0;
-	double y   = 0.0;
-	bool   ret = false;
+	ControlEvent::when_t x   = 0;
+	double    y   = 0.0;
+	bool      ret = false;
 
 	// Increment past current event
 	switch (_type) {

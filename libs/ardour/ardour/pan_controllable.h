@@ -41,7 +41,7 @@ class LIBARDOUR_API PanControllable : public AutomationControl
 		: AutomationControl (s,
 		                     param,
 		                     ParameterDescriptor(param),
-		                     boost::shared_ptr<AutomationList>(new AutomationList(param)),
+		                     boost::shared_ptr<AutomationList>(new AutomationList(param, Temporal::AudioTime)),
 		                     name)
 		, owner (o)
 	{}

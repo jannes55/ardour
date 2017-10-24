@@ -60,13 +60,13 @@ Reverse::run (boost::shared_ptr<Region> r, Progress*)
 		goto out;
 	}
 
-	fstart = region->start();
+	fstart = region->start().sample();
 
 	if (blocksize > region->length()) {
-		blocksize = region->length();
+		blocksize = region->length().samples();
 	}
 
-	fpos = max (fstart, (fstart + region->length() - blocksize));
+	fpos = max (fstart, (fstart + region->length().samples() - blocksize));
 
 	buf = new Sample[blocksize];
 	to_read = blocksize;

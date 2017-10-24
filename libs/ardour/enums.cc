@@ -20,7 +20,8 @@
 #include "pbd/enumwriter.h"
 #include "midi++/types.h"
 
-#include "evoral/Range.hpp" // shouldn't Evoral have its own enum registration?
+#include "temporal/types.h"
+#include "temporal/range.h" // shouldn't Temporal have its own enum registration?
 
 #include "ardour/delivery.h"
 #include "ardour/disk_io.h"
@@ -44,7 +45,7 @@ using namespace std;
 using namespace PBD;
 using namespace ARDOUR;
 using namespace MIDI;
-using namespace Timecode;
+using namespace Temporal;
 
 namespace ARDOUR {
 
@@ -103,8 +104,7 @@ setup_enum_writer ()
 	Source::Flag _Source_Flag;
 	DiskIOProcessor::Flag _DiskIOProcessor_Flag;
 	Location::Flags _Location_Flags;
-	PositionLockStyle _PositionLockStyle;
-	TempoSection::Type _TempoSection_Type;
+	Temporal::LockStyle _Temporal_LockStyle;
 	Track::FreezeState _Track_FreezeState;
 	AutomationList::InterpolationStyle _AutomationList_InterpolationStyle;
 	AnyTime::Type _AnyTime_Type;
@@ -131,7 +131,7 @@ setup_enum_writer ()
 	Session::PostTransportWork _Session_PostTransportWork;
 	Session::SlaveState _Session_SlaveState;
 	MTC_Status _MIDI_MTC_Status;
-	Evoral::OverlapType _OverlapType;
+	Temporal::OverlapType _OverlapType;
 	BufferingPreset _BufferingPreset;
 	AutoReturnTarget _AutoReturnTarget;
 	PresentationInfo::Flag _PresentationInfo_Flag;
@@ -532,10 +532,6 @@ setup_enum_writer ()
 	REGISTER_CLASS_ENUM (Location, IsSkip);
 	REGISTER_BITS (_Location_Flags);
 
-	REGISTER_CLASS_ENUM (TempoSection, Ramp);
-	REGISTER_CLASS_ENUM (TempoSection, Constant);
-	REGISTER (_TempoSection_Type);
-
 	REGISTER_CLASS_ENUM (Track, NoFreeze);
 	REGISTER_CLASS_ENUM (Track, Frozen);
 	REGISTER_CLASS_ENUM (Track, UnFrozen);
@@ -688,14 +684,15 @@ setup_enum_writer ()
 	REGISTER(_WaveformShape);
 
 	REGISTER_ENUM(AudioTime);
-	REGISTER_ENUM(MusicTime);
-	REGISTER(_PositionLockStyle);
+	REGISTER_ENUM(BeatTime);
+	REGISTER_ENUM(BarTime);
+	REGISTER(_Temporal_LockStyle);
 
-	REGISTER_ENUM (Evoral::OverlapNone);
-	REGISTER_ENUM (Evoral::OverlapInternal);
-	REGISTER_ENUM (Evoral::OverlapStart);
-	REGISTER_ENUM (Evoral::OverlapEnd);
-	REGISTER_ENUM (Evoral::OverlapExternal);
+	REGISTER_ENUM (Temporal::OverlapNone);
+	REGISTER_ENUM (Temporal::OverlapInternal);
+	REGISTER_ENUM (Temporal::OverlapStart);
+	REGISTER_ENUM (Temporal::OverlapEnd);
+	REGISTER_ENUM (Temporal::OverlapExternal);
 	REGISTER(_OverlapType);
 
 	REGISTER_ENUM (Small);

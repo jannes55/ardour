@@ -5810,7 +5810,7 @@ Editor::toggle_region_lock_style ()
 
 	for (RegionSelection::iterator i = rs.begin(); i != rs.end(); ++i) {
 		(*i)->region()->clear_changes ();
-		PositionLockStyle const ns = ((*i)->region()->position_lock_style() == AudioTime && !cmi->get_inconsistent()) ? MusicTime : AudioTime;
+		Temporal::LockStyle const ns = ((*i)->region()->position_lock_style() == AudioTime && !cmi->get_inconsistent()) ? MusicTime : AudioTime;
 		(*i)->region()->set_position_lock_style (ns);
 		_session->add_command (new StatefulDiffCommand ((*i)->region()));
 	}

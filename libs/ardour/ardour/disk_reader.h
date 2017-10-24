@@ -58,7 +58,7 @@ public:
 
 	float buffer_load() const;
 
-	void move_processor_automation (boost::weak_ptr<Processor>, std::list<Evoral::RangeMove<samplepos_t> > const &);
+	void move_processor_automation (boost::weak_ptr<Processor>, std::list<Temporal::RangeMove<samplepos_t> > const &);
 
 	/* called by the Butler in a non-realtime context */
 
@@ -108,7 +108,7 @@ protected:
 
 	void playlist_changed (const PBD::PropertyChange&);
 	int use_playlist (DataType, boost::shared_ptr<Playlist>);
-	void playlist_ranges_moved (std::list< Evoral::RangeMove<samplepos_t> > const &, bool);
+	void playlist_ranges_moved (std::list< Temporal::RangeMove<timepos_t> > const &, bool);
 
 private:
 	/** The number of samples by which this diskstream's output should be delayed

@@ -87,7 +87,7 @@ MIDISceneChanger::gather (const Locations::LocationList& locations)
 					have_seen_bank_changes = true;
 				}
 
-				scenes.insert (std::make_pair ((*l)->start(), msc));
+				scenes.insert (std::make_pair ((*l)->start_sample(), msc));
 			}
 		}
 	}
@@ -364,8 +364,8 @@ MIDISceneChanger::jump_to (int bank, int program)
 
 			boost::shared_ptr<MIDISceneChange> msc = boost::dynamic_pointer_cast<MIDISceneChange> (sc);
 
-			if (msc->bank() == bank && msc->program() == program && (*l)->start() < where) {
-				where = (*l)->start();
+			if (msc->bank() == bank && msc->program() == program && (*l)->start_sample() < where) {
+				where = (*l)->start_sample();
 			}
 		}
 	}
