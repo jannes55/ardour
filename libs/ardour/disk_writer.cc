@@ -110,7 +110,7 @@ DiskWriter::check_record_status (samplepos_t transport_sample, double speed, boo
 
 		Location* loc;
 		if  (_session.config.get_punch_in () && 0 != (loc = _session.locations()->auto_punch_location ())) {
-			capture_start_sample = loc->start ();
+			capture_start_sample = loc->start_sample ();
 		} else {
 			capture_start_sample = _session.transport_sample ();
 		}
@@ -127,7 +127,7 @@ DiskWriter::check_record_status (samplepos_t transport_sample, double speed, boo
 			 * We should allow to move it or at least allow to disable punch-out
 			 * while rolling..
 			 */
-			last_recordable_sample = loc->end ();
+			last_recordable_sample = loc->end_sample ();
 			if (_alignment_style == ExistingMaterial) {
 				last_recordable_sample += _capture_offset + _playback_offset;
 			}
@@ -158,7 +158,7 @@ DiskWriter::check_record_status (samplepos_t transport_sample, double speed, boo
 }
 
 void
-DiskWriter::calculate_record_range (Evoral::OverlapType ot, samplepos_t transport_sample, samplecnt_t nframes, samplecnt_t & rec_nframes, samplecnt_t & rec_offset)
+DiskWriter::calculate_record_range (Temporal::OverlapType ot, samplepos_t transport_sample, samplecnt_t nframes, samplecnt_t & rec_nframes, samplecnt_t & rec_offset)
 {
 	switch (ot) {
 	case Temporal::OverlapNone:
@@ -359,7 +359,7 @@ DiskWriter::run (BufferSet& bufs, samplepos_t start_sample, samplepos_t end_samp
 	bool re = record_enabled ();
 	bool punch_in = _session.config.get_punch_in () && _session.locations()->auto_punch_location ();
 	bool can_record = _session.actively_recording ();
-	can_record |= speed != 0 && _session.get_record_enabled () && punch_in && _session.transport_sample () <= _session.locations()->auto_punch_location ()->start ();
+	can_record |= speed != 0 && _session.get_record_enabled () && punch_in && _session.transport_sample () <= _session.locations()->auto_punch_location ()->start_sample ();
 
 	_need_butler = false;
 

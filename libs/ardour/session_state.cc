@@ -4194,7 +4194,7 @@ Session::config_changed (std::string p, bool ours)
 		if (Config->get_send_mmc ()) {
 			/* re-initialize MMC */
 			send_immediate_mmc (MIDI::MachineControlCommand (MIDI::MachineControl::cmdMmcReset));
-			send_immediate_mmc (MIDI::MachineControlCommand (Timecode::Time ()));
+			send_immediate_mmc (MIDI::MachineControlCommand (Temporal::Time ()));
 		}
 
 	} else if (p == "jack-time-master") {
@@ -5386,7 +5386,7 @@ Session::archive_session (const std::string& dest,
 		std::set<std::string> audio_file_names;
 		for (SourceMap::const_iterator i = sources.begin(); i != sources.end(); ++i) {
 			boost::shared_ptr<AudioFileSource> afs = boost::dynamic_pointer_cast<AudioFileSource> (i->second);
-			if (!afs || afs->readable_length () == 0) {
+			if (!afs || afs->readable_length_samples () == 0) {
 				continue;
 			}
 			if (only_used_sources) {

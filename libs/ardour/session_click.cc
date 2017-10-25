@@ -57,7 +57,6 @@ void
 Session::click (samplepos_t cycle_start, samplecnt_t nframes)
 {
 	Temporal::TempoMapPoints points;
-	samplecnt_t click_distance;
 
 	if (_click_io == 0) {
 		return;
@@ -104,7 +103,7 @@ Session::click (samplepos_t cycle_start, samplecnt_t nframes)
 			add_click (Temporal::superclock_to_samples ((*i).sclock(), sample_rate()), true);
 			break;
 		default:
-			if (click_emphasis_data == 0 || (Config->get_use_click_emphasis () == false) || (click_emphasis_data && (*i).bbt().beat != 1)) { // XXX why is this check needed ??  (*i).beat !=1 must be true here
+			if (click_emphasis_data == 0 || (Config->get_use_click_emphasis () == false) || (click_emphasis_data && (*i).bbt().beats != 1)) { // XXX why is this check needed ??  (*i).beats !=1 must be true here
 				add_click (Temporal::superclock_to_samples ((*i).sclock(), sample_rate()), false);
 			}
 			break;
