@@ -89,8 +89,6 @@ PeakMeter::run (BufferSet& bufs, samplepos_t /*start_sample*/, samplepos_t /*end
 	_reset_dpm = false;
 	_combined_peak = 0;
 
-	// cerr << "meter " << name() << " runs with " << bufs.available() << " inputs\n";
-
 	const uint32_t n_audio = min (current_meters.n_audio(), bufs.count().n_audio());
 	const uint32_t n_midi  = min (current_meters.n_midi(), bufs.count().n_midi());
 
