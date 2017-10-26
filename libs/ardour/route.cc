@@ -895,7 +895,7 @@ Route::add_processor (boost::shared_ptr<Processor> processor, boost::shared_ptr<
 	assert (processor != _main_outs);
 
 	DEBUG_TRACE (DEBUG::Processors, string_compose (
-		             "%1 adding processor %2\n", name(), processor->name()));
+		             "%1 adding processor %2\n", name(), processor->display_name()));
 
 	ProcessorList pl;
 
@@ -1814,7 +1814,7 @@ Route::try_configure_processors_unlocked (ChanCount in, ProcessorStreams* err)
 				}
 			}
 
-			DEBUG_TRACE (DEBUG::Processors, string_compose ("\t%1 ID=%2 in=%3 out=%4\n",(*p)->name(), (*p)->id(), in, out));
+			DEBUG_TRACE (DEBUG::Processors, string_compose ("\t%1 ID=%2 in=%3 out=%4\n",(*p)->display_name(), (*p)->id(), in, out));
 			configuration.push_back(make_pair(in, out));
 
 			if (is_monitor()) {
@@ -4898,7 +4898,7 @@ Route::setup_invisible_processors ()
 
 	DEBUG_TRACE (DEBUG::Processors, string_compose ("%1: setup_invisible_processors\n", _name));
 	for (ProcessorList::iterator i = _processors.begin(); i != _processors.end(); ++i) {
-		DEBUG_TRACE (DEBUG::Processors, string_compose ("\t%1\n", (*i)->name ()));
+		DEBUG_TRACE (DEBUG::Processors, string_compose ("\t%1\n", (*i)->display_name ()));
 	}
 }
 
