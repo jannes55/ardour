@@ -42,10 +42,13 @@ timecnt_t::timecnt_t (timepos_t const & tp)
 	switch (_style) {
 	case Temporal::AudioTime:
 		_samples = tp.sample();
+		break;
 	case Temporal::BeatTime:
 		_beats = tp.beats ();
+		break;
 	case Temporal::BarTime:
 		_bbt = tp.bbt ();
+		break;
 	}
 }
 
@@ -57,10 +60,13 @@ timecnt_t::operator= (timepos_t const & tp)
 	switch (_style) {
 	case Temporal::AudioTime:
 		_samples = tp.sample();
+		break;
 	case Temporal::BeatTime:
 		_beats = tp.beats ();
+		break;
 	case Temporal::BarTime:
 		_bbt = tp.bbt ();
+		break;
 	}
 
 	return *this;
@@ -377,10 +383,10 @@ timepos_t::operator- (timepos_t d) const
 	case AudioTime:
 		switch (d.lock_style()) {
 		case AudioTime:
-			return timepos_t (_samplepos + d.sample());
+			return timepos_t (_samplepos - d.sample());
 		case BeatTime:
 			update_music_times ();
-			return timepos_t (_beats + d.beats());
+			return timepos_t (_beats - d.beats());
 		case BarTime:
 			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
 		}
@@ -389,9 +395,9 @@ timepos_t::operator- (timepos_t d) const
 		switch (d.lock_style()) {
 		case AudioTime:
 			update_audio_and_bbt_times ();
-			return timepos_t (_samplepos + d.sample());
+			return timepos_t (_samplepos - d.sample());
 		case BeatTime:
-			return timepos_t (_beats + d.beats());
+			return timepos_t (_beats - d.beats());
 		case BarTime:
 			update_music_times ();
 			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
@@ -401,10 +407,10 @@ timepos_t::operator- (timepos_t d) const
 		switch (d.lock_style()) {
 		case AudioTime:
 			update_audio_and_beat_times ();
-			return timepos_t (_samplepos + d.sample());
+			return timepos_t (_samplepos - d.sample());
 		case BeatTime:
 			update_music_times ();
-			return timepos_t (_beats + d.beats());
+			return timepos_t (_beats - d.beats());
 		case BarTime:
 			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
 		}

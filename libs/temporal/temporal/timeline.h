@@ -257,11 +257,11 @@ class LIBTEMPORAL_API timecnt_t {
 		}
 		switch (_style) {
 		case Temporal::AudioTime:
-			return _samples != other._samples;
+			return _samples == other._samples;
 		case Temporal::BeatTime:
-			return _beats != other._beats;
+			return _beats == other._beats;
 		case Temporal::BarTime:
-			return _bbt != other._bbt;
+			return _bbt == other._bbt;
 		}
 		return false;
 	}
