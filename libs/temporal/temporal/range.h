@@ -75,7 +75,6 @@ template<typename T>
 	 * A:    |---|
 	 */
 
-
 	if (sa > ea) {
 		// seems we are sometimes called with negative length ranges
 		return OverlapNone;
@@ -124,8 +123,7 @@ template<typename T>
 		}
 	}
 
-	//std::cerr << "unknown overlap type!" << sa << ", " << ea << "; " << sb << ", " << eb << std::endl;
-	std::cerr << "unknown overlap type!" << std::endl;
+	std::cerr << "unknown overlap type!" << sa << ", " << ea << "; " << sb << ", " << eb << std::endl;
 	assert(!"unknown overlap type!");
 	return OverlapNone;
 }
