@@ -202,15 +202,18 @@ MidiSource::midi_read (const Lock&                        lm,
 	for (; i != _model->end(); ++i) {
 
 		// Offset by source start to convert event time to session time
-		timepos_t const start_time = source_start + i->time();
-		samplepos_t time_samples = _session.tempo_map().sample_at (start_time.beats());
+
+		// XXX optimize this to avoid constantly looking up the
+		// tempo map point/iterator for source_start
+
+		samplepos_t time_samples = _session.tempo_map().sample_plus_quarters_as_samples (source_start.sample(), i->time());
 
 		if (time_samples < start + source_start) {
 			/* event too early */
 
 			continue;
 
-		} else if (start_time >= start + cnt + source_start) {
+		} else if (start + cnt + source_start < time_samples) {
 
 			DEBUG_TRACE (DEBUG::MidiSourceIO,
 			             string_compose ("%1: reached end with event @ %2 vs. %3\n",
