@@ -838,13 +838,8 @@ DiskReader::_do_refill_with_alloc (bool partial_fill)
 	*/
 
 	{
-<<<<<<< HEAD
-		boost::scoped_ptr<Sample> mix_buf (new Sample[2*1048576]);
-		boost::scoped_ptr<float>  gain_buf (new float[2*1048576]);
-=======
 		boost::scoped_array<Sample> mix_buf (new Sample[2*1048576]);
 		boost::scoped_array<float>  gain_buf (new float[2*1048576]);
->>>>>>> fix valgrind-reported non-error in DiskReader scoped allocation/RAII
 
 		int ret = refill_audio (mix_buf.get(), gain_buf.get(), (partial_fill ? _chunk_samples : 0));
 
