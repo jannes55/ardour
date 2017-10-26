@@ -430,7 +430,7 @@ timepos_t::operator+ (samplepos_t s) const
 		break;
 	}
 
-	return timepos_t (_samplepos - s);
+	return timepos_t (_samplepos + s);
 }
 
 timepos_t
