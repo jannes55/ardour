@@ -63,6 +63,8 @@ MidiSource::MidiSource (Session& s, string name, Source::Flag flags)
 	, _capture_length(0)
 	, _capture_loop_length(0)
 {
+	/* force units of length to be beats not samples */
+	_length = timecnt_t (Temporal::Beats());
 }
 
 MidiSource::MidiSource (Session& s, const XMLNode& node)
@@ -71,6 +73,9 @@ MidiSource::MidiSource (Session& s, const XMLNode& node)
 	, _capture_length(0)
 	, _capture_loop_length(0)
 {
+	/* force units of length to be beats not samples */
+	_length = timecnt_t (Temporal::Beats());
+
 	if (set_state (node, Stateful::loading_state_version)) {
 		throw failed_constructor();
 	}
