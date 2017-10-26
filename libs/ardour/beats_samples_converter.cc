@@ -51,7 +51,7 @@ BeatsSamplesConverter::to (Temporal::Beats beats) const
 Temporal::Beats
 BeatsSamplesConverter::from (samplecnt_t distance) const
 {
-	return _tempo_map.sample_delta_as_quarters (_origin, Temporal::samples_to_superclock (distance, _tempo_map.sample_rate()));
+	return _tempo_map.sample_delta_as_quarters (_origin, distance);
 }
 
 } /* namespace ARDOUR */

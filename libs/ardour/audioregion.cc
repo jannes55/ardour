@@ -795,7 +795,7 @@ AudioRegion::state ()
 	if (_envelope->size() == 2 &&
 	    _envelope->front()->value == GAIN_COEFF_UNITY &&
 	    _envelope->back()->value==GAIN_COEFF_UNITY) {
-		if (_envelope->front()->when == 0 && _envelope->back()->when == Temporal::samples_to_superclock (length_samples(), playlist() ? playlist()->session().sample_rate() : 48000)) {
+		if (_envelope->front()->when == 0 && _envelope->back()->when == length_samples()) {
 			default_env = true;
 		}
 	}

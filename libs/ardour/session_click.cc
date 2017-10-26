@@ -90,7 +90,7 @@ Session::click (samplepos_t cycle_start, samplecnt_t nframes)
 	start = max (start, (samplepos_t) 0);
 
 	if (end > start) {
-		_tempo_map->get_grid (points, Temporal::samples_to_superclock (start, sample_rate()), Temporal::samples_to_superclock (end, sample_rate()), Temporal::Beats (1));
+		_tempo_map->get_grid (points, start, end, Temporal::Beats (1));
 	}
 
 	if (distance (points.begin(), points.end()) == 0) {

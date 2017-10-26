@@ -2563,7 +2563,7 @@ LV2Plugin::connect_and_run(BufferSet& bufs,
 
 	TempoMap&      tmap     = _session.tempo_map();
 	TempoMapPoints tempo_map_points;
-	tmap.get_grid (tempo_map_points, samples_to_superclock (start, _session.sample_rate()), samples_to_superclock (end, _session.sample_rate()), Beats (1));
+	tmap.get_grid (tempo_map_points, start, end, Beats (1));
 	TempoMapPoints::const_iterator tempo_map_point = tempo_map_points.begin();
 	TempoMapPoint first_tempo_map_point = tempo_map_points.front();
 
@@ -2697,7 +2697,7 @@ LV2Plugin::connect_and_run(BufferSet& bufs,
 						}
 						++m;
 					} else {
-						const Temporal::BBT_Time bbt = tempo_map_point->bbt_at (samples_to_superclock (sample, _session.sample_rate()));
+						const Temporal::BBT_Time bbt = tempo_map_point->bbt_at (sample);
 						double bpm = tempo_map_point->metric().quarter_notes_per_minute ();
 
 						write_position(&_impl->forge, _ev_buffers[port_index],
@@ -2984,9 +2984,9 @@ LV2Plugin::connect_and_run(BufferSet& bufs,
 		 * Note: for no-midi plugins, we only ever send information at cycle-start,
 		 * so it needs to be realative to that.
 		 */
-		TempoMapPoint const & tmp = tmap.const_point_at (samples_to_superclock (start, _session.sample_rate()));
+		TempoMapPoint const & tmp = tmap.const_point_at (start);
 		_current_bpm = tmp.metric().note_types_per_minute();
-		Temporal::BBT_Time bbt (tmp.bbt_at (samples_to_superclock (start, _session.sample_rate())));
+		Temporal::BBT_Time bbt (tmp.bbt_at (start));
 		double beatpos = (bbt.bars - 1) * tmp.metric().divisions_per_bar()
 		               + (bbt.beats - 1)
 		               + (bbt.ticks / Temporal::ticks_per_beat);
