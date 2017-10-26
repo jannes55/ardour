@@ -37,7 +37,6 @@ BBT_Offset::BBT_Offset (double dbeats)
 	ticks = lrint (floor (Temporal::ticks_per_beat * fmod (dbeats, 1.0)));
 }
 
-
 std::ostream&
 std::operator<< (std::ostream& o, Temporal::BBT_Time const & bbt)
 {
@@ -70,7 +69,7 @@ std::operator>>(std::istream& i, Temporal::BBT_Offset& bbt)
 }
 
 std::istream&
-operator>>(std::istream& i, Temporal::BBT_Time& bbt)
+std::operator>>(std::istream& i, Temporal::BBT_Time& bbt)
 {
 	int32_t B, b, t;
 	char skip_pipe_char;

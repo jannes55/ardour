@@ -84,16 +84,29 @@ timecnt_t::operator*(double d) const
 bool
 timecnt_t::string_to (std::string const & str)
 {
+	if (isdigit (str[0])) {
+		std::stringstream ss (str);
+		ss >> _samples;
+		_style = AudioTime;
+		return true;
+	}
+
 	std::stringstream ss (str.substr (1));
 	switch (str[0]) {
 	case 'a':
 		ss >> _samples;
+		_style = AudioTime;
+		return true;
 		break;
 	case 'b':
 		ss >> _beats;
+		_style = BeatTime;
+		return true;
 		break;
 	case 'B':
 		ss >> _bbt;
+		_style = BarTime;
+		return true;
 	}
 
 	throw TemporalTypeException (X_("unknown type character in timecnt_t string"));
@@ -195,6 +208,20 @@ timepos_t::set_sample (samplepos_t s)
 {
 	_samplepos = s;
 	_lock_status = PositionLockStatus (AudioTime, Dirty (BeatTime|BarTime));
+}
+
+void
+timepos_t::set_beat (Beats const & b)
+{
+	_beats = b;
+	_lock_status = PositionLockStatus (BeatTime, Dirty (AudioTime|BarTime));
+}
+
+void
+timepos_t::set_bbt (BBT_Time const & bbt)
+{
+	_bbt = bbt;
+	_lock_status = PositionLockStatus (BarTime, Dirty (BeatTime|AudioTime));
 }
 
 samplepos_t
@@ -673,21 +700,61 @@ std::operator<< (std::ostream & o, timepos_t const & tp)
 std::string
 timepos_t::to_string () const
 {
+	switch (_lock_status.style()) {
+	case AudioTime:
+		return string_compose ("a%1", _samplepos);
+	case BeatTime:
+		return string_compose ("b%1", _beats);
+	case BarTime:
+		return string_compose ("B%1", _bbt);
+	}
+	/*NOTREACHED*/
 	return std::string();
 }
 
 bool
 timepos_t::string_to (std::string const & str)
 {
-	std::string::size_type colon = str.find (':');
+	using std::string;
+	using std::cerr;
+	using std::endl;
 
-	std::string lstr (str.substr (0, colon));
-	/* set style ... later ... using string_2_enum () */
+	samplepos_t s;
+	Beats beats;
+	BBT_Time bbt;
 
-	std::stringstream ss (str.substr (colon));
-	//XXX DO SOMETHING
+	if (isdigit (str[0])) {
+		/* old school position format: we assume samples */
+		std::stringstream ss (str);
+		ss >> s;
+		set_sample (s);
+		cerr << "deserialized timepos from older " << str << " as " << *this << endl;
+		return true;
+	}
 
-	return true;
+	std::stringstream ss (str.substr (1));
+
+	switch (str[0]) {
+	case 'a':
+		ss >> s;
+		set_sample (s);
+		cerr << "deserialized timepos from " << str << " as " << *this << endl;
+		return true;
+	case 'b':
+		ss >> beats;
+		set_beat (beats);
+		cerr << "deserialized timepos from " << str << " as " << *this << endl;
+		return true;
+	case 'B':
+		ss >> bbt;
+		set_bbt (bbt);
+		cerr << "deserialized timepos from " << str << " as " << *this << endl;
+		return true;
+	}
+
+	std::cerr << "Unknown timepos string representation \"" << str << "\"" << std::endl;
+
+	return false;
 }
 
 void
