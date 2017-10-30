@@ -78,7 +78,7 @@ AutomationLine::AutomationLine (const string&                              name,
                                 ArdourCanvas::Item&                        parent,
                                 boost::shared_ptr<AutomationList>          al,
                                 const ParameterDescriptor&                 desc,
-                                Evoral::TimeConverter<double, samplepos_t>* converter)
+                                Temporal::TimeConverter<double, samplepos_t>* converter)
 	: trackview (tv)
 	, _name (name)
 	, alist (al)

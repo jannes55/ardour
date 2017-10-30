@@ -27,7 +27,7 @@
 
 #include <sigc++/signal.h>
 
-#include "evoral/TimeConverter.hpp"
+#include "temporal/time_converter.h"
 
 #include "pbd/undo.h"
 #include "pbd/statefuldestructible.h"
@@ -66,7 +66,7 @@ public:
 	                ArdourCanvas::Item&                                parent,
 	                boost::shared_ptr<ARDOUR::AutomationList>          al,
 	                const ARDOUR::ParameterDescriptor&                 desc,
-	                Evoral::TimeConverter<double, ARDOUR::samplepos_t>* converter = 0);
+	                Temporal::TimeConverter<double, ARDOUR::samplepos_t>* converter = 0);
 
 	virtual ~AutomationLine ();
 
@@ -145,7 +145,7 @@ public:
 
 	virtual MementoCommandBinder<ARDOUR::AutomationList>* memento_command_binder ();
 
-	const Evoral::TimeConverter<double, ARDOUR::samplepos_t>& time_converter () const {
+	const Temporal::TimeConverter<double, ARDOUR::samplepos_t>& time_converter () const {
 		return *_time_converter;
 	}
 
@@ -169,7 +169,7 @@ protected:
 	uint32_t       _line_color;
 
 	boost::shared_ptr<ARDOUR::AutomationList> alist;
-	Evoral::TimeConverter<double, ARDOUR::samplepos_t>* _time_converter;
+	Temporal::TimeConverter<double, ARDOUR::samplepos_t>* _time_converter;
 	/** true if _time_converter belongs to us (ie we should delete it on destruction) */
 	bool _our_time_converter;
 

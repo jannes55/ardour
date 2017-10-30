@@ -1138,7 +1138,7 @@ AutomationTimeAxisView::cut_copy_clear_one (AutomationLine& line, Selection& sel
 	XMLNode &before = alist->get_state();
 
 	/* convert time selection to automation list model coordinates */
-	const Evoral::TimeConverter<double, ARDOUR::samplepos_t>& tc = line.time_converter ();
+	const Temporal::TimeConverter<double, ARDOUR::samplepos_t>& tc = line.time_converter ();
 	double const start = tc.from (selection.time.front().start - tc.origin_b ());
 	double const end = tc.from (selection.time.front().end - tc.origin_b ());
 
