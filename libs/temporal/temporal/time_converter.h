@@ -1,13 +1,13 @@
-/* This file is part of Evoral.
+/* This file is part of Temporal.
  * Copyright (C) 2009 David Robillard <http://drobilla.net>
  * Copyright (C) 2009 Paul Davis
  *
- * Evoral is free software; you can redistribute it and/or modify it under the
+ * Temporal is free software; you can redistribute it and/or modify it under the
  * terms of the GNU General Public License as published by the Free Software
  * Foundation; either version 2 of the License, or (at your option) any later
  * version.
  *
- * Evoral is distributed in the hope that it will be useful, but WITHOUT ANY
+ * Temporal is distributed in the hope that it will be useful, but WITHOUT ANY
  * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
  * FOR A PARTICULAR PURPOSE.  See the GNU General Public License for details.
  *
@@ -16,12 +16,12 @@
  * 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef EVORAL_TIME_CONVERTER_HPP
-#define EVORAL_TIME_CONVERTER_HPP
+#ifndef TEMPORAL_TIME_CONVERTER_HPP
+#define TEMPORAL_TIME_CONVERTER_HPP
 
-#include "evoral/visibility.h"
+#include "temporal/visibility.h"
 
-namespace Evoral {
+namespace Temporal {
 
 /** A bidirectional converter between two different time units.
  *
@@ -35,7 +35,7 @@ namespace Evoral {
  *    from() converts a time _origin + b into an offset from _origin_b in units of A.
  */
 template<typename A, typename B, typename C>
-class LIBEVORAL_TEMPLATE_API TimeConverter {
+class LIBTEMPORAL_TEMPLATE_API TimeConverter {
 public:
 	TimeConverter () : _origin (0) {}
 	TimeConverter (B ob) : _origin (ob) {}
@@ -59,6 +59,6 @@ protected:
 	B _origin;
 };
 
-} // namespace Evoral
+} // namespace Temporal
 
-#endif // EVORAL_TIME_CONVERTER_HPP
+#endif // TEMPORAL_TIME_CONVERTER_HPP

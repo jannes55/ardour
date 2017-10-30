@@ -95,7 +95,6 @@ def build(bld):
             src/Note.cpp
             src/SMF.cpp
             src/Sequence.cpp
-            src/TimeConverter.cpp
             src/debug.cpp
     '''
 

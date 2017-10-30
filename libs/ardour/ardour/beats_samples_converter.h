@@ -21,9 +21,8 @@
 
 #include "temporal/beats.h"
 #include "temporal/superclock.h"
+#include "temporal/time_converter.h"
 #include "temporal/types.h"
-
-#include "evoral/TimeConverter.hpp"
 
 #include "ardour/libardour_visibility.h"
 #include "ardour/types.h"
@@ -42,10 +41,10 @@ namespace ARDOUR {
  *  constructor in samplepos_t), and converts them to the opposite unit,
  *  taking tempo changes into account.
  */
-class LIBARDOUR_API BeatsSamplesConverter : public Evoral::TimeConverter<Temporal::Beats,samplepos_t,samplecnt_t> {
+class LIBARDOUR_API BeatsSamplesConverter : public Temporal::TimeConverter<Temporal::Beats,samplepos_t,samplecnt_t> {
 public:
 	BeatsSamplesConverter (const Temporal::TempoMap& tempo_map, Temporal::samplepos_t origin)
-		: Evoral::TimeConverter<Temporal::Beats, samplepos_t, samplecnt_t> (origin)
+		: Temporal::TimeConverter<Temporal::Beats, samplepos_t, samplecnt_t> (origin)
 		, _tempo_map (tempo_map)
 	{}
 
