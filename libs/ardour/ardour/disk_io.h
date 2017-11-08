@@ -45,7 +45,7 @@ template<typename T> class MidiRingBuffer;
 
 class LIBARDOUR_API DiskIOProcessor : public Processor
 {
-  public:
+public:
 	enum Flag {
 		Recordable  = 0x1,
 		Hidden      = 0x2,
@@ -56,6 +56,7 @@ class LIBARDOUR_API DiskIOProcessor : public Processor
 	static const std::string state_node_name;
 
 	DiskIOProcessor (Session&, const std::string& name, Flag f);
+	virtual ~DiskIOProcessor ();
 
 	void set_route (boost::shared_ptr<Route>);
 	void drop_route ();
@@ -108,11 +109,11 @@ class LIBARDOUR_API DiskIOProcessor : public Processor
 
 	virtual void adjust_buffering() = 0;
 
-  protected:
+protected:
 	friend class Auditioner;
 	virtual int  seek (samplepos_t which_sample, bool complete_refill = false) = 0;
 
-  protected:
+protected:
 	Flag         _flags;
 	uint32_t      i_am_the_modifier;
 	double       _actual_speed;
@@ -150,31 +151,34 @@ class LIBARDOUR_API DiskIOProcessor : public Processor
 	struct ChannelInfo : public boost::noncopyable {
 
 		ChannelInfo (samplecnt_t buffer_size);
-		~ChannelInfo ();
+		virtual ~ChannelInfo ();
 
-		/** A ringbuffer for data to be played back, written to in the
-		    butler thread, read from in the process thread.
-		*/
+		/** Ringbuffer for data to be played back.
+		 * written to in the butler thread, read from in the process thread.
+		 */
 		PBD::RingBufferNPT<Sample>* buf;
+
+		/** A ringbuffer for data to be recorded back, written to in the
+		 * process thread, read from in the butler thread.
+		 */
+		PBD::RingBufferNPT<Sample>* wbuf;
 		PBD::RingBufferNPT<Sample>::rw_vector rw_vector;
 
 		/* used only by capture */
 		boost::shared_ptr<AudioFileSource> write_source;
-		PBD::RingBufferNPT<CaptureTransition> * capture_transition_buf;
+		PBD::RingBufferNPT<CaptureTransition>* capture_transition_buf;
 
 		/* used in the butler thread only */
 		samplecnt_t curr_capture_cnt;
 
-		void resize (samplecnt_t);
+		virtual void resize (samplecnt_t) = 0;
 	};
 
 	typedef std::vector<ChannelInfo*> ChannelList;
 	SerializedRCUManager<ChannelList> channels;
 
-	int add_channel_to (boost::shared_ptr<ChannelList>, uint32_t how_many);
+	virtual int add_channel_to (boost::shared_ptr<ChannelList>, uint32_t how_many) = 0;
 	int remove_channel_from (boost::shared_ptr<ChannelList>, uint32_t how_many);
-
-	CubicInterpolation interpolation;
 
 	boost::shared_ptr<Playlist> _playlists[DataType::num_types];
 	PBD::ScopedConnectionList playlist_connections;
