@@ -808,12 +808,6 @@ Session::non_realtime_stop (bool abort, int on_entry, bool& finished)
 
 	boost::shared_ptr<RouteList> r = routes.reader ();
 
-	for (RouteList::iterator i = r->begin(); i != r->end(); ++i) {
-		if (!(*i)->is_auditioner()) {
-			(*i)->set_pending_declick (0);
-		}
-	}
-
 	if (did_record) {
 		commit_reversible_command ();
 		/* increase take name */
@@ -1622,9 +1616,7 @@ Session::stop_transport (bool abort, bool clear_state)
 		return;
 	}
 
-	DEBUG_TRACE (DEBUG::Transport, string_compose ("stop_transport, declick required? %1\n", get_transport_declick_required()));
-
-	if (!get_transport_declick_required()) {
+	if (false) { // TODO
 
 		/* stop has not yet been scheduled */
 
@@ -1731,8 +1723,6 @@ Session::start_transport ()
 	default:
 		break;
 	}
-
-	transport_sub_state |= PendingDeclickIn;
 
 	_transport_speed = _default_transport_speed;
 	_target_transport_speed = _transport_speed;
