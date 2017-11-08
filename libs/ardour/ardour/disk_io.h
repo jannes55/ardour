@@ -30,6 +30,10 @@
 #include "ardour/interpolation.h"
 #include "ardour/processor.h"
 
+namespace PBD {
+	template<class T> class RaRingBuffer;
+}
+
 namespace ARDOUR {
 
 class AudioFileSource;
@@ -153,10 +157,10 @@ protected:
 		ChannelInfo (samplecnt_t buffer_size);
 		virtual ~ChannelInfo ();
 
-		/** Ringbuffer for data to be played back.
+		/** A random-access ringbuffer for data to be played back.
 		 * written to in the butler thread, read from in the process thread.
 		 */
-		PBD::RingBufferNPT<Sample>* buf;
+		PBD::RaRingBuffer<Sample>* rbuf;
 
 		/** A ringbuffer for data to be recorded back, written to in the
 		 * process thread, read from in the butler thread.

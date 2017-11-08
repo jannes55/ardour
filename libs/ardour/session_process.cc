@@ -170,6 +170,7 @@ Session::no_roll (pframes_t nframes)
 	}
 
 	PT_TIMING_CHECK (5);
+	check_declick_out ();
 	return ret;
 }
 
@@ -411,6 +412,7 @@ Session::process_with_events (pframes_t nframes)
 	}
 
 	if (!process_can_proceed()) {
+		printf("CANNOT PROCEEED\n");
 		_silent = true;
 		return;
 	}
@@ -874,6 +876,7 @@ Session::process_without_events (pframes_t nframes)
 		return;
 	}
 
+	// XXX  -1, +1
 	if (_transport_speed == 1.0) {
 		samples_moved = (samplecnt_t) nframes;
 	} else {
