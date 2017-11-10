@@ -338,53 +338,79 @@ DiskReader::run (BufferSet& bufs, samplepos_t start_sample, samplepos_t end_samp
 			scaling = 1.0;
 		}
 
-		for (n = 0, chan = c->begin(); chan != c->end(); ++chan, ++n) {
+		pframes_t nf = nframes;
+		pframes_t remain = nframes;
+		pframes_t offset = 0;
+		samplepos_t ss = start_sample;
+		samplepos_t es = end_sample;
 
-			ChannelInfo* chaninfo (*chan);
-			AudioBuffer& output (bufs.get_audio (n%n_buffers));
-			AudioBuffer& disk_buf ((ms & MonitoringInput) ? scratch_bufs.get_audio(n) : output);
-#if 0
-			if (speed > 0) {
-				if (start_sample < playback_sample) {
-					cerr << owner()->name() << " SS = " << start_sample << " PS = " << playback_sample << endl;
-					abort ();
-				}
-			} else if (speed < 0) {
-				if (playback_sample < start_sample) {
-					cerr << owner()->name() << " SS = " << start_sample << " PS = " << playback_sample << " REVERSE" << endl;
-					abort ();
-				}
+		assert (es = ss + remain);
+		while (remain) {
+			es = ss + remain;
+			if (map_loop_range (ss, es)) {
+				// add a short fade ?!
 			}
+			if (_loop_location) {
+				es = std::min (es, _loop_location->end ());
+				assert (es > ss);
+				nf = min ((samplepos_t)nf, es - ss);
+			}
+
+			for (n = 0, chan = c->begin(); chan != c->end(); ++chan, ++n) {
+
+				ChannelInfo* chaninfo (*chan);
+				AudioBuffer& output (bufs.get_audio (n%n_buffers));
+				AudioBuffer& disk_buf ((ms & MonitoringInput) ? scratch_bufs.get_audio(n) : output);
+#if 0
+				if (speed > 0) {
+					if (ss < playback_sample) {
+						cerr << owner()->name() << " SS = " << ss << " PS = " << playback_sample << endl;
+						abort ();
+					}
+				} else if (speed < 0) {
+					if (playback_sample < ss) {
+						cerr << owner()->name() << " SS = " << ss << " PS = " << playback_sample << " REVERSE" << endl;
+						abort ();
+					}
+				}
 #endif
 
-			assert (fabsf (speed) == 1.0f);
+				assert (fabsf (speed) == 1.0f);
 
-			if (!chaninfo->rbuf->can_read (start_sample, nframes)) {
-				int64_t frs, lrs;
-				chaninfo->rbuf->read_range (frs, lrs);
-					cerr << owner()->name() << " playback not possible: ss = " << start_sample << " ps = " << playback_sample << " RB: " << frs << " .. " << lrs << endl;
+				if (!chaninfo->rbuf->can_read (ss, nf)) {
 #if 0
-					if (lrs > end_sample || frs < start_sample) {
+					int64_t frs, lrs;
+					chaninfo->rbuf->read_range (frs, lrs);
+					cerr << owner()->name() << " playback not possible: ss = " << ss << " ps = " << playback_sample << " RB: " << frs << " .. " << lrs << endl;
+#else
+					cerr << owner()->name() << " playback not possible: ss = " << ss << " ps = " << playback_sample << endl;
+#endif
+#if 0
+					if (lrs > end_sample || frs < ss) {
 						chaninfo->rbuf->read_flush  ();
 					}
 					continue;
 #else
 					goto midi;
 #endif
+				}
+
+				chaninfo->rbuf->read (disk_buf.data (offset), ss, nf);
+
+				if (scaling != 1.0f && speed != 0.0) {
+					Amp::apply_simple_gain (disk_buf, nf, scaling, offset);
+				}
+
+				_declick_gain = Amp::apply_gain (disk_buf, _session.nominal_sample_rate(), nf, _declick_gain, target_gain, offset);
+
+				if (ms & MonitoringInput) {
+					/* mix the disk signal into the input signal (already in bufs) */
+					mix_buffers_no_gain (output.data (offset), disk_buf.data (offset), nf);
+				}
 			}
-
-			chaninfo->rbuf->read (disk_buf.data(), start_sample, nframes);
-
-			if (scaling != 1.0f && speed != 0.0) {
-				Amp::apply_simple_gain (disk_buf, nframes, scaling);
-			}
-
-			_declick_gain = Amp::apply_gain (disk_buf, _session.nominal_sample_rate(), nframes, _declick_gain, target_gain);
-
-			if (ms & MonitoringInput) {
-				/* mix the disk signal into the input signal (already in bufs) */
-				mix_buffers_no_gain (output.data(), disk_buf.data(), nframes);
-			}
+			remain -= nf;
+			ss += nf;
+			offset += nf;
 		}
 	}
 
@@ -499,10 +525,12 @@ DiskReader::set_pending_overwrite (bool yn)
 
 	overwrite_sample = playback_sample;
 
+#if 0
 	boost::shared_ptr<ChannelList> c = channels.reader ();
 	for (ChannelList::iterator chan = c->begin(); chan != c->end(); ++chan) {
 		(*chan)->rbuf->read_flush ();
 	}
+#endif
 }
 
 int
@@ -515,6 +543,7 @@ DiskReader::overwrite_existing_buffers ()
 	overwrite_queued = false;
 
 	DEBUG_TRACE (DEBUG::DiskIO, string_compose ("%1 overwriting existing buffers at %2\n", overwrite_sample));
+	cerr << string_compose ("%1 overwriting existing buffers at %2", owner()->name(), overwrite_sample) << endl;
 
 #if 0
 	if (!c->empty ()) {
@@ -666,6 +695,8 @@ DiskReader::can_internal_playback_seek (samplecnt_t distance)
 			return false;
 		}
 	}
+#else
+	return false;
 #endif
 
 	/* 2. MIDI */
@@ -714,24 +745,24 @@ DiskReader::audio_read (PBD::RaRingBuffer<Sample>*rb,
                         samplepos_t& start, samplecnt_t cnt,
                         int channel, bool reversed)
 {
-	samplecnt_t this_read = 0;
-	bool reloop = false;
-	samplepos_t loop_end = 0;
-	samplepos_t loop_start = 0;
-	samplecnt_t offset = 0;
-	Location *loc = 0;
 
 	if (!_playlists[DataType::AUDIO]) {
 		printf("ZERO FILL II\n");
 		// TODO optimize, special API
 		for (uint32_t xx = 0; xx < cnt; ++xx) {
 			float sil = 0.f;
-			rb->write (&sil, 1);
+			rb->write (&sil, rb->next_write_pos (), 1);
 		}
 		return 0;
 	}
 
 #if 0
+	samplecnt_t this_read = 0;
+	bool reloop = false;
+	samplepos_t loop_end = 0;
+	samplepos_t loop_start = 0;
+	samplecnt_t offset = 0;
+	Location *loc = 0;
 	/* XXX we don't currently play loops in reverse. not sure why */
 
 	if (!reversed) {
@@ -813,12 +844,53 @@ DiskReader::audio_read (PBD::RaRingBuffer<Sample>*rb,
 		offset += this_read;
 	}
 #else
-	this_read = audio_playlist()->read (sum_buffer, mixdown_buffer, gain_buffer, start, cnt, channel);
 
-	if (rb->write (sum_buffer, this_read) != this_read) {
-		cerr << owner()->name() << " Ringbuffer Write overrun" << endl;
+	Location *loc = _loop_location;
+	samplepos_t ss = start;
+	samplepos_t es = ss + cnt;
+
+	while (cnt) {
+		samplecnt_t this_read = cnt;
+
+		if (map_loop_range (ss, es)) {
+			printf ("MAPPED LOOP RANGE.. to %ld %ld\n", ss, es);
+		}
+		if (_loop_location) {
+			printf ("LIMIT READ RANGE.. to %ld %ld\n", ss, es);
+			es = std::min (es, _loop_location->end ());
+			assert (es > ss);
+			cnt = this_read = min (cnt, es - ss);
+
+			// check if region is already preset..
+			// get end for given start pos.. offset.
+		}
+
+		if (rb->can_read (ss, this_read)) {
+			/* range already present, e.g. short-loops */
+			// TODO needs a dedicated API, also check reversed..
+			start = ss + this_read;
+			cnt -= this_read;
+			continue;
+		}
+
+		samplecnt_t nread = audio_playlist()->read (sum_buffer, mixdown_buffer, gain_buffer, ss, this_read, channel);
+		samplecnt_t nstored = rb->write (sum_buffer, ss, nread);
+
+		if (nstored != nread) {
+			cerr << owner()->name() << " Ringbuffer Write overrun" << endl;
+			start = ss + nstored;
+			break;
+		}
+
+		start = ss + nstored;
+
+		if (this_read != nread) {
+			cerr << owner()->name() << " Short read" << endl;
+			break;
+		}
+		cnt -= this_read;
 	}
-	start += this_read;
+	rb->dump_segments ();
 
 #endif
 
@@ -990,7 +1062,7 @@ DiskReader::refill_audio (Sample *sum_buffer, Sample* mixdown_buffer, float* gai
 				// TODO add a special API
 				for (uint32_t xx = 0; xx < chan->rbuf->write_space (); ++xx) {
 					float sil = 0.f;
-					chan->rbuf->write (&sil, 1);
+					chan->rbuf->write (&sil, chan->rbuf->next_write_pos (), 1);
 				}
 			}
 			return 0;
@@ -1042,7 +1114,6 @@ DiskReader::refill_audio (Sample *sum_buffer, Sample* mixdown_buffer, float* gai
 		to_read = min (ts, (samplecnt_t) chan->rbuf->write_space ());
 		to_read = min (to_read, (samplecnt_t) samples_to_read);
 
-		printf ("READ CHAN %d  %ld\n", chan_n, to_read);
 		assert (to_read >= 0);
 
 		if (to_read) {
@@ -1053,11 +1124,13 @@ DiskReader::refill_audio (Sample *sum_buffer, Sample* mixdown_buffer, float* gai
 			}
 		}
 
+#if 0
 		{
 			int64_t frs, lrs;
 			chan->rbuf->read_range (frs, lrs);
-		printf ("POST READ CHAN %d -- range %ld %ld\n", chan_n, frs, lrs);
+			printf ("POST READ CHAN %d -- range %ld %ld\n", chan_n, frs, lrs);
 		}
+#endif
 
 		if (zero_fill) {
 			/* XXX: do something */

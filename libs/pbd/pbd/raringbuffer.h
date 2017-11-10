@@ -28,11 +28,81 @@
 
 namespace PBD {
 
+/* This Ringbuffer implements a 2 segment cache,
+ * with absolute sample position intended for audio-playback.
+ *
+ * A writer thread fills the buffer sequentially
+ * from a given start position.
+ *
+ * A reader thread can read data from any point, without
+ * directly invalidating data in the buffer. The use-case
+ * for this is to allow micro-seeks backwards.
+ * The reader can read the same data more than once.
+ *
+ * The writer thread may block, the reader is lock-free
+ * (except for a spin-lock).
+ *
+ * The read-pointer indicates the last position of the reader.
+ * At instantiation time a "reservation" count is set.
+ *
+ * It is guarnteed that the writer will not overwrite "reservation"
+ * number of entries before the reader-position. This allows
+ * the reader to /rewind/ and re-read data.
+ *
+ * For non-linear playback (e.g. looping) a 2nd segment is
+ * used. The ring-buffer may contain the end of
+ * a loop-range and the start of a loop-range.
+ *
+ * before writing after a loop-point, the writer should
+ * check if the data is already present (can_read()).
+ * In case the complete loop fits into the RB it only needs to
+ * be written once.
+ *
+ *
+ * XXX XXX XXX
+ * the read pointer always moves forward (and wraps around)
+ * moving over a segment-boundary invalidates it.
+ * (once read-pointer - reservation >= segment-end)
+ *
+ * -> active segment.
+ *
+ *  edge-case: shorten loop while buffer is full with current data
+ *  (no space to write a new segment)
+ *
+ *  if there are 2 segments, the writer can only append to the later one,
+ *  the reader can only invalidate the older segment.
+ *
+ *  .. moving regions..
+ */
+
 template<class T>
 class /*LIBPBD_API*/ RaRingBuffer
 {
+protected:
+
+	struct Segment {
+#if 0
+		Segment ()
+			: index (0)
+			, write_start_pos (0)
+			, write_start_offset (0)
+			, write_reversed (false)
+		{}
+		Segment (Segment const& other)
+			: index (other.index)
+			, write_start_pos (other.write_start_pos)
+			, write_start_offset (other.write_start_offset)
+			, write_reversed (other.write_reversed)
+		{}
+#endif
+		guint   index;              // index in ringbuffer of initial start_pos
+		int64_t write_start_pos;    // samplepos_t start of write
+		int64_t write_start_offset; // sampleoffset_t (data written since _pos); 0: inactive segment
+		bool    write_reversed;     // data written to segment is reverse playback
+	};
+
 public:
-	RaRingBuffer (int32_t sz, guint res = 8191)
+	RaRingBuffer (guint sz, guint res = 8191)
 	: reservation (res)
 	, _writepos_lock ()
 	{
@@ -60,34 +130,122 @@ public:
 		Glib::Threads::Mutex::Lock lm (_reset_lock);
 
 		SpinLock sl (_writepos_lock);
-		write_start_pos = start;
-		write_start_offset = 0;
+
+		_seg[0].write_start_pos = start;
+
+		_seg[0].write_start_offset = 0;
+		_seg[1].write_start_offset = 0;
+
 		g_atomic_int_set (&write_idx, g_atomic_int_get (&read_idx));
+	}
+
+	int segment_to_use (Segment const& s0, Segment const& s1, guint w) const {
+		const int d0 = w - s0.index + ((w > s0.index) ? 0 : size);
+		const int d1 = w - s1.index + ((w > s1.index) ? 0 : size);
+		assert (d0 != d1);
+		if (d0 < d1) {
+			return 0;
+		} else {
+			return 1;
+		}
 	}
 
 	int64_t next_write_pos () const
 	{
-		int64_t lrs;
+		Segment s[2];
+		guint w;
 		{
 			SpinLock sl (_writepos_lock);
-			lrs = write_start_pos + write_start_offset;
+			s[0] = _seg[0];
+			s[1] = _seg[1];
+			w = g_atomic_int_get (&write_idx);
 		}
-		return lrs;
+
+		if (s[0].write_start_offset == 0 && s[1].write_start_offset == 0) {
+			return s[0].write_start_pos;
+		} else if (s[0].write_start_offset != 0) {
+			return s[0].write_start_pos + s[0].write_start_offset;
+		} else if (s[1].write_start_offset != 0) {
+			return s[1].write_start_pos + s[1].write_start_offset;
+		} else {
+			int segment = segment_to_use (s[0], s[1], w);
+			return s[segment].write_start_pos + s[segment].write_start_offset;
+		}
+	}
+
+	void dump_segments () const {
+		Segment s[2];
+		{
+			SpinLock sl (_writepos_lock);
+			s[0] = _seg[0];
+			s[1] = _seg[1];
+		}
+		if (s[0].write_start_offset > 0) {
+			int64_t lrs = s[0].write_start_pos + s[0].write_start_offset;
+			int64_t frs = lrs - std::min (s[0].write_start_offset, (int64_t)(size - 1));
+			printf ("SEGMENT 0:  %ld .. %ld @ %d\n", frs, lrs, s[0].index);
+		} else {
+			printf ("SEGMENT 0:  --- UNUSED ---\n");
+		}
+
+		if (s[1].write_start_offset > 0) {
+			int64_t lrs = s[1].write_start_pos + s[1].write_start_offset;
+			int64_t frs = lrs - std::min (s[1].write_start_offset, (int64_t)(size - 1));
+			printf ("SEGMENT 1:  %ld .. %ld @ %d\n", frs, lrs, s[1].index);
+		} else {
+			printf ("SEGMENT 1:  --- UNUSED ---\n");
+		}
 	}
 
 	bool can_read (int64_t start, int32_t cnt) const {
-		int64_t frs, lrs;
+		Segment s[2];
+		guint r;
 		{
 			SpinLock sl (_writepos_lock);
-			lrs = write_start_pos + write_start_offset;
-			frs = lrs - std::min (write_start_offset, (int64_t)(size - 1));
+			s[0] = _seg[0];
+			s[1] = _seg[1];
+			r = g_atomic_int_get (&read_idx);
 		}
-		if (start >= frs &&  start + cnt < lrs) {
-			return true;
+		// TODO limit.. at most "reservation" earlier than RP
+		if (s[0].write_start_offset > 0) {
+			int64_t lrs = s[0].write_start_pos + s[0].write_start_offset;
+			int64_t frs = lrs - std::min (s[0].write_start_offset, (int64_t)(size - 1));
+
+			if (start >= frs && start + cnt <= lrs) {
+#if 0
+				int w = (s[0].index + s[0].write_start_offset) & size_mask;
+
+				guint rpos;
+				if (w > (lrs - start)) {
+					rpos = w - (lrs - start);
+				} else {
+					rpos = (size + w - (lrs - start)) & size_mask;
+				}
+
+				// check if 'r' is in the same segment as rpos.
+				// get valid backward boundary of segment where 'r' is
+				// ... TODO...
+#endif
+				return true;
+			}
 		}
+
+		if (s[1].write_start_offset > 0) {
+			int64_t lrs = s[1].write_start_pos + s[1].write_start_offset;
+			int64_t frs = lrs - std::min (s[1].write_start_offset, (int64_t)(size - 1));
+			if (start >= frs && start + cnt <= lrs) {
+				/// TODO check bounds..
+				return true;
+			}
+		}
+		printf ("____  READ NOT POSSIBLE %ld .. (+%d) %ld\n", start, cnt, start + cnt);
+		dump_segments ();
+		printf (" ----\n");
+
 		return false;
 	}
 
+#if 0
 	void read_range (int64_t &start, int64_t &end) const {
 		int64_t frs, lrs;
 		{
@@ -98,9 +256,10 @@ public:
 		start = frs;
 		end = lrs;
 	}
+#endif
 
-	guint read  (T* dest, int64_t start, guint cnt);
-	guint write (T const* src, guint cnt);
+	guint read  (T* dest, int64_t start, guint cnt, bool commit = true);
+	guint write (T const* src, int64_t start, guint cnt);
 
 	void increment_read_idx (guint cnt) {
 		cnt = std::min (cnt, read_space ());
@@ -163,10 +322,9 @@ protected:
 	guint size;
 	guint size_mask;
 
-	int64_t write_start_pos; // samplepos_t
-	int64_t write_start_offset; // sampleoffset_t
+	Segment _seg[2];
 
-	mutable gint write_idx; // corresponds to (write_start_pos + write_start_offset)
+	mutable gint write_idx; // corresponds to (write_start_pos + write_start_offset) of active segment
 	mutable gint read_idx; // corresponds to most recently read sample_pos
 
 private:
@@ -178,7 +336,7 @@ private:
 
 
 template<class T> /*LIBPBD_API*/ guint
-RaRingBuffer<T>::write (T const *src, guint cnt)
+RaRingBuffer<T>::write (T const *src, int64_t start, guint cnt)
 {
 	guint free_cnt;
 	guint cnt2;
@@ -186,7 +344,64 @@ RaRingBuffer<T>::write (T const *src, guint cnt)
 	guint n1, n2;
 	guint priv_write_idx;
 
+	Segment s[2];
+	{
+		SpinLock sl (_writepos_lock);
+		s[0] = _seg[0];
+		s[1] = _seg[1];
+	}
+
+	int segment = -1;
+
 	priv_write_idx = g_atomic_int_get (&write_idx);
+
+	if (s[0].write_start_offset == 0 && s[1].write_start_offset == 0) {
+		// both segments are not used, start write at 1st.
+		segment = 0;
+		s[0].index = priv_write_idx;
+		s[0].write_start_pos = start;
+	} else if (s[0].write_start_offset != 0) {
+		segment = 0;
+	} else if (s[1].write_start_offset != 0) {
+		segment = 1;
+	} else {
+		// both are in use.. find current seg.
+		segment = segment_to_use (s[0], s[1], priv_write_idx);
+		int64_t next_write = s[segment].write_start_pos + s[segment].write_start_offset;
+		if (start != next_write) {
+			/* both segments in use */
+			printf("RaRingBuffer<>::write -- no free segment to write to\n");
+			return 0;
+		}
+	}
+
+	int64_t next_write = s[segment].write_start_pos + s[segment].write_start_offset;
+
+	int64_t segm_start = next_write - std::min (s[segment].write_start_offset, (int64_t)(size - 1));
+
+	/* find possible overlap */
+	guint overlap = 0;
+	if (start >= segm_start && start < next_write) {
+		printf ("  WRITE OVERLAP ------- !!!!!------\n");
+		if (start + cnt <= next_write) {
+			/* all internal, already written */
+			return to_write;
+		}
+		overlap = next_write - start;
+		src += overlap;
+		start += overlap;
+		cnt -= overlap;
+	}
+
+
+	if (start != next_write) {
+		segment = 1 - segment;
+		printf("RaRingBuffer<>::write -- START NEW segment %d\n", segment);
+		s[segment].index = priv_write_idx;
+		s[segment].write_start_pos = start;
+		assert (s[segment].write_start_offset == 0);
+		s[segment].write_start_offset = 0;
+	}
 
 	if ((free_cnt = write_space ()) == 0) {
 		return 0;
@@ -212,56 +427,76 @@ RaRingBuffer<T>::write (T const *src, guint cnt)
 		priv_write_idx = n2;
 	}
 
+	s[segment].write_start_offset += to_write;
+
 	{
 		SpinLock sl (_writepos_lock);
-		write_start_offset += to_write;
+		_seg[segment] = s[segment];
 		g_atomic_int_set (&write_idx, priv_write_idx);
 	}
-	return to_write;
+	return to_write + overlap;
 }
 
 template<class T> /*LIBPBD_API*/ guint
-RaRingBuffer<T>::read (T *dest, int64_t start, guint cnt)
+RaRingBuffer<T>::read (T *dest, int64_t start, guint cnt, bool commit)
 {
-	int64_t frs, lrs; // first and last readable sample
-	guint w, r;
-
 	Glib::Threads::Mutex::Lock lm (_reset_lock, Glib::Threads::TRY_LOCK);
 	if (!lm.locked ()) {
 		/* seek, reset in progress */
 		return 0;
 	}
 
-	r = g_atomic_int_get (&read_idx);
+	guint w, priv_read_idx;
+	guint r = g_atomic_int_get (&read_idx);
+
+	Segment s[2];
 	{
 		SpinLock sl (_writepos_lock);
+		s[0] = _seg[0];
+		s[1] = _seg[1];
 		w = g_atomic_int_get (&write_idx);
-		lrs = write_start_pos + write_start_offset;
-		frs = lrs - std::min (write_start_offset, (int64_t)(size - 1));
 	}
 
-	if (start > lrs) {
-		/* data written to buffer is too old.
-		 * clear up space in buffer for writer.
-		 */
-		g_atomic_int_set (&read_idx, w);
+	int segment = 0;
+	/* see can_read () above */
+	if (s[0].write_start_offset > 0) {
+		int64_t lrs = s[0].write_start_pos + s[0].write_start_offset;
+		int64_t frs = lrs - std::min (s[0].write_start_offset, (int64_t)(size - 1));
+		if (start >= frs && start + cnt <= lrs) {
+				int p = (s[0].index + s[0].write_start_offset) & size_mask;
+				if (p > (lrs - start)) {
+					priv_read_idx = p - (lrs - start);
+				} else {
+					priv_read_idx = (size + p - (lrs - start)) & size_mask;
+				}
+				segment |= 1;
+			// yep.
+		}
+	}
+	if (s[1].write_start_offset > 0) {
+		int64_t lrs = s[1].write_start_pos + s[1].write_start_offset;
+		int64_t frs = lrs - std::min (s[1].write_start_offset, (int64_t)(size - 1));
+		if (start >= frs && start + cnt <= lrs) {
+			int p = (s[1].index + s[1].write_start_offset) & size_mask;
+			if (p > (lrs - start)) {
+				priv_read_idx = p - (lrs - start);
+			} else {
+				priv_read_idx = (size + p - (lrs - start)) & size_mask;
+			}
+			segment |= 2;
+		}
+	}
+
+	if (segment == 3) {
+		/* use segment that writer isn't currently using */
+		segment = 1 - segment_to_use (s[0], s[1], w);
+	}
+	else if (segment != 1 && segment != 2) {
+		printf ("NOT FOUND %d\n", segment);
+		if (commit) {
+			g_atomic_int_set (&read_idx, w);
+		}
 		return 0;
-	}
-
-	if (start < frs || start + cnt >= lrs) {
-		/* required range not present */
-		return 0;
-	}
-
-	/* write_idx corresponds to lrs,
-	 * calculate read-index corresponds to start
-	 */
-	guint priv_read_idx;
-	assert (abs (w - (lrs - start)) < size);
-	if ((lrs - start) < w) {
-		priv_read_idx = w - (lrs - start);
-	} else {
-		priv_read_idx = (size + w - (lrs - start)) & size_mask;
 	}
 
 	guint n1, n2;
@@ -283,8 +518,39 @@ RaRingBuffer<T>::read (T *dest, int64_t start, guint cnt)
 		priv_read_idx = n2;
 	}
 
-	/* set read-pointer to position of last read's end */
-	g_atomic_int_set (&read_idx, priv_read_idx);
+	if (commit) {
+		// TODO invalidate previous segments.
+		if (s[0].write_start_offset != 0 && s[1].write_start_offset != 0) {
+			/* find segment that writer isn't currently using */
+			int wseg = 1 - segment_to_use (s[0], s[1], w);
+			// quick hack.. whole segment only..
+			if (segment == 2 && wseg == 1) {
+				SpinLock sl (_writepos_lock);
+
+				int64_t end = start + cnt;
+				int64_t delta = end - _seg[1].write_start_pos;
+				assert (delta >= 0);
+				assert (delta <= _seg[1].write_start_offset);
+				_seg[1].write_start_pos = end;
+				_seg[1].write_start_offset -= delta;
+				_seg[1].index = priv_read_idx;
+			}
+			if (segment == 1 && wseg == 0) {
+				SpinLock sl (_writepos_lock);
+				int64_t end = start + cnt;
+				int64_t delta = end - _seg[0].write_start_pos;
+				assert (delta >= 0);
+				assert (delta <= _seg[0].write_start_offset);
+				_seg[0].write_start_pos = end;
+				_seg[0].write_start_offset -= delta;
+				_seg[0].index = priv_read_idx;
+			}
+		}
+		/* set read-pointer to position of last read's end */
+		// TODO don't allow read_idx to de-crement.
+		g_atomic_int_set (&read_idx, priv_read_idx);
+
+	}
 	return cnt;
 }
 
