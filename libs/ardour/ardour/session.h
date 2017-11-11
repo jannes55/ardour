@@ -178,8 +178,6 @@ private:
 	enum SubState {
 		PendingDeclickOut     = 0x2,  ///< pending de-click fade-out for stop
 		StopPendingCapture    = 0x4,
-		PendingLoopDeclickIn  = 0x8,  ///< pending de-click fade-in at the start of a loop
-		PendingLoopDeclickOut = 0x10, ///< pending de-click fade-out at the end of a loop
 		PendingLocate         = 0x20,
 	};
 

@@ -850,7 +850,6 @@ Session::destroy ()
 		bool del = true;
 		switch (ev->type) {
 			case SessionEvent::AutoLoop:
-			case SessionEvent::AutoLoopDeclick:
 			case SessionEvent::Skip:
 			case SessionEvent::PunchIn:
 			case SessionEvent::PunchOut:
@@ -1724,7 +1723,6 @@ Session::auto_loop_changed (Location* location)
 
 		}
 	} else {
-		clear_events (SessionEvent::AutoLoopDeclick);
 		clear_events (SessionEvent::AutoLoop);
 	}
 
@@ -1813,7 +1811,6 @@ Session::set_auto_loop_location (Location* location)
 		samplepos_t dcp;
 		samplecnt_t dcl;
 		auto_loop_declick_range (existing, dcp, dcl);
-		remove_event (dcp, SessionEvent::AutoLoopDeclick);
 		auto_loop_location_changed (0);
 	}
 
