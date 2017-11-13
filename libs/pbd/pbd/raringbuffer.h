@@ -139,6 +139,83 @@ public:
 		g_atomic_int_set (&write_idx, g_atomic_int_get (&read_idx));
 	}
 
+	/* segment public fn
+	 *
+	 * To keep segments simple POD, these methods are not C++ class members
+	 * of struct Segment.
+	 */
+	bool segment_time_span (Segment const& s, int64_t& frs, int64_t& lrs) const {
+		if (s.write_start_offset > 0) {
+			lrs = s.write_start_pos + s.write_start_offset;
+			frs = lrs - std::min (s.write_start_offset, (int64_t)(size - 1));
+			return true;
+		}
+		lrs = frs = 0;
+		return false;
+	}
+
+	static inline bool intersect (guint i, guint lower, guint upper) {
+		if (lower > upper) {
+			return i >= lower || i <= upper;
+		} else {
+			return i >= lower && i <= upper;
+		}
+	}
+
+	bool segment_covers_index (Segment const& s, guint idx, guint cnt) const {
+		assert (cnt > 0);
+		if (s.write_start_offset == 0) {
+			return false;
+		}
+
+		const guint s0 = s.index;
+		const guint s1 = (s0 + (s.write_start_offset - 1)) & size_mask;
+
+		const guint a0 = idx;
+		const guint a1 = (idx + (cnt - 1)) & size_mask;
+
+#if 0
+		return (s0 > a1) ^ (s1 > a0) ^ (s1 >= a0) ^ (s1 >= s0);
+#else
+		return intersect (s0, a0, a1)
+		    || intersect (s1, a0, a1)
+		    || intersect (a0, s0, s1)
+		    || intersect (a1, s0, s1);
+#endif
+	}
+
+	void segment_invalidate (Segment& s, guint idx, guint cnt) const {
+		const guint s0 = s.index;
+		const guint a1 = (idx + cnt) & size_mask;
+		guint delta;
+		if  (s0 < a1) {
+			delta = a1 - s0;
+		} else {
+			delta = a1 + (size - s0);
+		}
+		if (delta > s.write_start_offset) {
+			delta = s.write_start_offset;
+		}
+
+		printf ("INVAL DELTA %d\n", delta);
+
+		s.index = (s.index + delta) & size_mask;
+		s.write_start_pos += delta;
+		s.write_start_offset -= delta;
+	}
+
+	void invalidate (guint idx, guint cnt) {
+		if (segment_covers_index (_seg[0], idx, cnt)) {
+			printf ("INVALIDATE SEG 0\n");
+			segment_invalidate (_seg[0], idx, cnt);
+		}
+		if (segment_covers_index (_seg[1], idx, cnt)) {
+			printf ("INVALIDATE SEG 1\n");
+			segment_invalidate (_seg[1], idx, cnt);
+		}
+	}
+
+
 	int segment_to_use (Segment const& s0, Segment const& s1, guint w) const {
 		const int d0 = w - s0.index + ((w > s0.index) ? 0 : size);
 		const int d1 = w - s1.index + ((w > s1.index) ? 0 : size);
@@ -261,10 +338,12 @@ public:
 	guint read  (T* dest, int64_t start, guint cnt, bool commit = true);
 	guint write (T const* src, int64_t start, guint cnt);
 
+#if 0
 	void increment_read_idx (guint cnt) {
 		cnt = std::min (cnt, read_space ());
 		g_atomic_int_set (&read_idx, (g_atomic_int_get (&read_idx) + cnt) & size_mask);
 	}
+#endif
 
 	guint write_space () const {
 		guint w, r;
@@ -281,18 +360,7 @@ public:
 		} else {
 			rv = size;
 		}
-		/* it may hapen that the read/invalidation-pointer moves backwards
-		 * e.g. after rec-stop, declick fade-out.
-		 * At the same time the butler may already have written data.
-		 * (it's safe as long as the disk-reader does not move backwards by more
-		 * than reservation)
-		 * XXX disk-reading de-click should not move the invalidation-pointer
-		 */
-		//assert (rv > reservation);
-		if (rv > reservation) {
-			return rv - 1 - reservation;
-		}
-		return 0;
+		return rv - 1;
 	}
 
 	guint read_space () const {
@@ -309,12 +377,7 @@ public:
 	}
 
 	T *buffer () { return buf; }
-	guint get_write_idx () const { return g_atomic_int_get (&write_idx); }
-	guint get_read_idx () const { return g_atomic_int_get (&read_idx); }
 	guint bufsize () const { return size; }
-
-	void set_read_pos (int64_t pos) {/* TODO, set read_idx to sample corresponding to pos */ }
-	void read_flush () { g_atomic_int_set (&read_idx, g_atomic_int_get (&write_idx)); }
 
 protected:
 	T *buf;
@@ -343,6 +406,8 @@ RaRingBuffer<T>::write (T const *src, int64_t start, guint cnt)
 	guint to_write;
 	guint n1, n2;
 	guint priv_write_idx;
+ 
+	printf ("WRITE %ld .. + %d\n", start, cnt);
 
 	Segment s[2];
 	{
@@ -365,6 +430,7 @@ RaRingBuffer<T>::write (T const *src, int64_t start, guint cnt)
 	} else if (s[1].write_start_offset != 0) {
 		segment = 1;
 	} else {
+		assert (priv_write_idx == s[0].index || priv_write_idx == s[1].index);
 		// both are in use.. find current seg.
 		segment = segment_to_use (s[0], s[1], priv_write_idx);
 		int64_t next_write = s[segment].write_start_pos + s[segment].write_start_offset;
@@ -381,6 +447,7 @@ RaRingBuffer<T>::write (T const *src, int64_t start, guint cnt)
 
 	/* find possible overlap */
 	guint overlap = 0;
+#if 1
 	if (start >= segm_start && start < next_write) {
 		printf ("  WRITE OVERLAP ------- !!!!!------\n");
 		if (start + cnt <= next_write) {
@@ -392,7 +459,7 @@ RaRingBuffer<T>::write (T const *src, int64_t start, guint cnt)
 		start += overlap;
 		cnt -= overlap;
 	}
-
+#endif
 
 	if (start != next_write) {
 		segment = 1 - segment;
@@ -403,11 +470,18 @@ RaRingBuffer<T>::write (T const *src, int64_t start, guint cnt)
 		s[segment].write_start_offset = 0;
 	}
 
-	if ((free_cnt = write_space ()) == 0) {
-		return 0;
+	{
+		SpinLock sl (_writepos_lock);
+		if ((free_cnt = write_space ()) == 0) {
+			return 0;
+		}
+		to_write = cnt > free_cnt ? free_cnt : cnt;
+		_seg[segment] = s[segment];
+		invalidate (priv_write_idx, to_write);
+		s[segment] = _seg[segment];
 	}
 
-	to_write = cnt > free_cnt ? free_cnt : cnt;
+	//assert (priv_write_idx == (s[segment].index + s[segment].write_start_offset) & size_mask);
 
 	cnt2 = priv_write_idx + to_write;
 
@@ -428,12 +502,14 @@ RaRingBuffer<T>::write (T const *src, int64_t start, guint cnt)
 	}
 
 	s[segment].write_start_offset += to_write;
+	assert (s[segment].write_start_offset <= size /* - reservation*/);
 
 	{
 		SpinLock sl (_writepos_lock);
 		_seg[segment] = s[segment];
 		g_atomic_int_set (&write_idx, priv_write_idx);
 	}
+	dump_segments ();
 	return to_write + overlap;
 }
 
@@ -519,37 +595,10 @@ RaRingBuffer<T>::read (T *dest, int64_t start, guint cnt, bool commit)
 	}
 
 	if (commit) {
-		// TODO invalidate previous segments.
-		if (s[0].write_start_offset != 0 && s[1].write_start_offset != 0) {
-			/* find segment that writer isn't currently using */
-			int wseg = 1 - segment_to_use (s[0], s[1], w);
-			// quick hack.. whole segment only..
-			if (segment == 2 && wseg == 1) {
-				SpinLock sl (_writepos_lock);
-
-				int64_t end = start + cnt;
-				int64_t delta = end - _seg[1].write_start_pos;
-				assert (delta >= 0);
-				assert (delta <= _seg[1].write_start_offset);
-				_seg[1].write_start_pos = end;
-				_seg[1].write_start_offset -= delta;
-				_seg[1].index = priv_read_idx;
-			}
-			if (segment == 1 && wseg == 0) {
-				SpinLock sl (_writepos_lock);
-				int64_t end = start + cnt;
-				int64_t delta = end - _seg[0].write_start_pos;
-				assert (delta >= 0);
-				assert (delta <= _seg[0].write_start_offset);
-				_seg[0].write_start_pos = end;
-				_seg[0].write_start_offset -= delta;
-				_seg[0].index = priv_read_idx;
-			}
-		}
-		/* set read-pointer to position of last read's end */
-		// TODO don't allow read_idx to de-crement.
+		// move back priv_read_idx by reservation
+		// - at most to start of segment
+		// - not before write_ptr
 		g_atomic_int_set (&read_idx, priv_read_idx);
-
 	}
 	return cnt;
 }

@@ -313,9 +313,11 @@ DiskReader::run (BufferSet& bufs, samplepos_t start_sample, samplepos_t end_samp
 		/* no need for actual disk data, just advance read pointer and return */
 
 		if (!still_locating || _no_disk_output) {
+#if 0
 			for (ChannelList::iterator chan = c->begin(); chan != c->end(); ++chan) {
 				(*chan)->rbuf->set_read_pos (end_sample);
 			}
+#endif
 		}
 
 		/* if monitoring disk but locating put silence in the buffers */
@@ -377,25 +379,10 @@ DiskReader::run (BufferSet& bufs, samplepos_t start_sample, samplepos_t end_samp
 
 				assert (fabsf (speed) == 1.0f);
 
-				if (!chaninfo->rbuf->can_read (ss, nf)) {
-#if 0
-					int64_t frs, lrs;
-					chaninfo->rbuf->read_range (frs, lrs);
-					cerr << owner()->name() << " playback not possible: ss = " << ss << " ps = " << playback_sample << " RB: " << frs << " .. " << lrs << endl;
-#else
+				if (0 == chaninfo->rbuf->read (disk_buf.data (offset), ss, nf)) {
 					cerr << owner()->name() << " playback not possible: ss = " << ss << " ps = " << playback_sample << endl;
-#endif
-#if 0
-					if (lrs > end_sample || frs < ss) {
-						chaninfo->rbuf->read_flush  ();
-					}
-					continue;
-#else
 					goto midi;
-#endif
 				}
-
-				chaninfo->rbuf->read (disk_buf.data (offset), ss, nf);
 
 				if (scaling != 1.0f && speed != 0.0) {
 					Amp::apply_simple_gain (disk_buf, nf, scaling, offset);
@@ -713,9 +700,11 @@ DiskReader::internal_playback_seek (samplecnt_t distance)
 	ChannelList::iterator chan;
 	boost::shared_ptr<ChannelList> c = channels.reader();
 
+#if 0
 	for (chan = c->begin(); chan != c->end(); ++chan) {
 		(*chan)->rbuf->increment_read_idx (::llabs(distance));
 	}
+#endif
 
 	playback_sample += distance;
 
@@ -864,7 +853,7 @@ DiskReader::audio_read (PBD::RaRingBuffer<Sample>*rb,
 			// check if region is already preset..
 			// get end for given start pos.. offset.
 		}
-
+#if 0
 		if (rb->can_read (ss, this_read)) {
 			/* range already present, e.g. short-loops */
 			// TODO needs a dedicated API, also check reversed..
@@ -872,6 +861,7 @@ DiskReader::audio_read (PBD::RaRingBuffer<Sample>*rb,
 			cnt -= this_read;
 			continue;
 		}
+#endif
 
 		samplecnt_t nread = audio_playlist()->read (sum_buffer, mixdown_buffer, gain_buffer, ss, this_read, channel);
 		samplecnt_t nstored = rb->write (sum_buffer, ss, nread);
