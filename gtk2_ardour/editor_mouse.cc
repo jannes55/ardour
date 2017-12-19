@@ -535,7 +535,7 @@ Editor::button_selection (ArdourCanvas::Item* item, GdkEvent* event, ItemType it
 
 			std::list<Selectable*> selectables;
 			uint32_t before, after;
-			samplecnt_t const  where = (samplecnt_t) floor (event->button.x * samples_per_pixel) - clicked_regionview->region ()->position ();
+			samplecnt_t const  where = (samplecnt_t) floor (event->button.x * samples_per_pixel) - clicked_regionview->region ()->position_sample ();
 
 			if (!argl || !argl->control_points_adjacent (where, before, after)) {
 				break;
@@ -1057,7 +1057,8 @@ Editor::button_press_handler_1 (ArdourCanvas::Item* item, GdkEvent* event, ItemT
 						if (!prev) {
 							_drags->set (new RegionCreateDrag (this, item, parent), event);
 						} else {
-							prev->set_length (t - prev->position (), get_grid_music_divisions (event->button.state));
+							timecnt_t len = t - prev->position_sample ();
+							prev->set_length (len);
 						}
 					}
 				} else {
@@ -1283,9 +1284,9 @@ Editor::button_press_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemTyp
 	    UIConfiguration::instance().get_follow_edits() && 
 	    !_session->config.get_external_sync()) {
 
-		MusicSample where (canvas_event_sample (event), 0);
+		timepos_t where (canvas_event_sample (event));
 		snap_to (where);
-		_session->request_locate (where.sample, false);
+		_session->request_locate (where.sample(), false);
 	}
 
 	switch (event->button.button) {
@@ -1332,7 +1333,7 @@ Editor::button_release_dispatch (GdkEventButton* ev)
 bool
 Editor::button_release_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemType item_type)
 {
-	MusicSample where (canvas_event_sample (event), 0);
+	timepos_t where (canvas_event_sample (event));
 	AutomationTimeAxisView* atv = 0;
 
 	_press_cursor_ctx.reset();
@@ -1480,7 +1481,7 @@ Editor::button_release_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemT
 			case SamplesRulerItem:
 			case MinsecRulerItem:
 			case BBTRulerItem:
-				popup_ruler_menu (where.sample, item_type);
+				popup_ruler_menu (where.sample(), item_type);
 				break;
 
 			case MarkerItem:
@@ -1571,23 +1572,23 @@ Editor::button_release_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemT
 
 		case MarkerBarItem:
 			if (!_dragging_playhead) {
-				snap_to_with_modifier (where, event, RoundNearest, true);
-				mouse_add_new_marker (where.sample);
+				snap_to_with_modifier (where, event, Temporal::RoundNearest, true);
+				mouse_add_new_marker (where.sample());
 			}
 			return true;
 
 		case CdMarkerBarItem:
 			if (!_dragging_playhead) {
 				// if we get here then a dragged range wasn't done
-				snap_to_with_modifier (where, event, RoundNearest, true);
-				mouse_add_new_marker (where.sample, true);
+				snap_to_with_modifier (where, event, Temporal::RoundNearest, true);
+				mouse_add_new_marker (where.sample(), true);
 			}
 			return true;
 		case TempoBarItem:
 		case TempoCurveItem:
 			if (!_dragging_playhead && Keyboard::modifier_state_equals (event->button.state, Keyboard::PrimaryModifier)) {
 				snap_to_with_modifier (where, event);
-				mouse_add_new_tempo_event (where.sample);
+				mouse_add_new_tempo_event (where.sample());
 			}
 			return true;
 
@@ -1631,7 +1632,7 @@ Editor::button_release_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemT
 				bool with_guard_points = Keyboard::modifier_state_equals (event->button.state, Keyboard::PrimaryModifier);
 				atv = dynamic_cast<AutomationTimeAxisView*>(clicked_axisview);
 				if (atv) {
-					atv->add_automation_event (event, where.sample, event->button.y, with_guard_points);
+					atv->add_automation_event (event, where.sample(), event->button.y, with_guard_points);
 				}
 				return true;
 				break;
@@ -1786,10 +1787,10 @@ Editor::enter_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemType item_
 			break;
 		}
 		entered_marker = m_marker;
-		if (m_marker->meter().position_lock_style() == MusicTime) {
-			m_marker->set_color_rgba (UIConfiguration::instance().color ("meter marker"));
-		} else {
+		if (_session->tempo_map().time_domain() != Temporal::AudioTime) {
 			m_marker->set_color_rgba (UIConfiguration::instance().color ("meter marker music"));
+		} else {
+			m_marker->set_color_rgba (UIConfiguration::instance().color ("meter marker"));
 		}
 		break;
 
@@ -1798,10 +1799,10 @@ Editor::enter_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemType item_
 			break;
 		}
 		entered_marker = t_marker;
-		if (t_marker->tempo().position_lock_style() == MusicTime) {
-			t_marker->set_color_rgba (UIConfiguration::instance().color ("tempo marker"));
-		} else {
+		if (_session->tempo_map().time_domain() != Temporal::AudioTime) {
 			t_marker->set_color_rgba (UIConfiguration::instance().color ("tempo marker music"));
+		} else {
+			t_marker->set_color_rgba (UIConfiguration::instance().color ("tempo marker"));
 		}
 		break;
 
@@ -1918,7 +1919,7 @@ Editor::leave_handler (ArdourCanvas::Item* item, GdkEvent*, ItemType item_type)
 			break;
 		}
 		entered_marker = 0;
-		if (m_marker->meter().position_lock_style() == MusicTime) {
+		if (_session->tempo_map().time_domain() != Temporal::AudioTime) {
 			m_marker->set_color_rgba (UIConfiguration::instance().color ("meter marker music"));
 		} else {
 			m_marker->set_color_rgba (UIConfiguration::instance().color ("meter marker"));
@@ -1930,7 +1931,7 @@ Editor::leave_handler (ArdourCanvas::Item* item, GdkEvent*, ItemType item_type)
 			break;
 		}
 		entered_marker = 0;
-		if (t_marker->tempo().position_lock_style() == MusicTime) {
+		if (_session->tempo_map().time_domain() != Temporal::AudioTime) {
 			t_marker->set_color_rgba (UIConfiguration::instance().color ("tempo marker music"));
 		} else {
 			t_marker->set_color_rgba (UIConfiguration::instance().color ("tempo marker"));
@@ -2208,7 +2209,7 @@ Editor::region_view_item_click (AudioRegionView& rv, GdkEventButton* event)
 		TimeAxisView* tv = &rv.get_time_axis_view();
 		RouteTimeAxisView* rtv = dynamic_cast<RouteTimeAxisView*>(tv);
 
-		samplepos_t where = get_preferred_edit_position();
+		timepos_t where = get_preferred_edit_position();
 
 		if (where >= 0) {
 
@@ -2366,7 +2367,7 @@ Editor::mouse_rename_region (ArdourCanvas::Item* /*item*/, GdkEvent* /*event*/)
 
 
 void
-Editor::mouse_brush_insert_region (RegionView* rv, samplepos_t pos)
+Editor::mouse_brush_insert_region (RegionView* rv, timepos_t const & pos)
 {
 	/* no brushing without a useful snap setting */
 
@@ -2512,7 +2513,7 @@ Editor::start_selection_grab (ArdourCanvas::Item* /*item*/, GdkEvent* event)
 	boost::shared_ptr<Playlist> playlist = clicked_axisview->playlist();
 
 	playlist->clear_changes ();
-	clicked_routeview->playlist()->add_region (region, selection->time[clicked_selection].start);
+	clicked_routeview->playlist()->add_region (region, selection->time[clicked_selection].start());
 	_session->add_command(new StatefulDiffCommand (playlist));
 
 	c.disconnect ();

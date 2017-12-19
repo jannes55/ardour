@@ -178,11 +178,11 @@ class TimeAxisView : public virtual AxisView
 	virtual void cut_copy_clear (Selection&, Editing::CutCopyOp) {}
 
 	/** Paste a selection.
-	 *  @param pos Position to paste to (session samples).
+	 *  @param pos Position to paste to (session/global-relative units)
 	 *  @param selection Selection to paste.
 	 *  @param ctx Paste context.
 	 */
-	virtual bool paste (ARDOUR::samplepos_t pos,
+	virtual bool paste (Temporal::timepos_t const & pos,
 	                    const Selection&   selection,
 	                    PasteContext&      ctx,
 			    const int32_t sub_num) { return false; }
@@ -198,7 +198,7 @@ class TimeAxisView : public virtual AxisView
 
 	void order_selection_trims (ArdourCanvas::Item *item, bool put_start_on_top);
 
-	virtual void get_selectables (ARDOUR::samplepos_t, ARDOUR::samplepos_t, double, double, std::list<Selectable*>&, bool within = false);
+	virtual void get_selectables (Temporal::timepos_t const &, Temporal::timepos_t const &, double, double, std::list<Selectable*>&, bool within = false);
 	virtual void get_inverted_selectables (Selection&, std::list<Selectable *>& results);
 
 	void add_ghost (RegionView*);

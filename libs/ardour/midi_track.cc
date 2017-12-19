@@ -461,8 +461,8 @@ MidiTrack::write_out_of_band_data (BufferSet& bufs, samplecnt_t nframes) const
 
 int
 MidiTrack::export_stuff (BufferSet&                   buffers,
-                         samplepos_t                   start,
-                         samplecnt_t                   nframes,
+                         timepos_t const &            start,
+                         timecnt_t const &            duration,
                          boost::shared_ptr<Processor> endpoint,
                          bool                         include_endpoint,
                          bool                         for_export,
@@ -480,7 +480,7 @@ MidiTrack::export_stuff (BufferSet&                   buffers,
 	}
 
 	buffers.get_midi(0).clear();
-	if (mpl->read(buffers.get_midi(0), start, nframes, 0) != nframes) {
+	if (mpl->read (buffers.get_midi(0), start.sample(), duration, 0) != 0) {
 		return -1;
 	}
 
@@ -496,8 +496,8 @@ MidiTrack::bounce (InterThreadInfo& itt)
 }
 
 boost::shared_ptr<Region>
-MidiTrack::bounce_range (samplepos_t                   start,
-                         samplepos_t                   end,
+MidiTrack::bounce_range (timepos_t const &            start,
+                         timepos_t const &            end,
                          InterThreadInfo&             itt,
                          boost::shared_ptr<Processor> endpoint,
                          bool                         include_endpoint)

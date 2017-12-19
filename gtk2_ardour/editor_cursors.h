@@ -37,6 +37,7 @@ public:
 	~EditorCursor ();
 
 	void set_position (samplepos_t);
+	void set_position (Temporal::timepos_t const &);
 
 
 	void show ();
@@ -44,20 +45,19 @@ public:
 	void set_color (Gtkmm2ext::Color);
 	void set_sensitive (bool);
 
-	samplepos_t current_sample () const {
-		return _current_sample;
-	}
+	Temporal::timepos_t current_time () const { return _current_time; }
+	samplepos_t current_sample () const;
 
 	ArdourCanvas::Arrow& track_canvas_item () {
 		return *_track_canvas_item;
 	}
 
-	PBD::Signal1<void, samplepos_t> PositionChanged;
+	PBD::Signal1<void, Temporal::timepos_t> PositionChanged;
 
 private:
 	Editor&               _editor;
 	ArdourCanvas::Arrow*  _track_canvas_item;
-	samplepos_t            _current_sample;
+	Temporal::timepos_t   _current_time;
 };
 
 #endif // __gtk_ardour_editor_cursors_h__

@@ -981,14 +981,14 @@ Editor::toggle_measure_visibility ()
 void
 Editor::edit_current_meter ()
 {
-	ARDOUR::MeterSection* ms = const_cast<ARDOUR::MeterSection*>(&_session->tempo_map().meter_section_at_sample (ARDOUR_UI::instance()->primary_clock->absolute_time()));
+	Temporal::Meter const & ms = _session->tempo_map().const_point_at (ARDOUR_UI::instance()->primary_clock->absolute_time()).metric();
 	edit_meter_section (ms);
 }
 
 void
 Editor::edit_current_tempo ()
 {
-	ARDOUR::TempoSection* ts = const_cast<ARDOUR::TempoSection*>(&_session->tempo_map().tempo_section_at_sample (ARDOUR_UI::instance()->primary_clock->absolute_time()));
+	Temporal::Tempo const & ts = _session->tempo_map().const_point_at (ARDOUR_UI::instance()->primary_clock->absolute_time()).metric();
 	edit_tempo_section (ts);
 }
 

@@ -1535,7 +1535,7 @@ MidiTimeAxisView::automation_child_menu_item (Evoral::Parameter param)
 }
 
 boost::shared_ptr<MidiRegion>
-MidiTimeAxisView::add_region (samplepos_t f, samplecnt_t length, bool commit)
+MidiTimeAxisView::add_region (samplepos_t f, Temporal::timecnt_t length, bool commit)
 {
 	Editor* real_editor = dynamic_cast<Editor*> (&_editor);
 	MusicSample pos (f, 0);
@@ -1632,7 +1632,7 @@ MidiTimeAxisView::contents_height_changed ()
 }
 
 bool
-MidiTimeAxisView::paste (samplepos_t pos, const Selection& selection, PasteContext& ctx, const int32_t sub_num)
+MidiTimeAxisView::paste (Temporal::timepos_t const & pos, const Selection& selection, PasteContext& ctx, const int32_t sub_num)
 {
 	if (!_editor.internal_editing()) {
 		// Non-internal paste, paste regions like any other route

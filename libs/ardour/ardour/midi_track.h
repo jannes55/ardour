@@ -52,15 +52,15 @@ public:
 
 	bool bounceable (boost::shared_ptr<Processor>, bool) const { return false; }
 	boost::shared_ptr<Region> bounce (InterThreadInfo&);
-	boost::shared_ptr<Region> bounce_range (samplepos_t                   start,
-	                                        samplepos_t                   end,
+	boost::shared_ptr<Region> bounce_range (Temporal::timepos_t const &  start,
+	                                        Temporal::timepos_t const &  end,
 	                                        InterThreadInfo&             iti,
 	                                        boost::shared_ptr<Processor> endpoint,
 	                                        bool                         include_endpoint);
 
 	int export_stuff (BufferSet&                   bufs,
-	                  samplepos_t                   start_sample,
-	                  samplecnt_t                   end_sample,
+	                  Temporal::timepos_t const &  start_sample,
+	                  Temporal::timecnt_t const &  duration,
 	                  boost::shared_ptr<Processor> endpoint,
 	                  bool                         include_endpoint,
 	                  bool                         for_export,

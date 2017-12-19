@@ -1559,7 +1559,6 @@ Session::stop_transport (bool abort, bool clear_state)
 		/* stop has not yet been scheduled */
 
 		boost::shared_ptr<RouteList> rl = routes.reader();
-		samplepos_t stop_target = audible_sample();
 
 		SubState new_bits;
 

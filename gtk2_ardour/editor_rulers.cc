@@ -967,16 +967,16 @@ Editor::compute_bbt_ruler_scale (samplepos_t lower, samplepos_t upper)
 		return;
 	}
 
-	std::vector<TempoMap::BBTPoint>::const_iterator i;
+	std::vector<Temporal::TempoMapPoint>::const_iterator i;
 	Temporal::BBT_Time lower_beat, upper_beat; // the beats at each end of the ruler
-	double floor_lower_beat = floor(max (0.0, _session->tempo_map().beat_at_sample (lower)));
+	Temporal::Beats floor_lower_beat = _session->tempo_map().quarter_note_at (lower).round_down_to_beat ();
 
 	if (floor_lower_beat < 0.0) {
 		floor_lower_beat = 0.0;
 	}
 
-	const samplecnt_t beat_before_lower_pos = _session->tempo_map().sample_at_beat (floor_lower_beat);
-	const samplecnt_t beat_after_upper_pos = _session->tempo_map().sample_at_beat (floor (max (0.0, _session->tempo_map().beat_at_sample (upper))) + 1.0);
+	const samplecnt_t beat_before_lower_pos = _session->tempo_map().sample_at (floor_lower_beat);
+	const samplecnt_t beat_after_upper_pos = _session->tempo_map().sample_at (_session->tempo_map().quarter_note_at (upper).round_up_to_beat());
 
 	_session->bbt_time (beat_before_lower_pos, lower_beat);
 	_session->bbt_time (beat_after_upper_pos, upper_beat);
@@ -1060,12 +1060,13 @@ Editor::compute_bbt_ruler_scale (samplepos_t lower, samplepos_t upper)
 		break;
 	}
 
-	const double ceil_upper_beat = floor (max (0.0, _session->tempo_map().beat_at_sample (upper))) + 1.0;
+	const Temporal::Beats ceil_upper_beat = _session->tempo_map().beat_at (upper).round_up_to_beat();
+
 	if (ceil_upper_beat == floor_lower_beat) {
 		return;
 	}
 
-	bbt_bars = _session->tempo_map().bbt_at_beat (ceil_upper_beat).bars - _session->tempo_map().bbt_at_beat (floor_lower_beat).bars;
+	bbt_bars = _session->tempo_map().bbt_at (ceil_upper_beat).bars - _session->tempo_map().bbt_at (floor_lower_beat).bars;
 
 	beats = (ceil_upper_beat - floor_lower_beat);// - bbt_bars;  possible thinko; this fixes the problem (for me) where measure lines alternately appear&disappear while playing at certain zoom scales
 	double beat_density = ((beats + 1) * ((double) (upper - lower) / (double) (1 + beat_after_upper_pos - beat_before_lower_pos))) / 5.0;

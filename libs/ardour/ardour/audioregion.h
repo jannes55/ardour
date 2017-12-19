@@ -103,7 +103,7 @@ class LIBARDOUR_API AudioRegion : public Region
 	boost::shared_ptr<AutomationList> inverse_fade_out()  { return _inverse_fade_out.val (); }
 	boost::shared_ptr<AutomationList> envelope() { return _envelope.val (); }
 
-	Temporal::Range<samplepos_t> body_range () const;
+	Temporal::Range body_range () const;
 
 	virtual samplecnt_t read_peaks (PeakData *buf, samplecnt_t npeaks,
 	                                samplecnt_t offset, samplecnt_t cnt,

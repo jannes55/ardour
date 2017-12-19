@@ -50,7 +50,19 @@ class LIBEVORAL_API ControlEvent {
 public:
 	/* This is a deliberately ambiguous time type. It is interpreted as
 	   samples if the ControlList owning the event uses the AudioTime
-	   domain, and as Beats (fixed point) if the ControlList uses BeatTime.
+	   domain, and as ticks (fixed point fractions of a Beat if the
+	   ControlList uses BeatTime.
+
+	   BarTime is forbidden in this context.
+
+	   Conceptually, we want to use Temporal::timepos_t here, but that
+	   object is so large that it is absurd to use one in every control
+	   point simply to refer to a single point in a single
+	   timedomain. Temporal::timecnt_t is closer to an acceptable
+	   compromise (a value plus a time domain), but it doesn't allow for
+	   any easier re-interpretation across time domains that this single
+	   integer value does. So save the space, since having an explicit time
+	   domain here doesn't help us - the parent ControlList knows it anyway.
 	*/
 	typedef int64_t when_t;
 
@@ -77,6 +89,9 @@ public:
 		coeff[0] = coeff[1] = coeff[2] = coeff[3] = 0.0;
 	}
 
+	Temporal::timepos_t when_as_sample() const { return Temporal::timepos_t (Temporal::samplepos_t (when)); }
+	Temporal::timepos_t when_as_beats() const { return Temporal::timepos_t (Temporal::Beats::ticks (when)); }
+
 	when_t  when;
 	double  value;
 	double* coeff; ///< double[4] allocated by Curve as needed
@@ -95,7 +110,7 @@ public:
 	typedef EventList::const_reverse_iterator const_reverse_iterator;
 
 	ControlList (const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle);
-	ControlList (const ControlList&, ControlEvent::when_t start, ControlEvent::when_t end);
+	ControlList (const ControlList&, Temporal::timepos_t const & start, Temporal::timepos_t const & end);
 	ControlList (const ControlList&);
 	virtual ~ControlList();
 
@@ -120,17 +135,36 @@ public:
 	void                       set_descriptor(const ParameterDescriptor& d) { _desc = d; }
 
 	EventList::size_type size() const { return _events.size(); }
-	ControlEvent::when_t length() const {
+
+	Temporal::timecnt_t length() const {
 		Glib::Threads::RWLock::ReaderLock lm (_lock);
-		return _events.empty() ? 0.0 : _events.back()->when;
+		ControlEvent::when_t w;
+		if (_events.empty()) {
+			w = 0;
+		} else {
+			w = _events.back()->when;
+		}
+		switch (_time_style) {
+		case Temporal::AudioTime:
+			return Temporal::timecnt_t (Temporal::samplepos_t (w));
+		case Temporal::BeatTime:
+			return Temporal::timecnt_t (Temporal::Beats::ticks (w));
+		default:
+			/*NOTREACHED*/
+			abort ();
+			/*NOTREACHED*/
+		}
 	}
+
 	bool empty() const { return _events.empty(); }
+
+	Temporal::timepos_t control_point_time (ControlEvent const & cp) const;
 
 	void clear ();
 	void x_scale (double factor);
-	bool extend_to (ControlEvent::when_t);
-	void slide (iterator before, ControlEvent::when_t distance);
-	void shift (ControlEvent::when_t before, ControlEvent::when_t distance);
+	bool extend_to (Temporal::timepos_t const &);
+	void slide (iterator before, Temporal::timecnt_t const & distance);
+	void shift (Temporal::timepos_t const & before, Temporal::timecnt_t const & distance);
 
 	void y_transform (boost::function<double(double)> callback);
 	void list_merge (ControlList const& other, boost::function<double(double, double)> callback);
@@ -141,19 +175,19 @@ public:
 	 * @param with_guards if true, add guard-points
 	 * @param with_initial if true, add an initial point if the list is empty
 	 */
-	virtual void add (ControlEvent::when_t when, double value, bool with_guards=true, bool with_initial=true);
+	virtual void add (Temporal::timepos_t const & when, double value, bool with_guards=true, bool with_initial=true);
 
-	virtual bool editor_add (ControlEvent::when_t when, double value, bool with_guard);
+	virtual bool editor_add (Temporal::timepos_t const & when, double value, bool with_guard);
 
 	/* to be used only for loading pre-sorted data from saved state */
-	void fast_simple_add (ControlEvent::when_t when, double value);
+	void fast_simple_add (Temporal::timepos_t const & when, double value);
 
-	void erase_range (ControlEvent::when_t start, ControlEvent::when_t end);
+	void erase_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end);
 	void erase (iterator);
 	void erase (iterator, iterator);
-	void erase (ControlEvent::when_t, double);
-	bool move_ranges (std::list<Temporal::RangeMove<ControlEvent::when_t> > const &);
-	void modify (iterator, ControlEvent::when_t, double);
+	void erase (Temporal::timepos_t const &, double);
+	bool move_ranges (std::list<Temporal::RangeMove> const &);
+	void modify (iterator, Temporal::timepos_t const &, double);
 
 	/** Thin the number of events in this list.
 	 *
@@ -175,25 +209,27 @@ public:
 	 */
 	void thin (double thinning_factor);
 
-	boost::shared_ptr<ControlList> cut (ControlEvent::when_t, ControlEvent::when_t);
-	boost::shared_ptr<ControlList> copy (ControlEvent::when_t, ControlEvent::when_t);
+	boost::shared_ptr<ControlList> cut (Temporal::timepos_t const &, Temporal::timepos_t const &);
+	boost::shared_ptr<ControlList> copy (Temporal::timepos_t const &, Temporal::timepos_t const &);
 
 	/** remove all automation events between the given time range
 	 * @param start start of range (inclusive) in audio samples
 	 * @param end end of range (inclusive) in audio samples
 	 */
-	void clear (ControlEvent::when_t start, ControlEvent::when_t end);
+	void clear (Temporal::timepos_t const & start, Temporal::timepos_t const & end);
 
-	bool paste (const ControlList&, ControlEvent::when_t position);
+	bool paste (const ControlList&, Temporal::timepos_t const & position);
 
 	/** truncate the event list after the given time
 	 * @param last_coordinate last event to include
 	 */
-	void truncate_end (ControlEvent::when_t last_coordinate);
+	void truncate_end (Temporal::timepos_t const & last_coordinate);
 	/** truncate the event list to the given time
 	 * @param overall_length overall length
 	 */
-	void truncate_start (ControlEvent::when_t overall_length);
+	void truncate_start (Temporal::timepos_t const & overall_length);
+
+	Temporal::timepos_t start() const { return empty() ? Temporal::timepos_t() : Temporal::timepos_t (_events.front()->when); }
 
 	iterator            begin()       { return _events.begin(); }
 	const_iterator      begin() const { return _events.begin(); }
@@ -208,7 +244,7 @@ public:
 	ControlEvent*       front()       { return _events.front(); }
 	const ControlEvent* front() const { return _events.front(); }
 
-	std::pair<ControlList::iterator,ControlList::iterator> control_points_adjacent (ControlEvent::when_t when);
+	std::pair<ControlList::iterator,ControlList::iterator> control_points_adjacent (Temporal::timepos_t const & when);
 
 	template<class T> void apply_to_points (T& obj, void (T::*method)(const ControlList&)) {
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -219,7 +255,7 @@ public:
 	 * @param where absolute time in samples
 	 * @returns parameter value
 	 */
-	double eval (ControlEvent::when_t where) const {
+	double eval (Temporal::timepos_t const & where) const {
 		Glib::Threads::RWLock::ReaderLock lm (_lock);
 		return unlocked_eval (where);
 	}
@@ -229,7 +265,7 @@ public:
 	 * @param ok boolean reference if returned value is valid
 	 * @returns parameter value
 	 */
-	double rt_safe_eval (ControlEvent::when_t where, bool& ok) const {
+	double rt_safe_eval (Temporal::timepos_t const & where, bool& ok) const {
 
 		Glib::Threads::RWLock::ReaderLock lm (_lock, Glib::Threads::TRY_LOCK);
 
@@ -253,8 +289,8 @@ public:
 
 	/** Lookup cache for point finding, range contains points after left */
 	struct SearchCache {
-		SearchCache () : left(-1) {}
-		double left;  /* leftmost x coordinate used when finding "first" */
+		SearchCache () : left (-1) {}
+		ControlEvent::when_t left;  /* leftmost x coordinate used when finding "first" */
 		ControlList::const_iterator first;
 	};
 
@@ -270,12 +306,12 @@ public:
 	 *
 	 * FIXME: Should this be private?  Curve needs it..
 	 */
-	double unlocked_eval (ControlEvent::when_t x) const;
+	double unlocked_eval (Temporal::timepos_t const & x) const;
 
-	bool rt_safe_earliest_event (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool start_inclusive=false) const;
-	bool rt_safe_earliest_event_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool start_inclusive=false) const;
-	bool rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const;
-	bool rt_safe_earliest_event_discrete_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const;
+	bool rt_safe_earliest_event (Temporal::timepos_t const & start, Temporal::timepos_t & x, double& y, bool start_inclusive=false) const;
+	bool rt_safe_earliest_event_unlocked (Temporal::timepos_t const & start, Temporal::timepos_t & x, double& y, bool start_inclusive=false) const;
+	bool rt_safe_earliest_event_linear_unlocked (Temporal::timepos_t const & start, Temporal::timepos_t & x, double& y, bool inclusive) const;
+	bool rt_safe_earliest_event_discrete_unlocked (Temporal::timepos_t const & start, Temporal::timepos_t & x, double& y, bool inclusive) const;
 
 	void create_curve();
 	void destroy_curve();
@@ -314,9 +350,9 @@ public:
 	virtual bool touching() const { return false; }
 	virtual bool writing() const { return false; }
 	virtual bool touch_enabled() const { return false; }
-	void start_write_pass (ControlEvent::when_t when);
-	void write_pass_finished (ControlEvent::when_t when, double thinning_factor=0.0);
-	void set_in_write_pass (bool, bool add_point = false, ControlEvent::when_t when = 0.0);
+	void start_write_pass (Temporal::timepos_t const & when);
+	void write_pass_finished (Temporal::timepos_t const & when, double thinning_factor=0.0);
+	void set_in_write_pass (bool, bool add_point = false, Temporal::timepos_t const & when = Temporal::timepos_t ());
 	bool in_write_pass () const;
 	bool in_new_write_pass () { return new_write_pass; }
 
@@ -330,19 +366,61 @@ public:
 
 	void invalidate_insert_iterator ();
 
-protected:
+	Temporal::timepos_t get_time (ControlEvent::when_t when) const {
+		assert (_time_style != Temporal::BarTime);
+		switch (_time_style) {
+		case Temporal::AudioTime:
+			return Temporal::timepos_t (Temporal::samplepos_t (when));
+		case Temporal::BeatTime:
+			return Temporal::timepos_t (Temporal::Beats::ticks (when));
+		default:
+			/*NOTREACHED*/
+			abort();
+			/*NOTREACHED*/
+		}
+	}
+
+	ControlEvent::when_t get_when (Temporal::timepos_t const & pos) const {
+		assert (_time_style != Temporal::BarTime);
+		switch (_time_style) {
+		case Temporal::AudioTime:
+			return pos.sample();
+		case Temporal::BeatTime:
+			return pos.beats().to_ticks();
+		default:
+			/*NOTREACHED*/
+			abort();
+			/*NOTREACHED*/
+		}
+	}
+
+	ControlEvent::when_t get_distance (Temporal::timecnt_t const & d) const {
+		assert (_time_style != Temporal::BarTime);
+		switch (_time_style) {
+		case Temporal::AudioTime:
+			return d.samples();
+		case Temporal::BeatTime:
+			return d.beats().to_ticks();
+		default:
+			/*NOTREACHED*/
+			abort();
+			/*NOTREACHED*/
+		}
+	}
+
+  protected:
 
 	/** Called by unlocked_eval() to handle cases of 3 or more control points. */
-	double multipoint_eval (ControlEvent::when_t x) const;
+	double multipoint_eval (Temporal::timepos_t const & x) const;
 
-	void build_search_cache_if_necessary (ControlEvent::when_t start) const;
+	void build_search_cache_if_necessary (Temporal::timepos_t const & start) const;
 
-	boost::shared_ptr<ControlList> cut_copy_clear (ControlEvent::when_t, ControlEvent::when_t, int op);
-	bool erase_range_internal (ControlEvent::when_t start, ControlEvent::when_t end, EventList &);
+	boost::shared_ptr<ControlList> cut_copy_clear (Temporal::timepos_t const &, Temporal::timepos_t const &, int op);
+	bool erase_range_internal (Temporal::timepos_t const & start, Temporal::timepos_t const & end, EventList &);
 
-	void     maybe_add_insert_guard (ControlEvent::when_t when);
-	iterator erase_from_iterator_to (iterator iter, ControlEvent::when_t when);
-	bool     maybe_insert_straight_line (ControlEvent::when_t when, double value);
+	void     maybe_add_insert_guard (Temporal::timepos_t const & when);
+	iterator erase_from_iterator_to (iterator iter, Temporal::timepos_t const & when);
+	bool     maybe_insert_straight_line (Temporal::timepos_t const & when, double value);
 
 	virtual void maybe_signal_changed ();
 
@@ -364,7 +442,7 @@ protected:
 
 	Curve* _curve;
 
-private:
+  private:
 	iterator   most_recent_insert_iterator;
 	double     insert_position;
 	bool       new_write_pass;
@@ -373,9 +451,10 @@ private:
 
 	void unlocked_remove_duplicates ();
 	void unlocked_invalidate_insert_iterator ();
-	void add_guard_point (ControlEvent::when_t when, double offset);
+	void add_guard_point (Temporal::timepos_t const & when, double offset);
 
 	bool is_sorted () const;
+
 };
 
 } // namespace Evoral

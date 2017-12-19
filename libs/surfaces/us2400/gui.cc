@@ -94,7 +94,6 @@ US2400ProtocolGUI::US2400ProtocolGUI (US2400Protocol& p)
 	, ignore_active_change (false)
 {
 	Gtk::Label* l;
-	Gtk::Alignment* align;
 	int row = 0;
 
 	set_border_width (12);
@@ -251,7 +250,7 @@ US2400ProtocolGUI::device_dependent_widget ()
 	int row = 0;
 
 	uint32_t n_surfaces = 1 + _cp.device_info().extenders();
-	uint32_t main_pos = _cp.device_info().master_position();
+	//uint32_t main_pos = _cp.device_info().master_position();
 
 	dd_table = Gtk::manage (new Gtk::Table (2, n_surfaces));
 	dd_table->set_row_spacings (4);
@@ -267,7 +266,7 @@ US2400ProtocolGUI::device_dependent_widget ()
 	input_combos.clear ();
 	output_combos.clear ();
 
-	int portcount = n_surfaces;
+	uint32_t portcount = n_surfaces;
 
 	for (uint32_t n = 0; n < portcount; ++n) {
 

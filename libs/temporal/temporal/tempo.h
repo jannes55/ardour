@@ -34,6 +34,7 @@
 #include "temporal/beats.h"
 #include "temporal/bbt_time.h"
 #include "temporal/superclock.h"
+#include "temporal/timeline.h"
 #include "temporal/types.h"
 
 namespace Temporal {
@@ -50,21 +51,33 @@ class LIBTEMPORAL_API Tempo {
 	 * @param npm Note Types per minute
 	 * @param type Note Type (default `4': quarter note)
 	 */
-	Tempo (double npm, int type = 4) : _superclocks_per_note_type (double_npm_to_sc (npm)), _note_type (type) {}
+	Tempo (double npm, int type = 4, bool ramp = false) :
+		_superclocks_per_note_type (double_npm_to_sc (npm)),
+		_end_superclocks_per_note_type (double_npm_to_sc (npm)),
+		_note_type (type),
+		_active (true),
+		_locked_to_meter (false),
+		_clamped (false),
+		_ramped (ramp) {}
 
 	/* these five methods should only be used to show and collect information to the user (for whom
 	 * bpm as a floating point number is the obvious representation)
 	 */
 	double note_types_per_minute () const { return (superclock_ticks_per_second * 60.0) / _superclocks_per_note_type; }
+	double end_note_types_per_minute () const { return (superclock_ticks_per_second * 60.0) / _end_superclocks_per_note_type; }
 	double quarter_notes_per_minute() const { return (superclock_ticks_per_second * 60.0 * 4.0) / (_note_type * _superclocks_per_note_type); }
 	double samples_per_note_type(samplecnt_t sr) const { return superclock_to_samples (superclocks_per_note_type (), sr); }
 	double samples_per_quarter_note(samplecnt_t sr) const { return superclock_to_samples (superclocks_per_quarter_note(), sr); }
 	void   set_note_types_per_minute (double npm) { _superclocks_per_note_type = double_npm_to_sc (npm); }
 
 	int note_type () const { return _note_type; }
+	void set_end_note_types_per_minute (double npm);
 
 	superclock_t superclocks_per_note_type () const {
 		return _superclocks_per_note_type;
+	}
+	superclock_t end_superclocks_per_note_type () const {
+		return _end_superclocks_per_note_type;
 	}
 	superclock_t superclocks_per_note_type (int note_type) const {
 		return (_superclocks_per_note_type * _note_type) / note_type;
@@ -76,17 +89,26 @@ class LIBTEMPORAL_API Tempo {
 		return superclocks_per_quarter_note() / ticks_per_beat;
 	}
 
-	Tempo& operator=(Tempo const& other) {
-		if (&other != this) {
-			_superclocks_per_note_type = other._superclocks_per_note_type;
-			_note_type = other._note_type;
-		}
-		return *this;
-	}
+	bool active () const { return _active; }
+	void set_active (bool yn) { _active = yn; }
+
+	bool locked_to_meter ()  const { return _locked_to_meter; }
+	void set_locked_to_meter (bool yn) { _locked_to_meter = yn; }
+
+	bool clamped() const { return _clamped; }
+	bool set_clamped (bool yn);
+
+	bool ramped () const { return _ramped; }
+	bool set_ramped (bool yn);
 
   protected:
 	superclock_t _superclocks_per_note_type;
+	superclock_t _end_superclocks_per_note_type;
 	int8_t       _note_type;
+	bool         _active;
+	bool         _locked_to_meter; /* XXX name has unclear meaning with nutempo */
+	bool         _clamped;
+	bool         _ramped;
 
 	static inline double       sc_to_double_npm (superclock_t sc) { return (superclock_ticks_per_second * 60.0) / sc; }
 	static inline superclock_t double_npm_to_sc (double npm) { return llrint ((superclock_ticks_per_second / npm) * 60.0); }
@@ -115,8 +137,6 @@ class LIBTEMPORAL_API Meter {
 	BBT_Time   bbt_subtract (BBT_Time const & bbt, BBT_Offset const & sub) const;
 	BBT_Offset bbt_delta (BBT_Time const & bbt, BBT_Time const & sub) const;
 
-	BBT_Time round_up_to_bar (BBT_Time const &) const;
-	BBT_Time round_down_to_bar (BBT_Time const &) const;
 	BBT_Time round_to_bar (BBT_Time const &) const;
 
 	Beats to_quarters (BBT_Offset const &) const;
@@ -138,7 +158,8 @@ class LIBTEMPORAL_API Meter {
 */
 class LIBTEMPORAL_API TempoMetric : public Tempo, public Meter {
   public:
-	TempoMetric (Tempo const & t, Meter const & m, bool ramp) : Tempo (t), Meter (m), _c_per_quarter (0.0), _c_per_superclock (0.0), _ramped (ramp) {}
+	TempoMetric (Tempo const & t, Meter const & m, bool ramp)
+		: Tempo (t), Meter (m), _c_per_quarter (0.0), _c_per_superclock (0.0) {}
 	~TempoMetric () {}
 
 	double c_per_superclock () const { return _c_per_superclock; }
@@ -153,13 +174,9 @@ class LIBTEMPORAL_API TempoMetric : public Tempo, public Meter {
 	superclock_t superclock_at_qn (Beats const & qn) const;
 	superclock_t superclock_per_note_type_at_superclock (superclock_t) const;
 
-	bool ramped () const { return _ramped; }
-	void set_ramped (bool yn) { _ramped = yn; } /* caller must mark something dirty to force recompute */
-
   private:
 	double _c_per_quarter;
 	double _c_per_superclock;
-	bool   _ramped;
 };
 
 /** Tempo Map - mapping of timecode to musical time.
@@ -219,8 +236,8 @@ class LIBTEMPORAL_API TempoMapPoint
 		ExplicitMeter = 0x2,
 	};
 
-	TempoMapPoint (TempoMap* map, Flag f, Tempo const& t, Meter const& m, superclock_t sc, Beats const & q, BBT_Time const & bbt, LockStyle psl, bool ramp = false)
-		: _flags (f), _explicit (t, m, psl, ramp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _map (map) {}
+	TempoMapPoint (TempoMap* map, Flag f, Tempo const& t, Meter const& m, superclock_t sc, Beats const & q, BBT_Time const & bbt, bool ramp = false)
+		: _flags (f), _explicit (t, m, ramp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _map (map) {}
 	TempoMapPoint (TempoMapPoint const & tmp, superclock_t sc, Beats const & q, BBT_Time const & bbt)
 		: _flags (Flag (0)), _reference (&tmp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _map (tmp.map()) {}
 	~TempoMapPoint () {}
@@ -234,7 +251,7 @@ class LIBTEMPORAL_API TempoMapPoint
 
 	superclock_t superclocks_per_note_type (int8_t note_type) const {
 		if (is_explicit()) {
-			return _explicit.metric.superclocks_per_note_type (note_type);
+			return _explicit.superclocks_per_note_type (note_type);
 		}
 		return _reference->superclocks_per_note_type (note_type);
 	}
@@ -246,14 +263,18 @@ class LIBTEMPORAL_API TempoMapPoint
 	bool                dirty()  const { return _dirty; }
 
 	superclock_t        sclock() const      { return _sclock; }
+
+	/* time domain will vary according to lock style */
+	timepos_t           time() const;
+
+	samplepos_t         sample() const;
 	Beats const &       quarters() const  { return _quarters; }
 	BBT_Time  const &   bbt() const { return _bbt; }
 	bool                ramped() const      { return metric().ramped(); }
-	TempoMetric const & metric() const      { return is_explicit() ? _explicit.metric : _reference->metric(); }
-	LockStyle           lock_style() const  { return is_explicit() ? _explicit.lock_style : _reference->lock_style(); }
+	TempoMetric const & metric() const      { return is_explicit() ? _explicit : _reference->metric(); }
 
-	void compute_c_superclock (samplecnt_t sr, superclock_t end_superclocks_per_note_type, superclock_t duration) { if (is_explicit()) { _explicit.metric.compute_c_superclock (sr, end_superclocks_per_note_type, duration); } }
-	void compute_c_quarters (samplecnt_t sr, superclock_t end_superclocks_per_note_type, Beats const & duration) { if (is_explicit()) { _explicit.metric.compute_c_quarters (sr, end_superclocks_per_note_type, duration); } }
+	void compute_c_superclock (samplecnt_t sr, superclock_t end_superclocks_per_note_type, superclock_t duration) { if (is_explicit()) { _explicit.compute_c_superclock (sr, end_superclocks_per_note_type, duration); } }
+	void compute_c_quarters (samplecnt_t sr, superclock_t end_superclocks_per_note_type, Beats const & duration) { if (is_explicit()) { _explicit.compute_c_quarters (sr, end_superclocks_per_note_type, duration); } }
 
 	/* None of these properties can be set for an Implicit point, because
 	 * they are determined by the TempoMapPoint pointed to by _reference.
@@ -263,17 +284,17 @@ class LIBTEMPORAL_API TempoMapPoint
 	void set_quarters (Beats const & q) { if (is_explicit()) { _quarters = q; _dirty = true;  } }
 	void set_bbt (BBT_Time const & bbt) {  if (is_explicit()) { _bbt = bbt; _dirty = true;  } }
 	void set_dirty (bool yn);
-	void set_lock_style (LockStyle psl) {  if (is_explicit()) { _explicit.lock_style = psl; _dirty = true; } }
-
 	void make_explicit (Flag f) {
-		_flags = Flag (_flags|f);
-		/* since _metric and _reference are part of an anonymous union,
-		   avoid possible compiler glitches by copying to a stack
-		   variable first, then assign.
-		*/
-		TempoMetric tm (_explicit.metric);
-		_explicit.metric = tm;
-		_dirty = true;
+		if (!(_flags & f)) {
+			_flags = Flag (_flags|f);
+			/* since _metric and _reference are part of an anonymous union,
+			   avoid possible compiler glitches by copying to a stack
+			   variable first, then assign.
+			*/
+			TempoMetric tm (metric());
+			_explicit = tm;
+			_dirty = true;
+		}
 	}
 
 	void make_implicit (TempoMapPoint & tmp) { _flags = Flag (0); _reference = &tmp; }
@@ -308,24 +329,17 @@ class LIBTEMPORAL_API TempoMapPoint
   protected:
 	friend class TempoMap;
 	void map_reset_set_sclock_for_sr_change (superclock_t sc) { _sclock = sc; }
-	TempoMetric & nonconst_metric() { return is_explicit() ? *(const_cast<TempoMetric*>(&_explicit.metric)) : *(const_cast<TempoMetric*>(&_reference->metric())); }
+	TempoMetric & nonconst_metric() { return is_explicit() ? *(const_cast<TempoMetric*>(&_explicit)) : *(const_cast<TempoMetric*>(&_reference->metric())); }
 
   private:
-	struct ExplicitInfo {
-		ExplicitInfo (Tempo const & t, Meter const & m, LockStyle psl, bool ramp) : metric (t, m, ramp), lock_style (psl) {}
-
-		TempoMetric       metric;
-		LockStyle lock_style;
-	};
-
 	Flag                  _flags;
 	union {
 		TempoMapPoint const * _reference;
-		ExplicitInfo          _explicit;
+		TempoMetric           _explicit;
 	};
 	superclock_t          _sclock;
-	Beats         _quarters;
-	BBT_Time    _bbt;
+	Beats                 _quarters;
+	BBT_Time              _bbt;
 	bool                  _dirty;
 	TempoMap*             _map;
 };
@@ -349,7 +363,15 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	bool set_meter (Meter const &, BBT_Time const &);
 	bool set_meter (Meter const &, samplepos_t);
 	void remove_explicit_point (samplepos_t);
-	bool move_to (samplepos_t current, samplepos_t destination, bool push = false);
+	bool move_to (timepos_t current, timepos_t destination, bool push = false);
+
+	bool can_remove (Tempo const &) const;
+	bool can_remove (Meter const &) const;
+
+	bool is_initial (Tempo const &) const;
+
+	Tempo const * next_tempo (Tempo const &) const;
+	Meter const * next_meter (Meter const &) const;
 
 	Meter const & meter_at (samplepos_t sc) const;
 	Meter const & meter_at (Beats const & b) const;
@@ -357,6 +379,11 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	Tempo const & tempo_at (samplepos_t sc) const;
 	Tempo const & tempo_at (Beats const &b) const;
 	Tempo const & tempo_at (BBT_Time const & bbt) const;
+
+	/* convenience function */
+	BBT_Time round_to_bar (BBT_Time const & bbt) const {
+		return const_point_at (bbt).metric().round_to_bar (bbt);
+	}
 
 	BBT_Time bbt_at (samplepos_t sc) const;
 	BBT_Time bbt_at (Beats const &) const;
@@ -375,12 +402,17 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	Beats sample_delta_as_quarters (samplepos_t start, samplepos_t distance) const;
 	Beats samplewalk_to_quarters (samplepos_t pos, samplecnt_t distance) const;
+	Beats samplewalk_to_quarters (Beats const & pos, samplecnt_t distance) const;
 	samplepos_t sample_plus_quarters_as_samples (samplepos_t start, Beats const & distance) const;
 	samplepos_t sample_quarters_delta_as_samples (samplepos_t start, Beats const & distance) const;
 	samplepos_t samplepos_plus_bbt (samplepos_t pos, BBT_Time op) const;
 
+	samplecnt_t bbt_duration_at (samplepos_t pos, const BBT_Time& bbt, int dir) const;
+	Beats bbtwalk_to_quarters (Beats const & start, BBT_Offset const & distance) const;
 
 	samplecnt_t samples_per_quarter_note_at (samplepos_t) const;
+
+	Temporal::timecnt_t full_duration_at (Temporal::timepos_t const &, Temporal::timecnt_t const & duration, Temporal::LockStyle domain) const;
 
 	BBT_Time bbt_walk (BBT_Time const &, BBT_Offset const &) const;
 
@@ -391,6 +423,9 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	TempoMapPoint const & const_point_after (samplepos_t sc) const;
 	TempoMapPoint const & const_point_after (Beats const & b) const;
 	TempoMapPoint const & const_point_after (BBT_Time const & bbt) const;
+
+	LockStyle time_domain() const { return _time_domain; }
+	void set_time_domain (LockStyle td);
 
 	/* If resolution == Beats() (i.e. zero), then the grid that is
 	   returned will contain a mixture of implicit and explicit points,
@@ -405,6 +440,14 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	void get_grid (TempoMapPoints& points, samplepos_t start, samplepos_t end, Beats const & resolution);
 	void get_bar_grid (TempoMapPoints& points, samplepos_t start, samplepos_t end, int32_t bar_gap);
+
+	/* returns all points with ExplicitMeter and/or ExplicitTempo */
+	void get_points (TempoMapPoints& points) const;
+
+	template<class T> void apply_with_points (T& obj, void (T::*method)(TempoMapPoints const &)) {
+		Glib::Threads::RWLock::ReaderLock lm (_lock);
+		(obj.*method)(_points);
+	}
 
 	struct EmptyTempoMapException : public std::exception {
 		virtual const char* what() const throw() { return "TempoMap is empty"; }
@@ -425,6 +468,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	mutable Glib::Threads::RWLock _lock;
 	bool                          _dirty;
 	int                           _generation;
+	LockStyle                     _time_domain;
 
 	/* these return an iterator that refers to the TempoMapPoint at or most immediately preceding the given position.
 	 *

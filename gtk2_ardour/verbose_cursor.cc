@@ -93,7 +93,7 @@ VerboseCursor::set_offset (ArdourCanvas::Duple const & d)
 }
 
 void
-VerboseCursor::set_time (samplepos_t sample)
+VerboseCursor::set_time (timepos_t const & pos)
 {
 	char buf[128];
 	Temporal::Time timecode;
@@ -106,6 +106,7 @@ VerboseCursor::set_time (samplepos_t sample)
 	/* Take clock mode from the primary clock */
 
 	AudioClock::Mode m = ARDOUR_UI::instance()->primary_clock->mode();
+	samplepos_t sample = pos.sample(); /* XXX fix me ... don't do this */
 
 	switch (m) {
 	case AudioClock::BBT:
@@ -131,7 +132,7 @@ VerboseCursor::set_time (samplepos_t sample)
 }
 
 void
-VerboseCursor::set_duration (samplepos_t start, samplepos_t end)
+VerboseCursor::set_duration (timepos_t const & start, timepos_t const & end)
 {
 	char buf[128];
 	Temporal::Time timecode;

@@ -2563,7 +2563,7 @@ LV2Plugin::connect_and_run(BufferSet& bufs,
 
 	TempoMap&      tmap     = _session.tempo_map();
 	TempoMapPoints tempo_map_points;
-	tmap.get_grid (tempo_map_points, start, end, Beats (1));
+	tmap.get_grid (tempo_map_points, start, end, Beats (1,0));
 	TempoMapPoints::const_iterator tempo_map_point = tempo_map_points.begin();
 	TempoMapPoint first_tempo_map_point = tempo_map_points.front();
 

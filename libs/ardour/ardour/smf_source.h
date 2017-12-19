@@ -94,7 +94,7 @@ public:
 	                   timepos_t                       position,
 	                   timepos_t                       start,
 	                   timecnt_t                       cnt,
-	                   Temporal::Range<samplepos_t>*   loop_range,
+	                   Temporal::Range*                loop_range,
 	                   MidiStateTracker*               tracker,
 	                   MidiChannelFilter*              filter) const;
 

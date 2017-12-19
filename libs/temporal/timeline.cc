@@ -20,6 +20,7 @@
 #include <sstream>
 
 #include "pbd/enumwriter.h"
+#include "pbd/error.h"
 #include "pbd/compose.h"
 #include "pbd/i18n.h"
 
@@ -80,6 +81,21 @@ timecnt_t::operator*(double d) const
 		return timecnt_t (samplepos_t (llrint (_samples * d)));
 	case Temporal::BeatTime:
 		return timecnt_t (_beats * d);
+	default:
+		break;
+	}
+
+	throw TemporalStyleException ("cannot multiply BBT time");
+}
+
+timecnt_t
+timecnt_t::operator/(double d) const
+{
+	switch (_style) {
+	case Temporal::AudioTime:
+		return timecnt_t (samplepos_t (llrint (_samples / d)));
+	case Temporal::BeatTime:
+		return timecnt_t (_beats / d);
 	default:
 		break;
 	}
@@ -333,7 +349,7 @@ timepos_t::operator*=(double d)
 }
 
 timepos_t
-timepos_t::operator+(timepos_t d) const
+timepos_t::operator+(timepos_t const & d) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
@@ -377,7 +393,7 @@ timepos_t::operator+(timepos_t d) const
 }
 
 timepos_t
-timepos_t::operator- (timepos_t d) const
+timepos_t::operator- (timepos_t const & d) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
@@ -486,6 +502,10 @@ timepos_t:: operator- (samplepos_t s) const
 	case BarTime:
 		update_audio_and_beat_times ();
 		break;
+	}
+
+	if (_samplepos < s) {
+		PBD::warning << string_compose (_("programming warning: sample arithmetic will generate negative sample time (%1 - %2)"), _samplepos, s) << endmsg;
 	}
 
 	return timepos_t (_samplepos - s);
@@ -638,7 +658,7 @@ timepos_t:: operator-=(Temporal::BBT_Offset const & bbt)
 /* */
 
 timepos_t
-timepos_t::operator+(timecnt_t d) const
+timepos_t::operator+(timecnt_t const & d) const
 {
 	switch (d.style()) {
 	case Temporal::AudioTime:
@@ -653,7 +673,7 @@ timepos_t::operator+(timecnt_t d) const
 }
 
 timepos_t
-timepos_t::operator-(timecnt_t d) const
+timepos_t::operator-(timecnt_t const & d) const
 {
 	switch (d.style()) {
 	case Temporal::AudioTime:
@@ -668,7 +688,7 @@ timepos_t::operator-(timecnt_t d) const
 }
 
 timepos_t &
-timepos_t::operator+=(timecnt_t d)
+timepos_t::operator+=(timecnt_t const & d)
 {
 	switch (d.style()) {
 	case Temporal::AudioTime:
@@ -683,7 +703,7 @@ timepos_t::operator+=(timecnt_t d)
 }
 
 timepos_t &
-timepos_t::operator-=(timecnt_t d)
+timepos_t::operator-=(timecnt_t const & d)
 {
 	switch (d.style()) {
 	case Temporal::AudioTime:
@@ -766,5 +786,17 @@ timepos_t::string_to (std::string const & str)
 void
 timepos_t::set_lock_style (LockStyle ls)
 {
+	switch (_lock_status.style()) {
+	case AudioTime:
+		update_music_times ();
+		break;
+	case BeatTime:
+		update_audio_and_bbt_times ();
+		break;
+	case BarTime:
+		update_audio_and_beat_times ();
+		break;
+	}
+
 	_lock_status.set_style (ls);
 }

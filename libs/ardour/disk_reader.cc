@@ -1133,7 +1133,7 @@ DiskReader::refill_audio (Sample* mixdown_buffer, float* gain_buffer, samplecnt_
 }
 
 void
-DiskReader::playlist_ranges_moved (list< Temporal::RangeMove<timepos_t> > const & movements, bool from_undo)
+DiskReader::playlist_ranges_moved (list<Temporal::RangeMove> const & movements, bool from_undo)
 {
 	/* XXX IS IT PRETTY WIERD FOR DiskReader TO BE THE OBJECT HANDLING
 	 * THIS. IS IT BECAUSE IT KNOWS ABOUT THE PLAYLIST? */
@@ -1151,15 +1151,15 @@ DiskReader::playlist_ranges_moved (list< Temporal::RangeMove<timepos_t> > const 
 		return;
 	}
 
-	list< Temporal::RangeMove<Evoral::ControlEvent::when_t> > event_movements;
+	list<Temporal::RangeMove> event_movements;
 
-	for (list< Temporal::RangeMove<timepos_t> >::const_iterator i = movements.begin(); i != movements.end(); ++i) {
-		event_movements.push_back(Temporal::RangeMove<Evoral::ControlEvent::when_t> (i->from.sample(), i->length.sample(), i->to.sample()));
+	for (list< Temporal::RangeMove>::const_iterator i = movements.begin(); i != movements.end(); ++i) {
+		event_movements.push_back(Temporal::RangeMove (i->from, i->length, i->to));
 	}
 
 	/* move panner automation */
 	boost::shared_ptr<Pannable> pannable = _route->pannable();
-        Evoral::ControlSet::Controls& c (pannable->controls());
+	Evoral::ControlSet::Controls& c (pannable->controls());
 
         for (Evoral::ControlSet::Controls::iterator ci = c.begin(); ci != c.end(); ++ci) {
                 boost::shared_ptr<AutomationControl> ac = boost::dynamic_pointer_cast<AutomationControl>(ci->second);
@@ -1181,7 +1181,7 @@ DiskReader::playlist_ranges_moved (list< Temporal::RangeMove<timepos_t> > const 
 }
 
 void
-DiskReader::move_processor_automation (boost::weak_ptr<Processor> p, list<Temporal::RangeMove<Evoral::ControlEvent::when_t> > const & movements)
+DiskReader::move_processor_automation (boost::weak_ptr<Processor> p, list<Temporal::RangeMove> const & movements)
 {
 	boost::shared_ptr<Processor> processor (p.lock ());
 	if (!processor) {
@@ -1260,8 +1260,8 @@ DiskReader::get_midi_playback (MidiBuffer& dst, samplepos_t start_sample, sample
 		size_t events_read = 0;
 
 		if (loc) {
-			Temporal::Range<samplepos_t> loop_range (loc->start_sample(), loc->end_sample() - 1);
-			samplepos_t effective_start = loop_range.squish (start_sample);
+			Temporal::Range loop_range (loc->start_sample(), loc->end_sample() - 1);
+			samplepos_t effective_start = loop_range.squish (start_sample).sample();
 
 			DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("looped, effective start adjusted to %1\n", effective_start));
 
@@ -1371,7 +1371,7 @@ DiskReader::midi_read (samplepos_t& start, samplecnt_t dur, bool reversed)
 	samplecnt_t loop_length = 0;
 	Location*  loc         = loop_location;
 	samplepos_t effective_start = start;
-	Temporal::Range<samplepos_t>*  loop_range (0);
+	Temporal::Range* loop_range = 0;
 
 	DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("MDS::midi_read @ %1 cnt %2\n", start, dur));
 
@@ -1390,14 +1390,14 @@ DiskReader::midi_read (samplepos_t& start, samplecnt_t dur, bool reversed)
 		if (loc && !reversed) {
 
 			if (!loop_range) {
-				loop_range = new Temporal::Range<samplepos_t> (loop_start, loop_end-1); // inclusive semantics require -1
+				loop_range = new Temporal::Range (loop_start, loop_end-1); // inclusive semantics require -1
 			}
 
 			/* if we are (seamlessly) looping, ensure that the first sample we read is at the correct
 			   position within the loop.
 			*/
 
-			effective_start = loop_range->squish (effective_start);
+			effective_start = loop_range->squish (effective_start).sample();
 
 			if ((loop_end - effective_start) <= dur) {
 				/* too close to end of loop to read "dur", so

@@ -85,7 +85,7 @@ public:
 	int read (Evoral::EventSink<samplepos_t>& buf,
 	          timepos_t                       start,
 	          timecnt_t                       cnt,
-	          Temporal::Range<samplepos_t>*   loop_range,
+	          Temporal::Range*                loop_range,
 	          uint32_t                        chan_n = 0,
 	          MidiChannelFilter*              filter = NULL);
 

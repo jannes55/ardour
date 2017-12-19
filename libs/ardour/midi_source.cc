@@ -165,7 +165,7 @@ MidiSource::midi_read (const Lock&                        lm,
                        timepos_t                          source_start,
                        timepos_t                          start,
                        timecnt_t                          cnt,
-                       Temporal::Range<samplepos_t>*      loop_range,
+                       Temporal::Range*                   loop_range,
                        MidiCursor&                        cursor,
                        MidiStateTracker*                  tracker,
                        MidiChannelFilter*                 filter,
@@ -225,7 +225,7 @@ MidiSource::midi_read (const Lock&                        lm,
 			/* in range */
 
 			if (loop_range) {
-				time_samples = loop_range->squish (time_samples);
+				time_samples = loop_range->squish (time_samples).sample();
 			}
 
 			if (filter && i->is_channel_event()) {

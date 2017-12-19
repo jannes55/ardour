@@ -58,6 +58,7 @@ using namespace PBD;
 using namespace Editing;
 using namespace Gtk;
 using namespace ArdourCanvas;
+using namespace Temporal;
 
 static const int32_t sync_mark_width = 9;
 
@@ -455,7 +456,7 @@ RegionView::lower_to_bottom ()
 }
 
 bool
-RegionView::set_position (samplepos_t pos, void* /*src*/, double* ignored)
+RegionView::set_position (timepos_t pos, void* /*src*/, double* ignored)
 {
 	double delta;
 	bool ret;
@@ -491,9 +492,9 @@ RegionView::set_samples_per_pixel (double fpp)
 }
 
 bool
-RegionView::set_duration (samplecnt_t samples, void *src)
+RegionView::set_duration (timecnt_t duration, void *src)
 {
-	if (!TimeAxisViewItem::set_duration (samples, src)) {
+	if (!TimeAxisViewItem::set_duration (duration, src)) {
 		return false;
 	}
 
@@ -939,23 +940,35 @@ RegionView::move_contents (sampleoffset_t distance)
  *  Used when inverting snap mode logic with key modifiers, or snap distance calculation.
  *  @return Snapped sample offset from this region's position.
  */
-MusicSample
+timepos_t
 RegionView::snap_sample_to_sample (sampleoffset_t x, bool ensure_snap) const
 {
 	PublicEditor& editor = trackview.editor();
 	/* x is region relative, convert it to global absolute samples */
-	samplepos_t const session_sample = x + _region->position();
+	timepos_t const session_sample = _region->position() + x;
 
 	/* try a snap in either direction */
-	MusicSample sample (session_sample, 0);
-	editor.snap_to (sample, RoundNearest, false, ensure_snap);
+	timepos_t snapped = session_sample;
+	editor.snap_to (snapped, RoundNearest, false, ensure_snap);
 
 	/* if we went off the beginning of the region, snap forwards */
-	if (sample.sample < _region->position ()) {
-		sample.sample = session_sample;
-		editor.snap_to (sample, RoundUpAlways, false, ensure_snap);
+	if (snapped < _region->position ()) {
+		snapped = session_sample;
+		editor.snap_to (snapped, RoundUpAlways, false, ensure_snap);
 	}
 
 	/* back to region relative, keeping the relevant divisor */
-	return MusicSample (sample.sample - _region->position(), sample.division);
+	return snapped - _region->position();
+}
+
+timepos_t
+RegionView::region_relative_distance (timecnt_t const & duration, Temporal::LockStyle domain)
+{
+	return _region->session().tempo_map().full_duration_at (position(), duration, domain);
+}
+
+timepos_t
+RegionView::source_relative_distance (timepos_t const & duration, Temporal::LockStyle domain)
+{
+	return _region->session().tempo_map().full_duration_at (position() - start(), duration, domain);
 }

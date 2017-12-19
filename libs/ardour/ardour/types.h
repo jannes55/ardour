@@ -235,14 +235,6 @@ namespace ARDOUR {
 		TrackColor
 	};
 
-	enum RoundMode {
-		RoundDownMaybe  = -2,  ///< Round down only if necessary
-		RoundDownAlways = -1,  ///< Always round down, even if on a division
-		RoundNearest    = 0,   ///< Round to nearest
-		RoundUpAlways   = 1,   ///< Always round up, even if on a division
-		RoundUpMaybe    = 2    ///< Round up only if necessary
-	};
-
 	class AnyTime {
 	public:
 		enum Type {
@@ -301,20 +293,20 @@ namespace ARDOUR {
 
 	/* Just a Temporal::Range with an ID for identity
 	*/
-	struct TimelineRange : public Temporal::Range<timepos_t> {
+	struct TimelineRange : public Temporal::TimeRange {
 		uint32_t id;
 
-		TimelineRange (samplepos_t s, samplepos_t e, uint32_t i) : Temporal::Range<timepos_t> (timepos_t (s), timepos_t (e)), id (i) {}
-		TimelineRange (Temporal::BBT_Time& s, Temporal::BBT_Time& e, uint32_t i) : Temporal::Range<timepos_t> (timepos_t (s), timepos_t (e)), id (i) {}
+		TimelineRange (samplepos_t s, samplepos_t e, uint32_t i) : Temporal::TimeRange (timepos_t (s), timepos_t (e)), id (i) {}
+		TimelineRange (Temporal::BBT_Time& s, Temporal::BBT_Time& e, uint32_t i) : Temporal::TimeRange (timepos_t (s), timepos_t (e)), id (i) {}
 
 		samplecnt_t length_samples() const { return (to - from).sample() + 1; }
 
 	        bool operator== (const TimelineRange& other) const {
-		        return id == other.id && Temporal::Range<timepos_t>::operator== (other);
+		        return id == other.id && Temporal::TimeRange::operator== (other);
 		}
 
 		bool equal (const TimelineRange& other) const {
-			return Temporal::Range<timepos_t>::operator== (other);
+			return Temporal::TimeRange::operator== (other);
 		}
 
 		Temporal::OverlapType coverage (samplepos_t s, samplepos_t e) const {

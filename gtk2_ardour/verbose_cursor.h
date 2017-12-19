@@ -38,8 +38,8 @@ public:
 	bool visible () const;
 
 	void set (std::string const &);
-	void set_time (samplepos_t);
-	void set_duration (samplepos_t, samplepos_t);
+	void set_time (Temporal::timepos_t const &);
+	void set_duration (Temporal::timepos_t const &, Temporal::timepos_t const &);
 	void set_offset (ArdourCanvas::Duple const&);
 
 	void show ();

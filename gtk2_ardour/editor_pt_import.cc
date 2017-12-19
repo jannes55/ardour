@@ -122,7 +122,7 @@ Editor::do_ptimport (std::string ptpath,
 	bool ok = false;
 	bool onefailed = false;
 	PTFFormat ptf;
-	samplepos_t pos = -1;
+	timepos_t pos;
 
 	vector<ptflookup_t> ptfwavpair;
 	vector<ptflookup_t> ptfregpair;
@@ -235,18 +235,16 @@ Editor::do_ptimport (std::string ptpath,
 			/* Empty wave - assume MIDI region */
 			boost::shared_ptr<MidiTrack> midi_track = mt.back();
 			boost::shared_ptr<Playlist> playlist = midi_track->playlist();
-			samplepos_t f = (samplepos_t)a->startpos;
-			samplecnt_t length = (samplecnt_t)a->length;
-			MusicSample pos (f, 0);
+			samplepos_t f = (samplepos_t) a->startpos;
+			samplecnt_t length = (samplecnt_t) a->length;
 			boost::shared_ptr<Source> src = _session->create_midi_source_by_stealing_name (midi_track);
 			PropertyList plist;
 			plist.add (ARDOUR::Properties::start, 0);
 			plist.add (ARDOUR::Properties::length, length);
 			plist.add (ARDOUR::Properties::name, PBD::basename_nosuffix(src->name()));
 			boost::shared_ptr<Region> region = (RegionFactory::create (src, plist));
-			/* sets beat position */
-			region->set_position (pos.sample, pos.division);
-			midi_track->playlist()->add_region (region, pos.sample, 1.0, false, pos.division);
+			region->set_position (f);
+			midi_track->playlist()->add_region (region, f, 1.0, false);
 
 			boost::shared_ptr<MidiRegion> mr = boost::dynamic_pointer_cast<MidiRegion>(region);
 			boost::shared_ptr<MidiModel> mm = mr->midi_source(0)->model();

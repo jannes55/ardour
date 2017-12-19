@@ -97,9 +97,9 @@ class LIBARDOUR_API MidiSource : virtual public Source, public boost::enable_sha
 	virtual timecnt_t midi_read (const Lock&                        lock,
 	                             Evoral::EventSink<samplepos_t>&    dst,
 	                             timepos_t                          source_start,
-	                             timepos_t                        start,
-	                             timecnt_t                        cnt,
-	                             Temporal::Range<samplepos_t>*      loop_range,
+	                             timepos_t                          start,
+	                             timecnt_t                          cnt,
+	                             Temporal::Range*                   loop_range,
 	                             MidiCursor&                        cursor,
 	                             MidiStateTracker*                  tracker,
 	                             MidiChannelFilter*                 filter,
@@ -225,7 +225,7 @@ class LIBARDOUR_API MidiSource : virtual public Source, public boost::enable_sha
 	                                 timepos_t                       position,
 	                                 timepos_t                       start,
 	                                 timecnt_t                       cnt,
-	                                 Temporal::Range<samplepos_t>*   loop_range,
+	                                 Temporal::Range*                loop_range,
 	                                 MidiStateTracker*               tracker,
 	                                 MidiChannelFilter*              filter) const = 0;
 

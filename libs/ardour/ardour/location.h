@@ -58,7 +58,7 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 	};
 
 	Location (Session &);
-	Location (Session &, samplepos_t, samplepos_t, const std::string &, Flags bits = Flags(0), const uint32_t sub_num = 0);
+	Location (Session &, Temporal::timepos_t const &, Temporal::timepos_t const &, const std::string &, Flags bits = Flags(0));
 	Location (const Location& other);
 	Location (Session &, const XMLNode&);
 	Location* operator= (const Location& other);
@@ -70,15 +70,23 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 	void unlock ();
 
 	timepos_t const & end_time() const { return _end; }
+	timepos_t const & start_time() const { return _start; }
+	timecnt_t length() const { return _end - _start; }
 
 	samplepos_t start_sample() const  { return _start.sample(); }
 	samplepos_t end_sample() const { return _end.sample(); }
 	samplecnt_t length_samples() const { return _end.sample() - _start.sample(); }
 
-	int set_start_sample (samplepos_t s, bool force = false, const uint32_t sub_num = 0);
-	int set_end_sample (samplepos_t e, bool force = false, const uint32_t sub_num = 0);
-	int set_sample (samplepos_t start, samplepos_t end, const uint32_t sub_num = 0);
-	int move_to_sample (samplepos_t pos, const uint32_t sub_num);
+	int set_start (Temporal::timepos_t const &, bool force = false);
+	int set_end (Temporal::timepos_t const &, bool force = false);
+	int set (Temporal::timepos_t const &, Temporal::timepos_t const &);
+
+	int set_start_sample (samplepos_t s, bool force = false);
+	int set_end_sample (samplepos_t e, bool force = false);
+	int set_sample (samplepos_t start, samplepos_t end);
+
+	int move_to_sample (samplepos_t pos);
+	int move_to (Temporal::timepos_t const & pos);
 
 	const std::string& name() const { return _name; }
 	void set_name (const std::string &str);
@@ -197,7 +205,7 @@ class LIBARDOUR_API Locations : public SessionHandleRef, public PBD::StatefulDes
 	samplepos_t first_mark_before (samplepos_t, bool include_special_ranges = false);
 	samplepos_t first_mark_after (samplepos_t, bool include_special_ranges = false);
 
-	void marks_either_side (samplepos_t const, samplepos_t &, samplepos_t &) const;
+	void marks_either_side (timepos_t const &, timepos_t &, timepos_t &) const;
 
 	void find_all_between (samplepos_t start, samplepos_t, LocationList&, Location::Flags);
 

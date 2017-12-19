@@ -49,14 +49,14 @@ class TimeAxisViewItem : public Selectable, public PBD::ScopedConnectionList
 public:
 	virtual ~TimeAxisViewItem();
 
-	virtual bool set_position(samplepos_t, void*, double* delta = 0);
-	samplepos_t get_position() const;
-	virtual bool set_duration(samplecnt_t, void*);
-	samplecnt_t get_duration() const;
-	virtual void set_max_duration(samplecnt_t, void*);
-	samplecnt_t get_max_duration() const;
-	virtual void set_min_duration(samplecnt_t, void*);
-	samplecnt_t get_min_duration() const;
+	virtual bool set_position(Temporal::timepos_t, void*, double* delta = 0);
+	Temporal::timepos_t get_position() const;
+	virtual bool set_duration(Temporal::timecnt_t, void*);
+	Temporal::timecnt_t get_duration() const;
+	virtual void set_max_duration(Temporal::timecnt_t, void*);
+	Temporal::timecnt_t get_max_duration() const;
+	virtual void set_min_duration(Temporal::timecnt_t, void*);
+	Temporal::timecnt_t get_min_duration() const;
 	virtual void set_position_locked(bool, void*);
 	bool get_position_locked() const;
 	void set_max_duration_active(bool, void*);
@@ -178,16 +178,16 @@ protected:
 	bool position_locked;
 
 	/** position of this item on the timeline */
-	samplepos_t sample_position;
+	Temporal::timepos_t sample_position;
 
 	/** duration of this item upon the timeline */
-	samplecnt_t item_duration;
+	Temporal::timecnt_t item_duration;
 
 	/** maximum duration that this item can have */
-	samplecnt_t max_item_duration;
+	Temporal::timecnt_t max_item_duration;
 
 	/** minimum duration that this item can have */
-	samplecnt_t min_item_duration;
+	Temporal::timecnt_t min_item_duration;
 
 	/** indicates whether the max duration constraint is active */
 	bool max_duration_active;

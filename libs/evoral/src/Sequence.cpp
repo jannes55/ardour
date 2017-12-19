@@ -144,14 +144,15 @@ Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&            
 		}
 
 		DEBUG_TRACE (DEBUG::Sequence, string_compose ("Iterator: control: %1\n", seq._type_map.to_symbol(i->first)));
-		ControlEvent::when_t x;
+		Temporal::timepos_t xtime;
 		double y;
 		bool ret;
 		if (_force_discrete || i->second->list()->interpolation() == ControlList::Discrete) {
-			ret = i->second->list()->rt_safe_earliest_event_discrete_unlocked (t.to_ticks(), x, y, true);
+			ret = i->second->list()->rt_safe_earliest_event_discrete_unlocked (Temporal::timepos_t (t), xtime, y, true);
 		} else {
-			ret = i->second->list()->rt_safe_earliest_event_unlocked(t.to_ticks(), x, y, true);
+			ret = i->second->list()->rt_safe_earliest_event_unlocked(Temporal::timepos_t (t), xtime, y, true);
 		}
+		ControlEvent::when_t x = i->second->list()->get_when (xtime);
 		if (!ret) {
 			DEBUG_TRACE (DEBUG::Sequence, string_compose ("Iterator: CC %1 (size %2) has no events past %3\n",
 			                                              i->first.id(), i->second->list()->size(), t));
@@ -344,7 +345,8 @@ Sequence<Time>::const_iterator::operator++()
 		     << int(ev.buffer()[0]) << int(ev.buffer()[1]) << int(ev.buffer()[2]) << endl;
 	}
 
-	ControlEvent::when_t x   = 0;
+	ControlEvent::when_t x;
+	Temporal::timepos_t xtime;
 	double    y   = 0.0;
 	bool      ret = false;
 
@@ -360,11 +362,12 @@ Sequence<Time>::const_iterator::operator++()
 		// Increment current controller iterator
 		if (_force_discrete || _control_iter->list->interpolation() == ControlList::Discrete) {
 			ret = _control_iter->list->rt_safe_earliest_event_discrete_unlocked (
-				_control_iter->x, x, y, false);
+				Temporal::timepos_t (Temporal::Beats (_control_iter->x)), xtime, y, false);
 		} else {
 			ret = _control_iter->list->rt_safe_earliest_event_linear_unlocked (
-				_control_iter->x + time_between_interpolated_controller_outputs, x, y, false);
+				Temporal::timepos_t (Temporal::Beats (_control_iter->x + time_between_interpolated_controller_outputs)), xtime, y, false);
 		}
+		x = _control_iter->list->get_when (xtime);
 		assert(!ret || x > _control_iter->x);
 		if (ret) {
 			_control_iter->x = x;

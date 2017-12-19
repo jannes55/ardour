@@ -19,34 +19,32 @@
 #ifndef __ardour_tempo_lines_h__
 #define __ardour_tempo_lines_h__
 
-#include "ardour/beats_samples_converter.h"
-#include "ardour/tempo.h"
+#include "temporal/tempo.h"
 
 #include "canvas/line_set.h"
 
 class TempoLines {
 public:
-	TempoLines (ArdourCanvas::Container* group, double screen_height, ARDOUR::BeatsSamplesConverter* bfc);
+	TempoLines (ArdourCanvas::Container* group, double screen_height);
 	~TempoLines ();
 
-	void tempo_map_changed(samplepos_t new_origin);
+	void tempo_map_changed ();
 
-	void draw (std::vector<ARDOUR::TempoMap::BBTPoint>& grid,
-		   unsigned                                              divisions,
-	           ARDOUR::samplecnt_t                                    leftmost_sample,
-	           ARDOUR::samplecnt_t                                    sample_rate);
+	void draw (std::vector<Temporal::TempoMapPoint>& grid,
+		   unsigned                              divisions,
+	           ARDOUR::samplecnt_t                   leftmost_sample,
+	           ARDOUR::samplecnt_t                   sample_rate);
 
 	void show();
 	void hide();
 
 private:
-	void draw_ticks (std::vector<ARDOUR::TempoMap::BBTPoint>& grid,
-			 unsigned                                              divisions,
-	                 ARDOUR::samplecnt_t                                    leftmost_sample,
-	                 ARDOUR::samplecnt_t                                    sample_rate);
+	void draw_ticks (std::vector<Temporal::TempoMapPoint>& grid,
+			 unsigned                              divisions,
+	                 ARDOUR::samplecnt_t                   leftmost_sample,
+	                 ARDOUR::samplecnt_t                   sample_rate);
 
 	ArdourCanvas::LineSet lines;
-	ARDOUR::BeatsSamplesConverter* _bfc;
 };
 
 #endif /* __ardour_tempo_lines_h__ */

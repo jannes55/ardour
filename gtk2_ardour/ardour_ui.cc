@@ -2459,9 +2459,9 @@ ARDOUR_UI::toggle_roll (bool with_abort, bool roll_out_of_bounded_mode)
 			 * want to do this.
 			 */
 
-			if (UIConfiguration::instance().get_follow_edits() && ( editor->get_selection().time.front().start == _session->transport_sample() ) ) {  //if playhead is exactly at the start of a range, we can assume it was placed there by follow_edits
+			if (UIConfiguration::instance().get_follow_edits() && (editor->get_selection().time.front().from == _session->transport_sample() ) ) {  //if playhead is exactly at the start of a range, we can assume it was placed there by follow_edits
 				_session->request_play_range (&editor->get_selection().time, true);
-				_session->set_requested_return_sample( editor->get_selection().time.front().start );  //force an auto-return here
+				_session->set_requested_return_sample (editor->get_selection().time.front().from.sample());  //force an auto-return here
 			}
 			_session->request_transport_speed (1.0f);
 		}
@@ -2704,7 +2704,7 @@ ARDOUR_UI::update_clocks ()
 	if (!_session) return;
 
 	if (editor && !editor->dragging_playhead()) {
-		Clock (_session->audible_sample(), false, editor->get_preferred_edit_position (EDIT_IGNORE_PHEAD)); /* EMIT_SIGNAL */
+		Clock (_session->audible_sample(), false, editor->get_preferred_edit_position (EDIT_IGNORE_PHEAD).sample()); /* EMIT_SIGNAL */
 	}
 }
 
@@ -4989,7 +4989,7 @@ void
 ARDOUR_UI::create_xrun_marker (samplepos_t where)
 {
 	if (_session) {
-		Location *location = new Location (*_session, where, where, _("xrun"), Location::IsMark, 0);
+		Location *location = new Location (*_session, where, where, _("xrun"), Location::IsMark);
 		_session->locations()->add (location);
 	}
 }
@@ -5287,13 +5287,13 @@ void
 ARDOUR_UI::update_transport_clocks (samplepos_t pos)
 {
 	if (UIConfiguration::instance().get_primary_clock_delta_edit_cursor()) {
-		primary_clock->set (pos, false, editor->get_preferred_edit_position (EDIT_IGNORE_PHEAD));
+		primary_clock->set (pos, false, editor->get_preferred_edit_position (EDIT_IGNORE_PHEAD).sample());
 	} else {
 		primary_clock->set (pos);
 	}
 
 	if (UIConfiguration::instance().get_secondary_clock_delta_edit_cursor()) {
-		secondary_clock->set (pos, false, editor->get_preferred_edit_position (EDIT_IGNORE_PHEAD));
+		secondary_clock->set (pos, false, editor->get_preferred_edit_position (EDIT_IGNORE_PHEAD).sample());
 	} else {
 		secondary_clock->set (pos);
 	}

@@ -128,14 +128,21 @@ template<typename T>
 	return OverlapNone;
 }
 
-/** Type to describe a time range */
-template<typename T>
-struct /*LIBTEMPORAL_API*/ Range {
-	Range (T f, T t) : from (f), to (t) {}
-	T from; ///< start of the range
-	T to;   ///< end of the range (inclusive: to lies inside the range)
+struct LIBTEMPORAL_API Range {
+	Range (timepos_t f, timepos_t t) : from (f), to (t) {}
+	timepos_t from; ///< start of the range
+	timepos_t to;   ///< end of the range (inclusive; lies after end of range)
 	bool empty() const { return from == to; }
-	T length() const { return to - from + 1; }
+	timecnt_t length() const { return to - from; }
+
+	/* helper APIs during the transition to timepos_t */
+	samplepos_t start_sample () const;
+	samplepos_t end_sample () const;
+	samplecnt_t length_samples() const;
+
+	timepos_t start() const { return from; }
+	timepos_t end() const   { return to.increment(); }
+	timepos_t last() const  { return to; }
 
 	bool operator== (Range const & other) const {
 		return other.from == from && other.to == to;
@@ -145,7 +152,7 @@ struct /*LIBTEMPORAL_API*/ Range {
 	 * looping). If the argument is earlier than or equal to the end of
 	 * this range, do nothing.
 	 */
-	T squish (T t) const {
+	timepos_t squish (timepos_t t) const {
 		if (t > to) {
 			t = (from + ((t - from) % length()));
 		}
@@ -153,19 +160,20 @@ struct /*LIBTEMPORAL_API*/ Range {
 	}
 };
 
-template<typename T>
-class /*LIBTEMPORAL_API*/ RangeList {
+typedef Range TimeRange;
+
+class LIBTEMPORAL_API RangeList {
 public:
 	RangeList () : _dirty (false) {}
 
-	typedef std::list<Range<T> > List;
+	typedef std::list<Range> List;
 
 	List const & get () {
 		coalesce ();
 		return _list;
 	}
 
-	void add (Range<T> const & range) {
+	void add (Range const & range) {
 		_dirty = true;
 		_list.push_back (range);
 	}
@@ -206,88 +214,14 @@ private:
 };
 
 /** Type to describe the movement of a time range */
-template <typename T>
-struct /*LIBTEMPORAL_API*/ RangeMove {
-	RangeMove (T f, T l, T t) : from (f), length (l), to (t) {}
-	T from;   ///< start of the range
-	T length; ///< length of the range
-	T to;     ///< new start of the range
+struct LIBTEMPORAL_API RangeMove {
+	RangeMove (timepos_t f, timecnt_t l, timepos_t t) : from (f), length (l), to (t) {}
+	timepos_t from;   ///< start of the range
+	timecnt_t length; ///< length of the range
+	timepos_t to;     ///< new start of the range
 };
 
-/** Subtract the ranges in `sub' from that in `range',
- *  returning the result.
- */
-template<typename T>
-RangeList<T> subtract (Range<T> range, RangeList<T> sub)
-{
-	/* Start with the input range */
-	RangeList<T> result;
-	result.add (range);
-
-	if (sub.empty () || range.empty()) {
-		return result;
-	}
-
-	typename RangeList<T>::List s = sub.get ();
-
-	/* The basic idea here is to keep a list of the result ranges, and subtract
-	   the bits of `sub' from them one by one.
-	*/
-
-	for (typename RangeList<T>::List::const_iterator i = s.begin(); i != s.end(); ++i) {
-
-		/* Here's where we'll put the new current result after subtracting *i from it */
-		RangeList<T> new_result;
-
-		typename RangeList<T>::List r = result.get ();
-
-		/* Work on all parts of the current result using this range *i */
-		for (typename RangeList<T>::List::const_iterator j = r.begin(); j != r.end(); ++j) {
-
-			switch (coverage (j->from, j->to, i->from, i->to)) {
-			case OverlapNone:
-				/* The thing we're subtracting (*i) does not overlap this bit of the result (*j),
-				   so pass it through.
-				*/
-				new_result.add (*j);
-				break;
-			case OverlapInternal:
-				/* Internal overlap of the thing we're subtracting (*i) from this bit of the result,
-				   so we should end up with two bits of (*j) left over, from the start of (*j) to
-				   the start of (*i), and from the end of (*i) to the end of (*j).
-				*/
-				assert (j->from < i->from);
-				assert (j->to > i->to);
-				new_result.add (Range<T> (j->from, i->from - 1));
-				new_result.add (Range<T> (i->to + 1, j->to));
-				break;
-			case OverlapStart:
-				/* The bit we're subtracting (*i) overlaps the start of the bit of the result (*j),
-				 * so we keep only the part of of (*j) from after the end of (*i)
-				 */
-				assert (i->to < j->to);
-				new_result.add (Range<T> (i->to + 1, j->to));
-				break;
-			case OverlapEnd:
-				/* The bit we're subtracting (*i) overlaps the end of the bit of the result (*j),
-				 * so we keep only the part of of (*j) from before the start of (*i)
-				 */
-				assert (j->from < i->from);
-				new_result.add (Range<T> (j->from, i->from - 1));
-				break;
-			case OverlapExternal:
-				/* total overlap of the bit we're subtracting with the result bit, so the
-				   result bit is completely removed; do nothing */
-				break;
-			}
-		}
-
-		new_result.coalesce ();
-		result = new_result;
-	}
-
-	return result;
-}
+RangeList subtract (Range range, RangeList sub);
 
 }
 

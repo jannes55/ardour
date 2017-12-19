@@ -67,6 +67,8 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 	void focus ();
 
 	void set (samplepos_t, bool force = false, ARDOUR::samplecnt_t offset = 0);
+	void set_time (Temporal::timepos_t const &, bool force = false, Temporal::timecnt_t const & offset = Temporal::timecnt_t());
+
 	void set_from_playhead ();
 	void locate ();
 	void set_mode (Mode, bool noemit = false);
@@ -77,8 +79,11 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 
 	std::string name() const { return _name; }
 
-	samplepos_t current_time (samplepos_t position = 0) const;
-	samplepos_t current_duration (samplepos_t position = 0) const;
+	samplepos_t current_time () const;
+	Temporal::timepos_t current_position () const;
+	Temporal::timepos_t  current_time_duration () const;
+	ARDOUR::samplecnt_t current_sample_duration (samplepos_t pos) const;
+	Temporal::Beats current_beat_duration (Temporal::timepos_t const &) const;
 	void set_session (ARDOUR::Session *s);
 	void set_negative_allowed (bool yn);
 
@@ -185,7 +190,7 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 	std::string input_string;
 
 	samplepos_t bbt_reference_time;
-	samplepos_t last_when;
+	Temporal::timepos_t last_when;
 	bool last_pdelta;
 	bool last_sdelta;
 
@@ -207,9 +212,11 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 	void set_slave_info ();
 	void set_timecode (samplepos_t, bool);
 	void set_bbt (samplepos_t, ARDOUR::samplecnt_t, bool);
+	void _set_bbt (Temporal::BBT_Time const &, bool negative);
 	void set_minsec (samplepos_t, bool);
 	void set_samples (samplepos_t, bool);
 	void set_out_of_bounds (bool negative);
+	void finish_set (Temporal::timepos_t const &, bool);
 
 	void set_clock_dimensions (Gtk::Requisition&);
 
@@ -240,6 +247,8 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 	ARDOUR::samplecnt_t parse_as_minsec_distance (const std::string&);
 	ARDOUR::samplecnt_t parse_as_bbt_distance (const std::string&);
 	ARDOUR::samplecnt_t parse_as_samples_distance (const std::string&);
+
+	static Temporal::BBT_Offset get_bbt_from_string (std::string const & str);
 
 	void set_font (Pango::FontDescription);
 	void set_colors ();

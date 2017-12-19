@@ -64,7 +64,7 @@ void ArdourMarker::setup_sizes(const double timebar_height)
 }
 
 ArdourMarker::ArdourMarker (PublicEditor& ed, ArdourCanvas::Container& parent, guint32 rgba, const string& annotation,
-		Type type, samplepos_t sample, bool handle_events)
+                            Type type, timepos_t const & pos, bool handle_events)
 
 	: editor (ed)
 	, _parent (&parent)
@@ -255,8 +255,8 @@ ArdourMarker::ArdourMarker (PublicEditor& ed, ArdourCanvas::Container& parent, g
 
 	}
 
-	sample_position = sample;
-	unit_position = editor.sample_to_pixel (sample);
+	timeline_position = pos;
+	unit_position = editor.time_to_pixel (pos);
 	unit_position -= _shift;
 
 	group = new ArdourCanvas::Container (&parent, ArdourCanvas::Duple (unit_position, 1));
@@ -460,18 +460,18 @@ ArdourMarker::setup_name_display ()
 }
 
 void
-ArdourMarker::set_position (samplepos_t sample)
+ArdourMarker::set_position (timepos_t const & pos)
 {
-	unit_position = editor.sample_to_pixel (sample) - _shift;
+	unit_position = editor.time_to_pixel (pos) - _shift;
 	group->set_x_position (unit_position);
 	setup_line ();
-	sample_position = sample;
+	timeline_position = pos;
 }
 
 void
 ArdourMarker::reposition ()
 {
-	set_position (sample_position);
+	set_position (timeline_position);
 }
 
 void
@@ -548,16 +548,35 @@ ArdourMarker::set_right_label_limit (double p)
 
 /***********************************************************************/
 
-TempoMarker::TempoMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text,
-			  ARDOUR::TempoSection& temp)
-	: ArdourMarker (editor, parent, rgba, text, Tempo, temp.sample(), false),
-	  _tempo (temp)
+MetricMarker::MetricMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text, ArdourMarker::Type type, Temporal::TempoMapPoint& p)
+	: ArdourMarker (editor, parent, rgba, text, type, p.sample(), false)
+	, _point (p)
+{
+	assert (_point.is_explicit());
+}
+
+MetricMarker::~MetricMarker ()
+{
+}
+
+Temporal::Metric&
+MetricMarker::metric() const
+{
+	return _point.metric();
+}
+
+/***********************************************************************/
+
+TempoMarker::TempoMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text, Temporal::TempoMapPoint& point)
+	: MetricMarker (editor, parent, rgba, text, Tempo, point)
 {
 	group->Event.connect (sigc::bind (sigc::mem_fun (editor, &PublicEditor::canvas_tempo_marker_event), group, this));
 }
 
-TempoMarker::~TempoMarker ()
+Temporal::Tempo&
+TempoMarker::tempo () const
 {
+	return metric();
 }
 
 void
@@ -582,14 +601,12 @@ TempoMarker::update_height_mark (const double ratio)
 
 /***********************************************************************/
 
-MeterMarker::MeterMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text,
-			  ARDOUR::MeterSection& m)
-	: ArdourMarker (editor, parent, rgba, text, Meter, m.sample(), false),
-	  _meter (m)
-{
-	group->Event.connect (sigc::bind (sigc::mem_fun (editor, &PublicEditor::canvas_meter_marker_event), group, this));
-}
-
 MeterMarker::~MeterMarker ()
 {
+}
+
+Temporal::Meter&
+MeterMarker::meter () const
+{
+	return metric();
 }

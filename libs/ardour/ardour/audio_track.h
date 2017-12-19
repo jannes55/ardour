@@ -41,9 +41,9 @@ class LIBARDOUR_API AudioTrack : public Track
 
 	bool bounceable (boost::shared_ptr<Processor>, bool include_endpoint) const;
 	boost::shared_ptr<Region> bounce (InterThreadInfo&);
-	boost::shared_ptr<Region> bounce_range (samplepos_t start, samplepos_t end, InterThreadInfo&,
+	boost::shared_ptr<Region> bounce_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end, InterThreadInfo&,
 						boost::shared_ptr<Processor> endpoint, bool include_endpoint);
-	int export_stuff (BufferSet& bufs, samplepos_t start_sample, samplecnt_t nframes,
+	int export_stuff (BufferSet& bufs, Temporal::timepos_t const & start, Temporal::timecnt_t const & duration,
 			  boost::shared_ptr<Processor> endpoint, bool include_endpoint, bool for_export, bool for_freeze);
 
 	int set_state (const XMLNode&, int version);

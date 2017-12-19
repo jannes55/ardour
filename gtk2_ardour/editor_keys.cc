@@ -43,8 +43,8 @@ Editor::keyboard_selection_finish (bool /*add*/, Editing::EditIgnoreOption ign)
 {
 	if (_session) {
 
-		MusicSample start (selection->time.start(), 0);
-		samplepos_t end;
+		timepos_t start = selection->time.start();
+		timepos_t end;
 		if ((_edit_point == EditAtPlayhead) && _session->transport_rolling()) {
 			end = _session->audible_sample();
 		} else {
@@ -58,7 +58,7 @@ Editor::keyboard_selection_finish (bool /*add*/, Editing::EditIgnoreOption ign)
 		if ( (_edit_point == EditAtPlayhead) && selection->tracks.empty() )
 			select_all_tracks();
 
-		selection->set (start.sample, end);
+		selection->set (start, end);
 
 		//if session is playing a range, cancel that
 		if (_session->get_play_range())
@@ -72,25 +72,25 @@ Editor::keyboard_selection_begin (Editing::EditIgnoreOption ign)
 {
 	if (_session) {
 
-		MusicSample start (0, 0);
-		MusicSample end (selection->time.end_sample(), 0);
+		timepos_t start;
+		timepos_t end (selection->time.end()->to);
 		if ((_edit_point == EditAtPlayhead) && _session->transport_rolling()) {
-			start.sample = _session->audible_sample();
+			start = _session->audible_sample();
 		} else {
-			start.sample = get_preferred_edit_position(ign);
+			start = get_preferred_edit_position(ign);
 		}
 
 		//snap the selection start/end
-		snap_to(start);
+		snap_to (start);
 
 		//if there's not already a sensible selection endpoint, go "forever"
-		if (start.sample > end.sample) {
+		if (start > end) {
 #ifdef MIXBUS
 			// 4hours at most.
 			// This works around a visual glitch in red-bordered selection rect.
-			end.sample = start.sample + _session->nominal_sample_rate() * 60 * 60 * 4;
+			end = start + _session->nominal_sample_rate() * 60 * 60 * 4;
 #else
-			end.sample = max_samplepos;
+			end = std::numeric_limits<timepos_t>::max();
 #endif
 		}
 
@@ -98,7 +98,7 @@ Editor::keyboard_selection_begin (Editing::EditIgnoreOption ign)
 		if ( selection->tracks.empty() )
 			select_all_tracks();
 
-		selection->set (start.sample, end.sample);
+		selection->set (start, end);
 
 		//if session is playing a range, cancel that
 		if (_session->get_play_range())

@@ -81,7 +81,7 @@ struct CurveComparator {
 	}
 };
 void
-Editor::draw_metric_marks (const Metrics& metrics)
+Editor::draw_metric_marks (Temporal::TempoMapPoints const & points)
 {
 	char buf[64];
 	TempoSection* prev_ts = 0;
@@ -90,38 +90,41 @@ Editor::draw_metric_marks (const Metrics& metrics)
 
 	remove_metric_marks (); // also clears tempo curves
 
-	for (Metrics::const_iterator i = metrics.begin(); i != metrics.end(); ++i) {
-		const MeterSection *ms;
-		TempoSection *ts;
+	for (Temporal::TempoMapPoints::const_iterator i = points.begin(); i != points.end(); ++i) {
 
-		if ((ms = dynamic_cast<const MeterSection*>(*i)) != 0) {
-			snprintf (buf, sizeof(buf), "%g/%g", ms->divisions_per_bar(), ms->note_divisor ());
-			if (ms->position_lock_style() == MusicTime) {
-				metric_marks.push_back (new MeterMarker (*this, *meter_group, UIConfiguration::instance().color ("meter marker music"), buf,
-									 *(const_cast<MeterSection*>(ms))));
+		if (!i->is_explicit()) {
+			continue;
+		}
+		
+		Temporal::TempoMetric const & metric (i->metric());
+
+		if (i->flags() & TempoMapPoint::ExplicitMeter) {
+
+			snprintf (buf, sizeof(buf), "%g/%g", metric.divisions_per_bar(), metric.note_value ());
+			if (i->lock_style() != Temporal::AudioTime) {
+				metric_marks.push_back (new MeterMarker (*this, *meter_group, UIConfiguration::instance().color ("meter marker music"), buf, metric));
 			} else {
-				metric_marks.push_back (new MeterMarker (*this, *meter_group, UIConfiguration::instance().color ("meter marker"), buf,
-									 *(const_cast<MeterSection*>(ms))));
+				metric_marks.push_back (new MeterMarker (*this, *meter_group, UIConfiguration::instance().color ("meter marker"), buf, metric));
 			}
-		} else if ((ts = dynamic_cast<TempoSection*>(*i)) != 0) {
+		}
 
-			max_tempo = max (max_tempo, ts->note_types_per_minute());
-			max_tempo = max (max_tempo, ts->end_note_types_per_minute());
-			min_tempo = min (min_tempo, ts->note_types_per_minute());
-			min_tempo = min (min_tempo, ts->end_note_types_per_minute());
+		if (i->flags() & TempoMapPoint::ExplicitTempo) {
+
+			max_tempo = max (max_tempo, metric.note_types_per_minute());
+			max_tempo = max (max_tempo, metric.end_note_types_per_minute());
+			min_tempo = min (min_tempo, metric.note_types_per_minute());
+			min_tempo = min (min_tempo, metric.end_note_types_per_minute());
 			uint32_t const tc_color = UIConfiguration::instance().color ("tempo curve");
 
-			tempo_curves.push_back (new TempoCurve (*this, *tempo_group, tc_color,
-								*(const_cast<TempoSection*>(ts)), ts->sample(), false));
+			tempo_curves.push_back (new TempoCurve (*this, *tempo_group, tc_color, metric, i->sample(), false));
 
 			const std::string tname (X_(""));
 			if (ts->position_lock_style() == MusicTime) {
-				metric_marks.push_back (new TempoMarker (*this, *tempo_group, UIConfiguration::instance().color ("tempo marker music"), tname,
-								 *(const_cast<TempoSection*>(ts))));
+				metric_marks.push_back (new TempoMarker (*this, *tempo_group, UIConfiguration::instance().color ("tempo marker music"), tname, metric));
 			} else {
-				metric_marks.push_back (new TempoMarker (*this, *tempo_group, UIConfiguration::instance().color ("tempo marker"), tname,
-								 *(const_cast<TempoSection*>(ts))));
+				metric_marks.push_back (new TempoMarker (*this, *tempo_group, UIConfiguration::instance().color ("tempo marker"), tname, metric));
 			}
+
 			if (prev_ts && abs (prev_ts->end_note_types_per_minute() - ts->note_types_per_minute()) < 1.0) {
 				metric_marks.back()->set_points_color (UIConfiguration::instance().color ("tempo marker music"));
 			} else {
@@ -178,34 +181,20 @@ Editor::tempo_map_changed (const PropertyChange& /*ignored*/)
 		return;
 	}
 
-	ENSURE_GUI_THREAD (*this, &Editor::tempo_map_changed, ignored);
-
-	if (tempo_lines) {
-		tempo_lines->tempo_map_changed(_session->tempo_map().music_origin());
-	}
-
-	compute_bbt_ruler_scale (_leftmost_sample, _leftmost_sample + current_page_samples());
-	std::vector<TempoMap::BBTPoint> grid;
-	if (bbt_ruler_scale != bbt_show_many) {
-		compute_current_bbt_points (grid, _leftmost_sample, _leftmost_sample + current_page_samples());
-	}
-	_session->tempo_map().apply_with_metrics (*this, &Editor::draw_metric_marks); // redraw metric markers
-	draw_measures (grid);
-	update_tempo_based_rulers ();
-}
-
-void
-Editor::tempometric_position_changed (const PropertyChange& /*ignored*/)
-{
 	if (!_session) {
 		return;
 	}
 
-	ENSURE_GUI_THREAD (*this, &Editor::tempo_map_changed);
+	compute_bbt_ruler_scale (_leftmost_sample, _leftmost_sample + current_page_samples());
+	std::vector<TempoMap::BBTPoint> grid;
 
-	if (tempo_lines) {
-		tempo_lines->tempo_map_changed(_session->tempo_map().music_origin());
+	if (bbt_ruler_scale != bbt_show_many) {
+		compute_current_bbt_points (grid, _leftmost_sample, _leftmost_sample + current_page_samples());
 	}
+
+	_session->tempo_map().apply_with_metrics (*this, &Editor::draw_metric_marks); // redraw metric markers
+	draw_measures (grid);
+	update_tempo_based_rulers ();
 
 	TempoSection* prev_ts = 0;
 	double max_tempo = 0.0;
@@ -490,9 +479,9 @@ Editor::remove_tempo_marker (ArdourCanvas::Item* item)
 }
 
 void
-Editor::edit_meter_section (MeterSection* section)
+Editor::edit_meter_section (Temporal::Meter const & section)
 {
-	MeterDialog meter_dialog (_session->tempo_map(), *section, _("done"));
+	MeterDialog meter_dialog (_session->tempo_map(), section, _("done"));
 
 	switch (meter_dialog.run()) {
 	case RESPONSE_ACCEPT:
@@ -523,9 +512,9 @@ Editor::edit_meter_section (MeterSection* section)
 }
 
 void
-Editor::edit_tempo_section (TempoSection* section)
+Editor::edit_tempo_section (Temporal::Tempo const & section)
 {
-	TempoDialog tempo_dialog (_session->tempo_map(), *section, _("done"));
+	TempoDialog tempo_dialog (_session->tempo_map(), section, _("done"));
 
 	switch (tempo_dialog.run ()) {
 	case RESPONSE_ACCEPT:
@@ -562,13 +551,13 @@ Editor::edit_tempo_section (TempoSection* section)
 void
 Editor::edit_tempo_marker (TempoMarker& tm)
 {
-	edit_tempo_section (&tm.tempo());
+	edit_tempo_section (tm.tempo());
 }
 
 void
 Editor::edit_meter_marker (MeterMarker& mm)
 {
-	edit_meter_section (&mm.meter());
+	edit_meter_section (mm.meter());
 }
 
 gint

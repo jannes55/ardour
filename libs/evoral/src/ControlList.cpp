@@ -99,7 +99,7 @@ ControlList::ControlList (const ControlList& other)
 	copy_events (other);
 }
 
-ControlList::ControlList (const ControlList& other, ControlEvent::when_t start, ControlEvent::when_t end)
+ControlList::ControlList (const ControlList& other, Temporal::timepos_t const & start, Temporal::timepos_t const & end)
 	: _parameter(other._parameter)
 	, _desc(other._desc)
 	, _interpolation(other._interpolation)
@@ -255,13 +255,15 @@ ControlList::x_scale (double factor)
 }
 
 bool
-ControlList::extend_to (ControlEvent::when_t when)
+ControlList::extend_to (Temporal::timepos_t const & end_time)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
-	if (_events.empty() || _events.back()->when == when) {
+	ControlEvent::when_t end = get_when (end_time);
+
+	if (_events.empty() || _events.back()->when == end) {
 		return false;
 	}
-	double factor = when / (double) _events.back()->when;
+	double factor = end / (double) _events.back()->when;
 	_x_scale (factor);
 	return true;
 }
@@ -412,11 +414,11 @@ ControlList::thin (double thinning_factor)
 }
 
 void
-ControlList::fast_simple_add (ControlEvent::when_t when, double value)
+ControlList::fast_simple_add (Temporal::timepos_t const & time, double value)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 	/* to be used only for loading pre-sorted data from saved state */
-	_events.insert (_events.end(), new ControlEvent (when, value));
+	_events.insert (_events.end(), new ControlEvent (get_when (time), value));
 
 	mark_dirty ();
 	if (_frozen) {
@@ -456,9 +458,10 @@ ControlList::unlocked_remove_duplicates ()
 }
 
 void
-ControlList::start_write_pass (ControlEvent::when_t when)
+ControlList::start_write_pass (Temporal::timepos_t const & time)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
+	ControlEvent::when_t when = get_when (time);
 
 	DEBUG_TRACE (DEBUG::ControlList, string_compose ("%1: setup write pass @ %2\n", this, when));
 
@@ -487,7 +490,7 @@ ControlList::start_write_pass (ControlEvent::when_t when)
 }
 
 void
-ControlList::write_pass_finished (ControlEvent::when_t /*when*/, double thinning_factor)
+ControlList::write_pass_finished (Temporal::timepos_t const & /*when*/, double thinning_factor)
 {
 	DEBUG_TRACE (DEBUG::ControlList, "write pass finished\n");
 
@@ -500,8 +503,10 @@ ControlList::write_pass_finished (ControlEvent::when_t /*when*/, double thinning
 }
 
 void
-ControlList::set_in_write_pass (bool yn, bool add_point, ControlEvent::when_t when)
+ControlList::set_in_write_pass (bool yn, bool add_point, Temporal::timepos_t const & time)
 {
+	ControlEvent::when_t when = get_when (time);
+
 	DEBUG_TRACE (DEBUG::ControlList, string_compose ("now in write pass @ %1, add point ? %2\n", when, add_point));
 
 	_in_write_pass = yn;
@@ -513,12 +518,16 @@ ControlList::set_in_write_pass (bool yn, bool add_point, ControlEvent::when_t wh
 }
 
 void
-ControlList::add_guard_point (ControlEvent::when_t when, double offset)
+ControlList::add_guard_point (Temporal::timepos_t const & time, double offset)
 {
+	ControlEvent::when_t when = get_when (time);
+
 	// caller needs to hold writer-lock
+
 	if (offset < 0 && when < offset) {
 		return;
 	}
+
 	assert (offset <= 0);
 
 	if (offset != 0) {
@@ -598,11 +607,12 @@ ControlList::in_write_pass () const
 }
 
 bool
-ControlList::editor_add (ControlEvent::when_t when, double value, bool with_guard)
+ControlList::editor_add (Temporal::timepos_t const & time, double value, bool with_guard)
 {
 	/* this is for making changes from a graphical line editor */
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
+		ControlEvent::when_t when = get_when (time);
 
 		ControlEvent cp (when, 0.0f);
 		iterator i = lower_bound (_events.begin(), _events.end(), &cp, time_comparator);
@@ -649,8 +659,9 @@ ControlList::editor_add (ControlEvent::when_t when, double value, bool with_guar
 }
 
 void
-ControlList::maybe_add_insert_guard (ControlEvent::when_t when)
+ControlList::maybe_add_insert_guard (Temporal::timepos_t const & time)
 {
+	ControlEvent::when_t when = get_when (time);
 	// caller needs to hold writer-lock
 	if (most_recent_insert_iterator != _events.end()) {
 		if ((*most_recent_insert_iterator)->when - when > GUARD_POINT_DELTA) {
@@ -670,8 +681,10 @@ ControlList::maybe_add_insert_guard (ControlEvent::when_t when)
 
 /** If we would just be adding to a straight line, move the previous point instead. */
 bool
-ControlList::maybe_insert_straight_line (ControlEvent::when_t when, double value)
+ControlList::maybe_insert_straight_line (Temporal::timepos_t const & time, double value)
 {
+	ControlEvent::when_t when = get_when (time);
+
 	// caller needs to hold writer-lock
 	if (_events.empty()) {
 		return false;
@@ -699,8 +712,10 @@ ControlList::maybe_insert_straight_line (ControlEvent::when_t when, double value
 }
 
 ControlList::iterator
-ControlList::erase_from_iterator_to (iterator iter, ControlEvent::when_t when)
+ControlList::erase_from_iterator_to (iterator iter, Temporal::timepos_t const & time)
 {
+	ControlEvent::when_t when = get_when (time);
+
 	// caller needs to hold writer-lock
 	while (iter != _events.end()) {
 		if ((*iter)->when < when) {
@@ -720,8 +735,10 @@ ControlList::erase_from_iterator_to (iterator iter, ControlEvent::when_t when)
  * control surface (GUI, MIDI, OSC etc)
  */
 void
-ControlList::add (ControlEvent::when_t when, double value, bool with_guards, bool with_initial)
+ControlList::add (Temporal::timepos_t const & time, double value, bool with_guards, bool with_initial)
 {
+	ControlEvent::when_t when = get_when (time);
+
 	/* clamp new value to allowed range */
 	value = std::min ((double)_desc.upper, std::max ((double)_desc.lower, value));
 
@@ -903,10 +920,11 @@ ControlList::erase (iterator start, iterator end)
 
 /** Erase the first event which matches the given time and value */
 void
-ControlList::erase (ControlEvent::when_t when, double value)
+ControlList::erase (Temporal::timepos_t const & time, double value)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
+		ControlEvent::when_t when = get_when (time);
 
 		iterator i = begin ();
 		while (i != end() && ((*i)->when != when || (*i)->value != value)) {
@@ -927,12 +945,13 @@ ControlList::erase (ControlEvent::when_t when, double value)
 }
 
 void
-ControlList::erase_range (ControlEvent::when_t start, ControlEvent::when_t endt)
+ControlList::erase_range (Temporal::timepos_t const & start, Temporal::timepos_t const & endt)
 {
 	bool erased = false;
 
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
+
 		erased = erase_range_internal (start, endt, _events);
 
 		if (erased) {
@@ -947,15 +966,33 @@ ControlList::erase_range (ControlEvent::when_t start, ControlEvent::when_t endt)
 }
 
 bool
-ControlList::erase_range_internal (ControlEvent::when_t start, ControlEvent::when_t endt, EventList & events)
+ControlList::erase_range_internal (Temporal::timepos_t const & start, Temporal::timepos_t const & endt, EventList & events)
 {
 	bool erased = false;
-	ControlEvent cp (start, 0.0f);
 	iterator s;
 	iterator e;
 
+	/* This is where we have to pick the time domain to be used when
+	 * defining the control points.
+	 *
+	 * start/endt retain their values no matter what the time domain is,
+	 * but the location of the control point is specified as a single
+	 * integer value that represents either samples or beats. The sample
+	 * position and beat position, while representing the same position on
+	 * the timeline, will be numerically different anywhere (except perhaps
+	 * zero).
+	 *
+	 * eg. start = 1000000 samples == 12.34 beats
+	 *     cp.when = 100000 if ControlList uses AudioTime
+	 *     cp.when = 23074  if ControlList uses BeatTime (see Temporal::Beats::to_ticks())
+	 *
+	 */
+
+	ControlEvent cp (get_when (start), 0.0f);
+
 	if ((s = lower_bound (events.begin(), events.end(), &cp, time_comparator)) != events.end()) {
-		cp.when = endt;
+
+		cp.when = get_when (endt);
 		e = upper_bound (events.begin(), events.end(), &cp, time_comparator);
 		events.erase (s, e);
 		if (s != e) {
@@ -968,7 +1005,7 @@ ControlList::erase_range_internal (ControlEvent::when_t start, ControlEvent::whe
 }
 
 void
-ControlList::slide (iterator before, ControlEvent::when_t distance)
+ControlList::slide (iterator before, Temporal::timecnt_t const & distance)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -977,8 +1014,10 @@ ControlList::slide (iterator before, ControlEvent::when_t distance)
 			return;
 		}
 
+		ControlEvent::when_t wd = get_distance (distance);
+
 		while (before != _events.end()) {
-			(*before)->when += distance;
+			(*before)->when += wd;
 			++before;
 		}
 
@@ -989,14 +1028,17 @@ ControlList::slide (iterator before, ControlEvent::when_t distance)
 }
 
 void
-ControlList::shift (ControlEvent::when_t pos, ControlEvent::when_t distance)
+ControlList::shift (Temporal::timepos_t const & time, Temporal::timecnt_t const & distance)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
 
+		ControlEvent::when_t pos = get_when (time);
+		ControlEvent::when_t wd = get_distance (distance);
+
 		for (iterator i = _events.begin(); i != _events.end(); ++i) {
 			if ((*i)->when >= pos) {
-				(*i)->when += distance;
+				(*i)->when += wd;
 			}
 		}
 
@@ -1007,7 +1049,7 @@ ControlList::shift (ControlEvent::when_t pos, ControlEvent::when_t distance)
 }
 
 void
-ControlList::modify (iterator iter, ControlEvent::when_t when, double val)
+ControlList::modify (iterator iter, Temporal::timepos_t const & time, double val)
 {
 	/* note: we assume higher level logic is in place to avoid this
 	 * reordering the time-order of control events in the list. ie. all
@@ -1019,6 +1061,7 @@ ControlList::modify (iterator iter, ControlEvent::when_t when, double val)
 
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
+		ControlEvent::when_t when = get_when (time);
 
 		(*iter)->when = when;
 		(*iter)->value = val;
@@ -1041,10 +1084,11 @@ ControlList::modify (iterator iter, ControlEvent::when_t when, double val)
 }
 
 std::pair<ControlList::iterator,ControlList::iterator>
-ControlList::control_points_adjacent (ControlEvent::when_t xval)
+ControlList::control_points_adjacent (Temporal::timepos_t const & xtime)
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
 	iterator i;
+	ControlEvent::when_t xval = get_when (xtime);
 	ControlEvent cp (xval, 0.0f);
 	std::pair<iterator,iterator> ret;
 
@@ -1117,10 +1161,11 @@ ControlList::mark_dirty () const
 }
 
 void
-ControlList::truncate_end (ControlEvent::when_t last_coordinate)
+ControlList::truncate_end (Temporal::timepos_t const & last_time)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
+		ControlEvent::when_t last_coordinate = get_when (last_time);
 		ControlEvent cp (last_coordinate, 0);
 		ControlList::reverse_iterator i;
 		double last_val;
@@ -1220,13 +1265,14 @@ ControlList::truncate_end (ControlEvent::when_t last_coordinate)
 }
 
 void
-ControlList::truncate_start (ControlEvent::when_t overall_length)
+ControlList::truncate_start (Temporal::timepos_t const & overall_time)
 {
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
 		iterator i;
 		double first_legal_value;
 		double first_legal_coordinate;
+		ControlEvent::when_t overall_length = get_when (overall_time);
 
 		if (_events.empty()) {
 			/* nothing to truncate */
@@ -1321,13 +1367,14 @@ ControlList::truncate_start (ControlEvent::when_t overall_length)
 }
 
 double
-ControlList::unlocked_eval (ControlEvent::when_t x) const
+ControlList::unlocked_eval (Temporal::timepos_t const & xtime) const
 {
 	pair<EventList::iterator,EventList::iterator> range;
 	int32_t npoints;
 	ControlEvent::when_t lpos, upos;
 	double lval, uval;
 	double fraction;
+	ControlEvent::when_t x = get_when (xtime);
 
 	const_iterator length_check_iter = _events.begin();
 	for (npoints = 0; npoints < 4; ++npoints, ++length_check_iter) {
@@ -1386,11 +1433,12 @@ ControlList::unlocked_eval (ControlEvent::when_t x) const
 }
 
 double
-ControlList::multipoint_eval (ControlEvent::when_t x) const
+ControlList::multipoint_eval (Temporal::timepos_t const & xtime) const
 {
 	ControlEvent::when_t upos, lpos;
 	double uval, lval;
 	double fraction;
+	ControlEvent::when_t x = get_when (xtime);
 
 	/* "Stepped" lookup (no interpolation) */
 	/* FIXME: no cache.  significant? */
@@ -1471,8 +1519,10 @@ ControlList::multipoint_eval (ControlEvent::when_t x) const
 }
 
 void
-ControlList::build_search_cache_if_necessary (ControlEvent::when_t start) const
+ControlList::build_search_cache_if_necessary (Temporal::timepos_t const & start_time) const
 {
+	ControlEvent::when_t start = get_when (start_time);
+
 	if (_events.empty()) {
 		/* Empty, nothing to cache, move to end. */
 		_search_cache.first = _events.end();
@@ -1504,10 +1554,11 @@ ControlList::build_search_cache_if_necessary (ControlEvent::when_t start) const
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event (Temporal::timepos_t const & start, Temporal::timepos_t & x, double& y, bool inclusive) const
 {
 	// FIXME: It would be nice if this was unnecessary..
 	Glib::Threads::RWLock::ReaderLock lm(_lock, Glib::Threads::TRY_LOCK);
+
 	if (!lm.locked()) {
 		return false;
 	}
@@ -1524,12 +1575,12 @@ ControlList::rt_safe_earliest_event (ControlEvent::when_t start, ControlEvent::w
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event_unlocked (Temporal::timepos_t const & start, Temporal::timepos_t & x, double& y, bool inclusive) const
 {
 	if (_interpolation == Discrete) {
-		return rt_safe_earliest_event_discrete_unlocked(start, x, y, inclusive);
+		return rt_safe_earliest_event_discrete_unlocked (start, x, y, inclusive);
 	} else {
-		return rt_safe_earliest_event_linear_unlocked(start, x, y, inclusive);
+		return rt_safe_earliest_event_linear_unlocked (start, x, y, inclusive);
 	}
 }
 
@@ -1542,8 +1593,10 @@ ControlList::rt_safe_earliest_event_unlocked (ControlEvent::when_t start, Contro
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event_discrete_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event_discrete_unlocked (Temporal::timepos_t const & start_time, Temporal::timepos_t & x, double& y, bool inclusive) const
 {
+	ControlEvent::when_t start = get_when (start_time);
+
 	build_search_cache_if_necessary (start);
 
 	if (_search_cache.first != _events.end()) {
@@ -1554,12 +1607,12 @@ ControlList::rt_safe_earliest_event_discrete_unlocked (ControlEvent::when_t star
 		/* Earliest points is in range, return it */
 		if (past_start) {
 
-			x = first->when;
+			x = get_time (first->when);
 			y = first->value;
 
 			/* Move left of cache to this point
 			 * (Optimize for immediate call this cycle within range) */
-			_search_cache.left = x;
+			_search_cache.left = first->when;
 			++_search_cache.first;
 
 			assert(x >= start);
@@ -1583,8 +1636,10 @@ ControlList::rt_safe_earliest_event_discrete_unlocked (ControlEvent::when_t star
  * \return true if event is found (and \a x and \a y are valid).
  */
 bool
-ControlList::rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start, ControlEvent::when_t& x, double& y, bool inclusive) const
+ControlList::rt_safe_earliest_event_linear_unlocked (Temporal::timepos_t const & start_time, Temporal::timepos_t & x, double& y, bool inclusive) const
 {
+	ControlEvent::when_t start = get_when (start_time);
+
 	// cout << "earliest_event(start: " << start << ", x: " << x << ", y: " << y << ", inclusive: " << inclusive <<  ")" << endl;
 
 	const_iterator length_check_iter = _events.begin();
@@ -1620,11 +1675,11 @@ ControlList::rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start,
 		}
 
 		if (inclusive && first->when == start) {
-			x = first->when;
+			x = get_time (first->when);
 			y = first->value;
 			/* Move left of cache to this point
 			 * (Optimize for immediate call this cycle within range) */
-			_search_cache.left = x;
+			_search_cache.left = first->when;
 			return true;
 		} else if (next->when < start || (!inclusive && next->when == start)) {
 			/* "Next" is before the start, no points left. */
@@ -1633,11 +1688,11 @@ ControlList::rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start,
 
 		if (fabs(first->value - next->value) <= 1) {
 			if (next->when > start) {
-				x = next->when;
+				x = get_time (next->when);
 				y = next->value;
 				/* Move left of cache to this point
 				 * (Optimize for immediate call this cycle within range) */
-				_search_cache.left = x;
+				_search_cache.left = next->when;
 				return true;
 			} else {
 				return false;
@@ -1657,14 +1712,14 @@ ControlList::rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start,
 
 		x = first->when + (y - first->value) / (double)slope;
 
-		while ((inclusive && x < start) || (x <= start && y != next->value)) {
+		while ((inclusive && x < start_time) || (x <= start_time && y != next->value)) {
 
 			if (first->value < next->value) // ramping up
 				y += 1.0;
 			else // ramping down
 				y -= 1.0;
 
-			x = first->when + (y - first->value) / (double)slope;
+			x = get_time (first->when + (y - first->value) / (double)slope);
 		}
 
 		/*cerr << first->value << " @ " << first->when << " ... "
@@ -1675,20 +1730,21 @@ ControlList::rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start,
 		           || (y <= first->value && y >= next->value) );
 
 
-		const bool past_start = (inclusive ? x >= start : x > start);
+		const bool past_start = (inclusive ? x >= start_time : x > start_time);
 		if (past_start) {
 			/* Move left of cache to this point
 			 * (Optimize for immediate call this cycle within range) */
-			_search_cache.left = x;
-			assert(inclusive ? x >= start : x > start);
+			_search_cache.left = get_when (x);
+			assert(inclusive ? x >= start_time : x > start_time);
 			return true;
 		} else {
 			if (inclusive) {
-				x = next->when;
+				x = get_time (next->when);
+				_search_cache.left = next->when;
 			} else {
 				x = start;
+				_search_cache.left = get_when (x);
 			}
-			_search_cache.left = x;
 			return true;
 		}
 
@@ -1704,10 +1760,12 @@ ControlList::rt_safe_earliest_event_linear_unlocked (ControlEvent::when_t start,
  *  @param op 0 = cut, 1 = copy, 2 = clear.
  */
 boost::shared_ptr<ControlList>
-ControlList::cut_copy_clear (ControlEvent::when_t start, ControlEvent::when_t end, int op)
+ControlList::cut_copy_clear (Temporal::timepos_t const & start_time, Temporal::timepos_t const & end_time, int op)
 {
 	boost::shared_ptr<ControlList> nal = create (_parameter, _desc, _time_style);
 	iterator s, e;
+	ControlEvent::when_t start = get_when (start_time);
+	ControlEvent::when_t end = get_when (end_time);
 	ControlEvent cp (start, 0.0);
 
 	{
@@ -1801,26 +1859,26 @@ ControlList::cut_copy_clear (ControlEvent::when_t start, ControlEvent::when_t en
 
 
 boost::shared_ptr<ControlList>
-ControlList::cut (ControlEvent::when_t start, ControlEvent::when_t end)
+ControlList::cut (Temporal::timepos_t const & start, Temporal::timepos_t const & end)
 {
 	return cut_copy_clear (start, end, 0);
 }
 
 boost::shared_ptr<ControlList>
-ControlList::copy (ControlEvent::when_t start, ControlEvent::when_t end)
+ControlList::copy (Temporal::timepos_t const & start, Temporal::timepos_t const & end)
 {
 	return cut_copy_clear (start, end, 1);
 }
 
 void
-ControlList::clear (ControlEvent::when_t start, ControlEvent::when_t end)
+ControlList::clear (Temporal::timepos_t const & start, Temporal::timepos_t const & end)
 {
 	cut_copy_clear (start, end, 2);
 }
 
 /** @param pos Position in model coordinates */
 bool
-ControlList::paste (const ControlList& alist, ControlEvent::when_t pos)
+ControlList::paste (const ControlList& alist, Temporal::timepos_t const &  time)
 {
 	if (alist._events.empty()) {
 		return false;
@@ -1831,6 +1889,7 @@ ControlList::paste (const ControlList& alist, ControlEvent::when_t pos)
 		iterator where;
 		iterator prev;
 		double end = 0;
+		ControlEvent::when_t pos = get_when (time);
 		ControlEvent cp (pos, 0.0);
 
 		where = upper_bound (_events.begin(), _events.end(), &cp, time_comparator);
@@ -1890,9 +1949,9 @@ ControlList::paste (const ControlList& alist, ControlEvent::when_t pos)
  *  @param return true if anything was changed, otherwise false (ie nothing needed changing)
  */
 bool
-ControlList::move_ranges (const list< Temporal::RangeMove<ControlEvent::when_t> >& movements)
+ControlList::move_ranges (const list< Temporal::RangeMove> & movements)
 {
-	typedef list< Temporal::RangeMove<ControlEvent::when_t> > RangeMoveList;
+	typedef list<Temporal::RangeMove> RangeMoveList;
 
 	{
 		Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -1904,11 +1963,17 @@ ControlList::move_ranges (const list< Temporal::RangeMove<ControlEvent::when_t> 
 		bool things_erased = false;
 		for (RangeMoveList::const_iterator i = movements.begin (); i != movements.end (); ++i) {
 
-			if (erase_range_internal (i->from, i->from + i->length, _events)) {
+			Temporal::timepos_t start = i->from;
+			Temporal::timepos_t end = i->from + i->length;
+
+			if (erase_range_internal (start, end, _events)) {
 				things_erased = true;
 			}
 
-			if (erase_range_internal (i->to, i->to + i->length, _events)) {
+			start = i->to;
+			end = i->to + i->length;
+
+			if (erase_range_internal (start, end, _events)) {
 				things_erased = true;
 			}
 		}
@@ -1921,14 +1986,48 @@ ControlList::move_ranges (const list< Temporal::RangeMove<ControlEvent::when_t> 
 		/* copy the events into the new list */
 		for (RangeMoveList::const_iterator i = movements.begin (); i != movements.end (); ++i) {
 			iterator j = old_events.begin ();
-			const double limit = i->from + i->length;
-			const double dx    = i->to - i->from;
-			while (j != old_events.end () && (*j)->when <= limit) {
-				if ((*j)->when >= i->from) {
+
+			const Temporal::timepos_t limit = i->from + i->length;
+			const Temporal::timecnt_t dx = i->to - i->from;
+
+			while (j != old_events.end ()) {
+
+				Temporal::timepos_t jtime;
+
+				switch (_time_style) {
+				case Temporal::AudioTime:
+					jtime = (*j)->when_as_sample ();
+					break;
+				case Temporal::BeatTime:
+					jtime = (*j)->when_as_beats ();
+					break;
+				default:
+					/*NOTREACHED*/
+					return false;
+				}
+
+				if (jtime > limit) {
+					break;
+				}
+
+				if (jtime >= i->from) {
 					ControlEvent* ev = new ControlEvent (**j);
-					ev->when += dx;
+
+					switch (_time_style) {
+					case Temporal::AudioTime:
+						ev->when += dx.samples();
+						break;
+					case Temporal::BeatTime:
+						ev->when += dx.beats().to_ticks();
+						break;
+					default:
+						/*NOTREACHED*/
+						return false;
+					}
+
 					_events.push_back (ev);
 				}
+
 				++j;
 			}
 		}
@@ -2031,4 +2130,3 @@ ControlList::dump (ostream& o)
 }
 
 } // namespace Evoral
-

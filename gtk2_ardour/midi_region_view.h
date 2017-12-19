@@ -122,8 +122,8 @@ public:
 	void resolve_note(uint8_t note_num, Temporal::Beats end_time);
 
 	void cut_copy_clear (Editing::CutCopyOp);
-	bool paste (samplepos_t pos, const ::Selection& selection, PasteContext& ctx, const int32_t sub_num);
-	void paste_internal (samplepos_t pos, unsigned paste_count, float times, const MidiCutBuffer&);
+	bool paste (Temporal::timepos_t const & pos, const ::Selection& selection, PasteContext& ctx, const int32_t sub_num);
+	void paste_internal (Temporal::timepos_t const & pos, unsigned paste_count, float times, const MidiCutBuffer&);
 
 	void add_canvas_patch_change (ARDOUR::MidiModel::PatchChangePtr patch, const std::string& displaytext, bool);
 	void remove_canvas_patch_change (PatchChange* pc);
@@ -267,36 +267,22 @@ public:
 	 */
 	samplepos_t snap_pixel_to_sample(double x, bool ensure_snap = false);
 
-	/** Convert a timestamp in beats into samples (both relative to region position) */
-	samplepos_t region_beats_to_region_samples(Temporal::Beats beats) const;
 	/** Convert a timestamp in beats into absolute samples */
-	samplepos_t region_beats_to_absolute_samples(Temporal::Beats beats) const {
-		return _region->position() + region_beats_to_region_samples (beats);
+	samplepos_t region_beats_to_absolute_samples(Temporal::Beats beats) const;
+	/** Convert a timestamp in beats into samples (both relative to region position) */
+	samplepos_t region_beats_to_region_samples(Temporal::Beats beats) const {
+		return region_beats_to_absolute_samples (beats) - _region->position().sample();
 	}
 	/** Convert a timestamp in samples to beats (both relative to region position) */
 	Temporal::Beats region_samples_to_region_beats(samplepos_t) const;
-	double region_samples_to_region_beats_double(samplepos_t) const;
-
 	/** Convert a timestamp in beats measured from source start into absolute samples */
 	samplepos_t source_beats_to_absolute_samples(Temporal::Beats beats) const;
 	/** Convert a timestamp in beats measured from source start into region-relative samples */
 	samplepos_t source_beats_to_region_samples(Temporal::Beats beats) const {
-		return source_beats_to_absolute_samples (beats) - _region->position();
+		return source_beats_to_absolute_samples (beats) - _region->position().sample();
 	}
 	/** Convert a timestamp in absolute samples to beats measured from source start*/
 	Temporal::Beats absolute_samples_to_source_beats(samplepos_t) const;
-
-	ARDOUR::BeatsSamplesConverter const & region_relative_time_converter () const {
-		return _region_relative_time_converter;
-	}
-
-	ARDOUR::BeatsSamplesConverter const & source_relative_time_converter () const {
-		return _source_relative_time_converter;
-	}
-
-	ARDOUR::DoubleBeatsSamplesConverter const & region_relative_time_converter_double () const {
-		return _region_relative_time_converter_double;
-	}
 
 	double session_relative_qn (double qn) const;
 
@@ -419,10 +405,6 @@ private:
 	typedef boost::unordered_map<ARDOUR::MidiModel::PatchChangePtr, boost::shared_ptr<PatchChange> > PatchChanges;
 	typedef boost::unordered_map<ARDOUR::MidiModel::constSysExPtr, boost::shared_ptr<SysEx> >        SysExes;
 	typedef std::vector<NoteBase*> CopyDragEvents;
-
-	ARDOUR::BeatsSamplesConverter _region_relative_time_converter;
-	ARDOUR::BeatsSamplesConverter _source_relative_time_converter;
-	ARDOUR::DoubleBeatsSamplesConverter _region_relative_time_converter_double;
 
 	boost::shared_ptr<ARDOUR::MidiModel> _model;
 	Events                               _events;

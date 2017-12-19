@@ -256,22 +256,23 @@ AnalysisWindow::analyze_data (Gtk::Button * /*button*/)
 				// std::cerr << "Analyzing ranges on track " << rui->route()->name() << std::endl;
 
 				FFTResult *res = fft_graph.prepareResult(rui->route_color(), rui->route()->name());
-				for (std::list<AudioRange>::iterator j = ts.begin(); j != ts.end(); ++j) {
+				for (std::list<TimelineRange>::iterator j = ts.begin(); j != ts.end(); ++j) {
 
 					int n;
 					for (int channel = 0; channel < n_inputs; channel++) {
 						samplecnt_t x = 0;
+						const samplecnt_t len = j->length().samples();
 
-						while (x < j->length()) {
+						while (x < len) {
 							// TODO: What about stereo+ channels? composite all to one, I guess
 
 							n = fft_graph.windowSize();
 
-							if (x + n >= (*j).length() ) {
-								n = (*j).length() - x;
+							if (x + n >= len) {
+								n = len - x;
 							}
 
-							n = pl->read(buf, mixbuf, gain, (*j).start + x, n, channel);
+							n = pl->read (buf, mixbuf, gain, (*j).from.sample() + x, n, channel);
 
 							if ( n < fft_graph.windowSize()) {
 								for (int j = n; j < fft_graph.windowSize(); j++) {
@@ -314,18 +315,18 @@ AnalysisWindow::analyze_data (Gtk::Button * /*button*/)
 				for (unsigned int channel = 0; channel < arv->region()->n_channels(); channel++) {
 
 					samplecnt_t x = 0;
-					samplecnt_t length = arv->region()->length();
+					samplecnt_t length = arv->region()->length_samples();
 
 					while (x < length) {
 						// TODO: What about stereo+ channels? composite all to one, I guess
 
 						n = fft_graph.windowSize();
-						if (x + n >= length ) {
+						if (length < x + n) {
 							n = length - x;
 						}
 
 						memset (buf, 0, n * sizeof (Sample));
-						n = arv->audio_region()->read_at(buf, mixbuf, gain, arv->region()->position() + x, n, channel);
+						n = arv->audio_region()->read_at (buf, mixbuf, gain, arv->region()->position_sample() + x, n, channel);
 
 						if (n == 0)
 							break;
@@ -405,5 +406,3 @@ AnalysisWindow::display_model_changed (Gtk::RadioButton *button)
 	}
 	*/
 }
-
-

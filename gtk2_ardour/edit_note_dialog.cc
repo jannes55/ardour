@@ -93,8 +93,7 @@ EditNoteDialog::EditNoteDialog (MidiRegionView* rv, set<NoteBase*> n)
 
 	_time_clock.set_session (_region_view->get_time_axis_view().session ());
 	_time_clock.set_mode (AudioClock::BBT);
-	_time_clock.set (_region_view->source_relative_time_converter().to
-			 ((*_events.begin())->note()->time()) + (_region_view->region()->position() - _region_view->region()->start()), true);
+	_time_clock.set_time (_region_view->source_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time()), Temporal::AudioTime) + (_region_view->region()->position() - _region_view->region()->start()), true);
 
 	l = manage (left_aligned_label (_("Length")));
 	table->attach (*l, 0, 1, r, r + 1);
@@ -104,10 +103,9 @@ EditNoteDialog::EditNoteDialog (MidiRegionView* rv, set<NoteBase*> n)
 
 	_length_clock.set_session (_region_view->get_time_axis_view().session ());
 	_length_clock.set_mode (AudioClock::BBT);
-	_length_clock.set (
-		_region_view->region_relative_time_converter().to ((*_events.begin())->note()->end_time ()) + _region_view->region()->position(),
-		true,
-		_region_view->region_relative_time_converter().to ((*_events.begin())->note()->time ()) + _region_view->region()->position());
+	_length_clock.set_time (_region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->end_time ()), Temporal::AudioTime) + _region_view->region()->position(),
+	                        true,
+	                        _region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time ()), Temporal::AudioTime) + _region_view->region()->position());
 
 	/* Set up `set all notes...' buttons' sensitivity */
 
@@ -197,24 +195,37 @@ EditNoteDialog::done (int r)
 		}
 	}
 
-	samplecnt_t const region_samples = _time_clock.current_time() - (_region_view->region()->position() - _region_view->region()->start());
-	Temporal::Beats const t = _region_view->source_relative_time_converter().from (region_samples);
+	Temporal::timepos_t source_start = _region_view->region()->position() - _region_view->region()->start();
+
+	/* convert current clock time into an offset from the start of the source */
+
+	Temporal::timepos_t time_clock_source_relative = _time_clock.current_position() - source_start;
+
+	/* convert that into a position in Beats - this will be the new note time (as an offset inside the source) */
+
+	Temporal::Beats const new_note_time_source_relative_beats = time_clock_source_relative.beats ();
 
 	if (!_time_all.get_sensitive() || _time_all.get_active ()) {
 		for (set<NoteBase*>::iterator i = _events.begin(); i != _events.end(); ++i) {
-			if (t != (*i)->note()->time()) {
-				_region_view->change_note_time (*i, t);
+			if (new_note_time_source_relative_beats != (*i)->note()->time()) {
+				_region_view->change_note_time (*i, new_note_time_source_relative_beats);
 				had_change = true;
 			}
 		}
 	}
 
 	if (!_length_all.get_sensitive() || _length_all.get_active ()) {
+
+		/* get current note duration, interpreted as beats at the time indicated by the _time_clock (the new note position) */
+		Temporal::Beats const duration = _length_clock.current_beat_duration (_time_clock.current_time());
+
+		/* compute end of note */
+		Temporal::Beats const new_note_end_source_relative_beats = new_note_time_source_relative_beats + duration;
+
 		for (set<NoteBase*>::iterator i = _events.begin(); i != _events.end(); ++i) {
-			samplepos_t const note_end_sample = region_samples + _length_clock.current_duration (_time_clock.current_time());
-			Temporal::Beats const d = _region_view->source_relative_time_converter().from (note_end_sample) - (*i)->note()->time();
-			if (d != (*i)->note()->length()) {
-				_region_view->change_note_length (*i, d);
+			Temporal::Beats const new_note_length_beats = new_note_end_source_relative_beats - (*i)->note()->time();
+			if (new_note_length_beats != (*i)->note()->length()) {
+				_region_view->change_note_length (*i, new_note_length_beats);
 				had_change = true;
 			}
 		}

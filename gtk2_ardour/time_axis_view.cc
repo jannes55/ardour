@@ -1027,7 +1027,7 @@ TimeAxisView::remove_child (boost::shared_ptr<TimeAxisView> child)
  *  @param result Filled in with selectable things.
  */
 void
-TimeAxisView::get_selectables (samplepos_t start, samplepos_t end, double top, double bot, list<Selectable*>& results, bool within)
+TimeAxisView::get_selectables (Temporal::timepos_t const & start, Temporal::timepos_t const & end, double top, double bot, list<Selectable*>& results, bool within)
 {
 	for (Children::iterator i = children.begin(); i != children.end(); ++i) {
 		if (!(*i)->hidden()) {

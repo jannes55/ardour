@@ -283,7 +283,7 @@ AutomationStreamView::clear ()
  *  confusing.
  */
 void
-AutomationStreamView::get_selectables (samplepos_t start, samplepos_t end, double botfrac, double topfrac, list<Selectable*>& results, bool /*within*/)
+AutomationStreamView::get_selectables (Temporal::timepos_t const & start, Temporal::timepos_t const & end, double botfrac, double topfrac, list<Selectable*>& results, bool /*within*/)
 {
 	for (list<RegionView*>::iterator i = region_views.begin(); i != region_views.end(); ++i) {
 		AutomationRegionView* arv = dynamic_cast<AutomationRegionView*> (*i);
@@ -319,7 +319,7 @@ AutomationStreamView::get_lines () const
 }
 
 bool
-AutomationStreamView::paste (samplepos_t                                pos,
+AutomationStreamView::paste (Temporal::timepos_t const &               pos,
                              unsigned                                  paste_count,
                              float                                     times,
                              boost::shared_ptr<ARDOUR::AutomationList> alist)

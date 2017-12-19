@@ -314,7 +314,7 @@ MIDISceneChanger::program_change_input (MIDI::Parser& parser, MIDI::byte program
 			return;
 		}
 
-		loc = new Location (_session, time, time, new_name, Location::IsMark, 0);
+		loc = new Location (_session, time, time, new_name, Location::IsMark);
 		new_mark = true;
 	}
 

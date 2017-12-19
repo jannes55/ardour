@@ -495,7 +495,7 @@ MidiModel::NoteDiffCommand::unmarshal_note (XMLNode *xml_note)
 	MidiModel::TimeType length;
 	if (!xml_note->get_property("length", length)) {
 		warning << "note information missing length" << endmsg;
-		length = MidiModel::TimeType(1);
+		length = MidiModel::TimeType(1,0);
 	}
 
 	uint8_t velocity;

@@ -27,7 +27,6 @@
 
 #include <sigc++/signal.h>
 #include "ardour/region.h"
-#include "ardour/beats_samples_converter.h"
 
 #include "canvas/fwd.h"
 
@@ -71,14 +70,14 @@ public:
 
 	virtual void set_height (double);
 	virtual void set_samples_per_pixel (double);
-	virtual bool set_duration (samplecnt_t, void*);
+	virtual bool set_duration (Temporal::timecnt_t, void*);
 
 	void move (double xdelta, double ydelta);
 
 	void raise_to_top ();
 	void lower_to_bottom ();
 
-	bool set_position(samplepos_t pos, void* src, double* delta = 0);
+	bool set_position(Temporal::timepos_t pos, void* src, double* delta = 0);
 
 	virtual void show_region_editor ();
 	void hide_region_editor ();
@@ -121,7 +120,7 @@ public:
 		}
 	};
 
-	ARDOUR::MusicSample snap_sample_to_sample (ARDOUR::sampleoffset_t, bool ensure_snap = false) const;
+	Temporal::timepos_t snap_sample_to_sample (ARDOUR::sampleoffset_t, bool ensure_snap = false) const;
 
 protected:
 
@@ -155,6 +154,9 @@ protected:
 	virtual void reset_width_dependent_items (double pixel_width);
 
 	virtual void color_handler () {}
+
+	Temporal::timepos_t region_relative_distance (Temporal::timepos_t const &, Temporal::LockStyle desired_time_domain);
+	Temporal::timepos_t source_relative_distance (Temporal::timepos_t const &, Temporal::LockStyle desired_time_domain);
 
 	boost::shared_ptr<ARDOUR::Region> _region;
 

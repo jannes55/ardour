@@ -723,8 +723,8 @@ public:
 	samplecnt_t convert_to_samples (AnyTime const & position);
 	samplecnt_t any_duration_to_samples (samplepos_t position, AnyTime const & duration);
 
-	static PBD::Signal1<void, samplepos_t> StartTimeChanged;
-	static PBD::Signal1<void, samplepos_t> EndTimeChanged;
+	static PBD::Signal1<void, Temporal::timepos_t> StartTimeChanged;
+	static PBD::Signal1<void, Temporal::timepos_t> EndTimeChanged;
 
 	void   request_sync_source (Slave*);
 	bool   synced_to_engine() const { return _slave && config.get_external_sync() && Config->get_sync_source() == Engine; }
@@ -739,6 +739,7 @@ public:
 
 	Temporal::TempoMap&       tempo_map()       { return *_tempo_map; }
 	const Temporal::TempoMap& tempo_map() const { return *_tempo_map; }
+	void set_tempo_map (Temporal::TempoMap&);
 
 	unsigned int    get_xrun_count () const {return _xrun_count; }
 	void            reset_xrun_count () {_xrun_count = 0; }
@@ -838,7 +839,7 @@ public:
 
 	/* flattening stuff */
 
-	boost::shared_ptr<Region> write_one_track (Track&, samplepos_t start, samplepos_t end,
+	boost::shared_ptr<Region> write_one_track (Track&, Temporal::timepos_t const & start, Temporal::timepos_t const & end,
 	                                           bool overwrite, std::vector<boost::shared_ptr<Source> >&, InterThreadInfo& wot,
 	                                           boost::shared_ptr<Processor> endpoint,
 	                                           bool include_endpoint, bool for_export, bool for_freeze);
@@ -1813,8 +1814,8 @@ private:
 	void remove_playlist (boost::weak_ptr<Playlist>);
 	void track_playlist_changed (boost::weak_ptr<Track>);
 	void playlist_region_added (boost::weak_ptr<Region>);
-	void playlist_ranges_moved (std::list<Temporal::RangeMove<timepos_t> > const &);
-	void playlist_regions_extended (std::list<Temporal::Range<timepos_t> > const &);
+	void playlist_ranges_moved (std::list<Temporal::RangeMove> const &);
+	void playlist_regions_extended (std::list<Temporal::TimeRange> const &);
 
 	/* CURVES and AUTOMATION LISTS */
 	std::map<PBD::ID, AutomationList*> automation_lists;
@@ -1956,8 +1957,8 @@ private:
 	/* temporary hacks to allow selection to be pushed from GUI into backend
 	   Whenever we move the selection object into libardour, these will go away.
 	*/
-	Temporal::Range<samplepos_t> _range_selection;
-	Temporal::Range<samplepos_t> _object_selection;
+	Temporal::Range _range_selection;
+	Temporal::Range _object_selection;
 
 	void unset_preroll_record_trim ();
 
@@ -2049,8 +2050,8 @@ private:
 	/** true if timecode transmission by the transport is suspended, otherwise false */
 	mutable gint _suspend_timecode_transmission;
 
-	void start_time_changed (samplepos_t);
-	void end_time_changed (samplepos_t);
+	void start_time_changed (Temporal::timepos_t);
+	void end_time_changed (Temporal::timepos_t);
 
 	void set_track_monitor_input_status (bool);
 	samplepos_t compute_stop_limit () const;

@@ -1292,7 +1292,7 @@ RouteTimeAxisView::set_selected_regionviews (RegionSelection& regions)
  * @param results List to add things to.
  */
 void
-RouteTimeAxisView::get_selectables (samplepos_t start, samplepos_t end, double top, double bot, list<Selectable*>& results, bool within)
+RouteTimeAxisView::get_selectables (Temporal::timepos_t const & start, Temporal::timepos_t const & end, double top, double bot, list<Selectable*>& results, bool within)
 {
 	if ((_view && ((top < 0.0 && bot < 0.0))) || touched (top, bot)) {
 		_view->get_selectables (start, end, top, bot, results, within);
@@ -1485,7 +1485,7 @@ RouteTimeAxisView::cut_copy_clear (Selection& selection, CutCopyOp op)
 }
 
 bool
-RouteTimeAxisView::paste (samplepos_t pos, const Selection& selection, PasteContext& ctx, const int32_t sub_num)
+RouteTimeAxisView::paste (Temporal::timepos_t const & pos, const Selection& selection, PasteContext& ctx, const int32_t sub_num)
 {
 	if (!is_track()) {
 		return false;

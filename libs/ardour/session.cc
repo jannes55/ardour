@@ -146,8 +146,8 @@ PBD::Signal2<void, samplecnt_t, samplecnt_t> Session::NotifyAboutSampleRateMisma
 PBD::Signal0<void> Session::SendFeedback;
 PBD::Signal3<int,Session*,std::string,DataType> Session::MissingFile;
 
-PBD::Signal1<void, samplepos_t> Session::StartTimeChanged;
-PBD::Signal1<void, samplepos_t> Session::EndTimeChanged;
+PBD::Signal1<void, Temporal::timepos_t> Session::StartTimeChanged;
+PBD::Signal1<void, Temporal::timepos_t> Session::EndTimeChanged;
 PBD::Signal2<void,std::string, std::string> Session::Exported;
 PBD::Signal1<int,boost::shared_ptr<Playlist> > Session::AskAboutPlaylistDeletion;
 PBD::Signal0<void> Session::Quit;
@@ -1786,7 +1786,7 @@ Session::set_session_extents (samplepos_t start, samplepos_t end)
 	Location* existing;
 	if ((existing = _locations->session_range_location()) == 0) {
 		//if there is no existing session, we need to make a new session location  (should never happen)
-		existing = new Location (*this, 0, 0, _("session"), Location::IsSessionRange, 0);
+		existing = new Location (*this, 0, 0, _("session"), Location::IsSessionRange);
 	}
 
 	if (end <= start) {
@@ -4704,18 +4704,18 @@ Session::set_end_is_free (bool yn)
 }
 
 void
-Session::playlist_ranges_moved (list<Temporal::RangeMove<timepos_t> > const & ranges)
+Session::playlist_ranges_moved (list<Temporal::RangeMove> const & ranges)
 {
-	for (list<Temporal::RangeMove<timepos_t> >::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
-		maybe_update_session_range (i->from.sample(), i->to.sample());
+	for (list<Temporal::RangeMove>::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
+		maybe_update_session_range (i->from, i->to);
 	}
 }
 
 void
-Session::playlist_regions_extended (list<Temporal::Range<timepos_t> > const & ranges)
+Session::playlist_regions_extended (list<Temporal::Range> const & ranges)
 {
-	for (list<Temporal::Range<timepos_t> >::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
-		maybe_update_session_range (i->from.sample(), i->to.sample());
+	for (list<Temporal::Range>::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
+		maybe_update_session_range (i->from, i->to);
 	}
 }
 
@@ -6066,22 +6066,33 @@ Session::freeze_all (InterThreadInfo& itt)
 }
 
 boost::shared_ptr<Region>
-Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
+Session::write_one_track (Track& track, Temporal::timepos_t const & tstart, Temporal::timepos_t const & tend,
 			  bool /*overwrite*/, vector<boost::shared_ptr<Source> >& srcs,
 			  InterThreadInfo& itt,
 			  boost::shared_ptr<Processor> endpoint, bool include_endpoint,
 			  bool for_export, bool for_freeze)
 {
+	/* XXX ultimately we want to remove this limitation. But as of November
+	   2017, Track::export_stuff() uses an AudioTime domain measurement of
+	   the amount of data to process, which reflects the fact that even
+	   MidiBuffers are sized based on samples.
+	*/
+	assert (tstart.lock_style() == Temporal::AudioTime);
+	assert (tend.lock_style() == Temporal::AudioTime);
+
+	samplepos_t start = tstart.sample();
+	samplepos_t end = tend.sample();
+
 	boost::shared_ptr<Region> result;
 	boost::shared_ptr<Playlist> playlist;
 	boost::shared_ptr<Source> source;
 	ChanCount diskstream_channels (track.n_channels());
-	samplepos_t position;
+	samplepos_t pstart;
 	samplecnt_t this_chunk;
-	samplepos_t to_do;
+	samplecnt_t to_do;
 	samplepos_t latency_skip;
 	BufferSet buffers;
-	samplepos_t len = end - start;
+	samplecnt_t len = end - start;
 	bool need_block_size_reset = false;
 	ChanCount const max_proc = track.max_processor_streams ();
 	string legal_playlist_name;
@@ -6155,7 +6166,7 @@ Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
 	track.set_block_size (bounce_chunk_size);
 	_engine.main_thread()->get_buffers ();
 
-	position = start;
+	pstart = start;
 	to_do = len;
 	latency_skip = track.bounce_get_latency (endpoint, include_endpoint, for_export, for_freeze);
 
@@ -6176,15 +6187,15 @@ Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
 		}
 	}
 
-	while (to_do && !itt.cancel) {
+	while ((to_do > 0) && !itt.cancel) {
 
 		this_chunk = min (to_do, bounce_chunk_size);
 
-		if (track.export_stuff (buffers, start, this_chunk, endpoint, include_endpoint, for_export, for_freeze)) {
+		if (track.export_stuff (buffers, pstart, this_chunk, endpoint, include_endpoint, for_export, for_freeze)) {
 			goto out;
 		}
 
-		start += this_chunk;
+		pstart += this_chunk;
 		to_do -= this_chunk;
 		itt.progress = (float) (1.0 - ((double) to_do / len));
 
@@ -6196,7 +6207,9 @@ Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
 		const samplecnt_t current_chunk = this_chunk - latency_skip;
 
 		uint32_t n = 0;
+
 		for (vector<boost::shared_ptr<Source> >::iterator src=srcs.begin(); src != srcs.end(); ++src, ++n) {
+
 			boost::shared_ptr<AudioFileSource> afs = boost::dynamic_pointer_cast<AudioFileSource>(*src);
 			boost::shared_ptr<MidiSource> ms;
 
@@ -6204,14 +6217,17 @@ Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
 				if (afs->write (buffers.get_audio(n).data(latency_skip), current_chunk) != current_chunk) {
 					goto out;
 				}
+
 			} else if ((ms = boost::dynamic_pointer_cast<MidiSource>(*src))) {
-				Source::Lock lock(ms->mutex());
+
+				Source::Lock lock (ms->mutex());
 
 				const MidiBuffer& buf = buffers.get_midi(0);
+
 				for (MidiBuffer::const_iterator i = buf.begin(); i != buf.end(); ++i) {
 					Evoral::Event<samplepos_t> ev = *i;
-					ev.set_time(ev.time() - position);
-					ms->append_event_samples(lock, ev, ms->timeline_position().sample());
+					ev.set_time (ev.time() - start);
+					ms->append_event_samples (lock, ev, ms->timeline_position().sample());
 				}
 			}
 		}
@@ -6252,7 +6268,7 @@ Session::write_one_track (Track& track, samplepos_t start, samplepos_t end,
 			boost::shared_ptr<MidiSource> ms;
 
 			if (afs) {
-				afs->update_header (position, *xnow, now);
+				afs->update_header (start, *xnow, now);
 				afs->flush_header ();
 			} else if ((ms = boost::dynamic_pointer_cast<MidiSource>(*src))) {
 				Source::Lock lock(ms->mutex());
@@ -6598,7 +6614,7 @@ Session::current_end_sample () const
 void
 Session::set_session_range_location (samplepos_t start, samplepos_t end)
 {
-	_session_range_location = new Location (*this, start, end, _("session"), Location::IsSessionRange, 0);
+	_session_range_location = new Location (*this, start, end, _("session"), Location::IsSessionRange);
 	_locations->add (_session_range_location);
 }
 
@@ -6629,42 +6645,46 @@ Session::step_edit_status_change (bool yn)
 
 
 void
-Session::start_time_changed (samplepos_t old)
+Session::start_time_changed (timepos_t old)
 {
 	/* Update the auto loop range to match the session range
 	   (unless the auto loop range has been changed by the user)
 	*/
 
 	Location* s = _locations->session_range_location ();
+
 	if (s == 0) {
 		return;
 	}
 
 	Location* l = _locations->auto_loop_location ();
 
-	if (l && l->start_sample() == old) {
-		l->set_start_sample (s->start_sample(), true);
+	if (l && l->start_time() == old) {
+		l->set_start (s->start_time(), true);
 	}
+
 	set_dirty ();
 }
 
 void
-Session::end_time_changed (samplepos_t old)
+Session::end_time_changed (timepos_t old)
 {
 	/* Update the auto loop range to match the session range
 	   (unless the auto loop range has been changed by the user)
 	*/
 
 	Location* s = _locations->session_range_location ();
+
 	if (s == 0) {
 		return;
 	}
 
 	Location* l = _locations->auto_loop_location ();
 
-	if (l && l->end_sample() == old) {
-		l->set_end_sample (s->end_sample(), true);
+	if (l && l->end_time() == old) {
+		l->set_end (s->end_time(), true);
 	}
+
 	set_dirty ();
 }
 
@@ -7094,7 +7114,7 @@ Session::reconnect_ltc_output ()
 void
 Session::set_range_selection (samplepos_t start, samplepos_t end)
 {
-	_range_selection = Temporal::Range<samplepos_t> (start, end);
+	_range_selection = Temporal::Range (start, end);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7103,7 +7123,7 @@ Session::set_range_selection (samplepos_t start, samplepos_t end)
 void
 Session::set_object_selection (samplepos_t start, samplepos_t end)
 {
-	_object_selection = Temporal::Range<samplepos_t> (start, end);
+	_object_selection = Temporal::Range (start, end);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7112,7 +7132,7 @@ Session::set_object_selection (samplepos_t start, samplepos_t end)
 void
 Session::clear_range_selection ()
 {
-	_range_selection = Temporal::Range<samplepos_t> (-1,-1);
+	_range_selection = Temporal::Range (-1,-1);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7121,7 +7141,7 @@ Session::clear_range_selection ()
 void
 Session::clear_object_selection ()
 {
-	_object_selection = Temporal::Range<samplepos_t> (-1,-1);
+	_object_selection = Temporal::Range (-1,-1);
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7364,4 +7384,11 @@ Session::cancel_all_solo ()
 
 	set_controls (stripable_list_to_control_list (sl, &Stripable::solo_control), 0.0, Controllable::NoGroup);
 	clear_all_solo_state (routes.reader());
+}
+
+void
+Session::set_tempo_map (Temporal::TempoMap& map)
+{
+	/* XXX need RCU for this */
+	_tempo_map = &map;
 }

@@ -50,7 +50,7 @@ EditorCursor::EditorCursor (Editor& ed, bool (Editor::*callbck)(GdkEvent*,Ardour
 
 	_track_canvas_item->set_x (0);
 
-	_current_sample = 1; /* force redraw at 0 */
+	_current_time = 1; /* force redraw at 0 */
 }
 
 EditorCursor::EditorCursor (Editor& ed)
@@ -66,7 +66,7 @@ EditorCursor::EditorCursor (Editor& ed)
 
 	_track_canvas_item->set_x (0);
 
-	_current_sample = 1; /* force redraw at 0 */
+	_current_time = 1; /* force redraw at 0 */
 }
 
 EditorCursor::~EditorCursor ()
@@ -77,15 +77,28 @@ EditorCursor::~EditorCursor ()
 void
 EditorCursor::set_position (samplepos_t sample)
 {
-	if (_current_sample != sample) { PositionChanged (sample); }
+	set_position (Temporal::timepos_t (sample));
+}
 
-	double const new_pos = _editor.sample_to_pixel_unrounded (sample);
+
+void
+EditorCursor::set_position (Temporal::timepos_t const & pos)
+{
+	if (_current_time != pos) { PositionChanged (pos); }
+
+	double const new_pos = _editor.time_to_pixel_unrounded (pos);
 
 	if (rint(new_pos) != rint(_track_canvas_item->x ())) {
 		_track_canvas_item->set_x (new_pos);
 	}
 
-	_current_sample = sample;
+	_current_time = pos;
+}
+
+samplepos_t
+EditorCursor::current_sample() const
+{
+	return _current_time.sample();
 }
 
 void

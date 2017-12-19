@@ -29,10 +29,10 @@
 using namespace ARDOUR;
 using namespace PBD;
 
-AudioRange&
+Temporal::Range<Temporal::samplepos_t>&
 TimeSelection::operator[] (uint32_t which)
 {
-	for (std::list<AudioRange>::iterator i = begin(); i != end(); ++i) {
+	for (std::list<Range>::iterator i = begin(); i != end(); ++i) {
 		if ((*i).id == which) {
 			return *i;
 		}
@@ -48,8 +48,8 @@ TimeSelection::consolidate ()
 	bool changed = false;
 
   restart:
-	for (std::list<AudioRange>::iterator a = begin(); a != end(); ++a) {
-		for (std::list<AudioRange>::iterator b = begin(); b != end(); ++b) {
+	for (std::list<TimelineRange>::iterator a = begin(); a != end(); ++a) {
+		for (std::list<Range>::iterator b = begin(); b != end(); ++b) {
 
 			if (&(*a) == &(*b)) {
 				continue;
@@ -77,7 +77,7 @@ TimeSelection::start ()
 
 	samplepos_t first = max_samplepos;
 
-	for (std::list<AudioRange>::iterator i = begin(); i != end(); ++i) {
+	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
 		if ((*i).start < first) {
 			first = (*i).start;
 		}
@@ -92,7 +92,7 @@ TimeSelection::end_sample ()
 
 	/* XXX make this work like RegionSelection: no linear search needed */
 
-	for (std::list<AudioRange>::iterator i = begin(); i != end(); ++i) {
+	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
 		if ((*i).end > last) {
 			last = (*i).end;
 		}

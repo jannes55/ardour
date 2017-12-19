@@ -67,20 +67,19 @@ Location::Location (Session& s)
 }
 
 /** Construct a new Location, giving it the position lock style determined by glue-new-markers-to-bars-and-beats */
-Location::Location (Session& s, samplepos_t sample_start, samplepos_t sample_end, const std::string &name, Flags bits, const uint32_t sub_num)
+Location::Location (Session& s, Temporal::timepos_t const & start, Temporal::timepos_t const & end, const std::string &name, Flags bits)
 	: SessionHandleRef (s)
 	, _name (name)
-	, _start (sample_start)
-	, _end (sample_end)
+	, _start (start)
+	, _end (end)
 	, _flags (bits)
 	, _locked (false)
 {
-	assert (sample_start >= 0);
-	assert (sample_end >= 0);
+	assert (_start >= 0);
+	assert (_end >= 0);
 
-	/* XXX if this uses !AudioTime, passing in the sample is wrong */
-	//_start.lock_status().set_style (s.config.get_glue_new_markers_to_bars_and_beats() ? BeatTime : AudioTime);
-	//_end.lock_status().set_style (s.config.get_glue_new_markers_to_bars_and_beats() ? BeatTime : AudioTime);
+	_start.lock_status().set_style (s.config.get_glue_new_markers_to_bars_and_beats() ? BeatTime : start.lock_style());
+	_end.lock_status().set_style (s.config.get_glue_new_markers_to_bars_and_beats() ? BeatTime : end.lock_style());
 }
 
 Location::Location (const Location& other)
@@ -166,26 +165,33 @@ Location::set_name (const std::string& str)
  *  @param force true to force setting, even if the given new start is after the current end.
  */
 int
-Location::set_start_sample (samplepos_t s, bool force, const uint32_t sub_num)
+Location::set_start_sample (samplepos_t s, bool force)
 {
 	if (s < 0) {
 		return -1;
 	}
+
+	return set_start (timepos_t (s), force);
+}
+
+int
+Location::set_start (Temporal::timepos_t const & s, bool force)
+{
 
 	if (_locked) {
 		return -1;
 	}
 
 	if (!force) {
-		if (((is_auto_punch() || is_auto_loop()) && s >= _end.sample()) || (!is_mark() && s > _end.sample())) {
+		if (((is_auto_punch() || is_auto_loop()) && s >= _end) || (!is_mark() && s > _end)) {
 			return -1;
 		}
 	}
 
 	if (is_mark()) {
 		if (_start != s) {
-			_start.set_sample (s);
-			_end.set_sample (s);
+			_start = s;
+			_end = s;
 
 			start_changed (this); /* EMIT SIGNAL */
 			StartChanged (); /* EMIT SIGNAL */
@@ -206,22 +212,22 @@ Location::set_start_sample (samplepos_t s, bool force, const uint32_t sub_num)
 		return 0;
 	} else if (!force) {
 		/* range locations must exceed a minimum duration */
-		if (_end.sample() - s < Config->get_range_location_minimum()) {
+		if (_end - s < Config->get_range_location_minimum()) {
 			return -1;
 		}
 	}
 
-	if (s != _start.sample()) {
+	if (s != _start) {
 
-		samplepos_t const old = _start.sample();
+		Temporal::timepos_t const old = _start;
 
-		_start.set_sample (s);
+		_start = s;
 		start_changed (this); /* EMIT SIGNAL */
 		StartChanged (); /* EMIT SIGNAL */
 
 		if (is_session_range ()) {
-			Session::StartTimeChanged (old); /* EMIT SIGNAL */
-			AudioFileSource::set_header_position_offset (s);
+			Session::StartTimeChanged (old); /* emit signal */
+			AudioFileSource::set_header_position_offset (s.sample());
 		}
 	}
 
@@ -230,53 +236,60 @@ Location::set_start_sample (samplepos_t s, bool force, const uint32_t sub_num)
 	return 0;
 }
 
-/** Set end position.
- *  @param s New end.
+/** set end position.
+ *  @param s new end.
  *  @param force true to force setting, even if the given new end is before the current start.
  */
 int
-Location::set_end_sample (samplepos_t e, bool force, const uint32_t sub_num)
+Location::set_end_sample (samplepos_t e, bool force)
 {
 	if (e < 0) {
 		return -1;
 	}
 
+	return set_end (timepos_t (e), force);
+}
+
+
+int
+Location::set_end (Temporal::timepos_t const & e, bool force)
+{
 	if (_locked) {
 		return -1;
 	}
 
 	if (!force) {
-		if (((is_auto_punch() || is_auto_loop()) && e <= _start.sample()) || e < _start.sample()) {
+		if (((is_auto_punch() || is_auto_loop()) && e <= _start) || e < _start) {
 			return -1;
 		}
 	}
 
 	if (is_mark()) {
-		if (_start.sample() != e) {
-			_start.set_sample (e);
-			_end.set_sample (e);
-			//start_changed (this); /* EMIT SIGNAL */
-			//StartChanged (); /* EMIT SIGNAL */
-			end_changed (this); /* EMIT SIGNAL */
-			EndChanged (); /* EMIT SIGNAL */
+		if (_start != e) {
+			_start = e;
+			_end = e;
+			//start_changed (this); /* emit signal */
+			//startchanged (); /* emit signal */
+			end_changed (this); /* emit signal */
+			EndChanged (); /* emit signal */
 		}
 
-		assert (_start.sample() >= 0);
-		assert (_end.sample() >= 0);
+		assert (_start >= 0);
+		assert (_end >= 0);
 
 		return 0;
 	} else if (!force) {
 		/* range locations must exceed a minimum duration */
-		if (e - _start.sample() < Config->get_range_location_minimum()) {
+		if (e - _start < Config->get_range_location_minimum()) {
 			return -1;
 		}
 	}
 
-	if (e != _end.sample()) {
+	if (e != _end) {
 
-		samplepos_t const old = _end.sample();
+		timepos_t const old = _end;
 
-		_end.set_sample (e);
+		_end = e;
 		end_changed(this); /* EMIT SIGNAL */
 		EndChanged(); /* EMIT SIGNAL */
 
@@ -285,18 +298,24 @@ Location::set_end_sample (samplepos_t e, bool force, const uint32_t sub_num)
 		}
 	}
 
-	assert (_end.sample() >= 0);
+	assert (_end >= 0);
 
 	return 0;
 }
 
 int
-Location::set_sample (samplepos_t s, samplepos_t e, const uint32_t sub_num)
+Location::set_sample (samplepos_t s, samplepos_t e)
 {
 	if (s < 0 || e < 0) {
 		return -1;
 	}
 
+	return set (timepos_t (s), timepos_t (e));
+}
+
+int
+Location::set (Temporal::timepos_t const & s, Temporal::timepos_t const & e)
+{
 	/* check validity */
 	if (((is_auto_punch() || is_auto_loop()) && s >= e) || (!is_mark() && s > e)) {
 		return -1;
@@ -307,15 +326,15 @@ Location::set_sample (samplepos_t s, samplepos_t e, const uint32_t sub_num)
 
 	if (is_mark()) {
 
-		if (_start.sample() != s) {
-			_start.set_sample (s);
-			_end.set_sample (s);
+		if (_start != s) {
+			_start = s;
+			_end = s;
 			start_change = true;
 			end_change = true;
 		}
 
-		assert (s >= 0);
-		assert (s >= 0);
+		assert (_start >= 0);
+		assert (_end >= 0);
 
 	} else {
 
@@ -324,23 +343,23 @@ Location::set_sample (samplepos_t s, samplepos_t e, const uint32_t sub_num)
 			return -1;
 		}
 
-		if (s != _start.sample()) {
+		if (s != _start) {
 
-			samplepos_t const old = _start.sample();
-			_start.set_sample (s);
+			Temporal::timepos_t const old = _start;
+			_start = s;
 			start_change = true;
 
 			if (is_session_range ()) {
 				Session::StartTimeChanged (old); /* EMIT SIGNAL */
-				AudioFileSource::set_header_position_offset (s);
+				AudioFileSource::set_header_position_offset (s.sample());
 			}
 		}
 
 
-		if (e != _end.sample()) {
+		if (e != _end) {
 
-			samplepos_t const old = _end.sample();
-			_end.set_sample (e);
+			Temporal::timepos_t const old = _end;
+			_end = e;
 			end_change = true;
 
 			if (is_session_range()) {
@@ -366,26 +385,33 @@ Location::set_sample (samplepos_t s, samplepos_t e, const uint32_t sub_num)
 }
 
 int
-Location::move_to_sample (samplepos_t pos, const uint32_t sub_num)
+Location::move_to_sample (samplepos_t pos)
 {
 	if (pos < 0) {
 		return -1;
 	}
 
+	return move_to (timepos_t (pos));
+}
+
+int
+Location::move_to (Temporal::timepos_t const & pos)
+{
 	if (_locked) {
 		return -1;
 	}
 
-	if (_start.sample() != pos) {
-		_start.set_sample (pos);
-		_end.set_sample (pos + length_samples());
+	if (_start != pos) {
+		const timecnt_t len = _end - _start;
+		_start = pos;
+		_end = pos + len;
 
 		changed (this); /* EMIT SIGNAL */
 		Changed (); /* EMIT SIGNAL */
 	}
 
-	assert (_start.sample() >= 0);
-	assert (_end.sample() >= 0);
+	assert (_start >= 0);
+	assert (_end >= 0);
 
 	return 0;
 }
@@ -973,7 +999,7 @@ Locations::set_state (const XMLNode& node, int version)
 
 	Location* session_range_location = 0;
 	if (version < 3000) {
-		session_range_location = new Location (_session, 0, 0, _("session"), Location::IsSessionRange, 0);
+		session_range_location = new Location (_session, 0, 0, _("session"), Location::IsSessionRange);
 		new_locations.push_back (session_range_location);
 	}
 
@@ -1206,14 +1232,14 @@ Locations::first_mark_after (samplepos_t sample, bool include_special_ranges)
 /** Look for the `marks' (either locations which are marks, or start/end points of range markers) either
  *  side of a sample.  Note that if sample is exactly on a `mark', that mark will not be considered for returning
  *  as before/after.
- *  @param sample Frame to look for.
- *  @param before Filled in with the position of the last `mark' before `sample' (or max_samplepos if none exists)
- *  @param after Filled in with the position of the next `mark' after `sample' (or max_samplepos if none exists)
+ *  @param pos position to be used
+ *  @param before Filled in with the position of the last `mark' before `pos' (or max_timepos if none exists)
+ *  @param after Filled in with the position of the next `mark' after `pos' (or max_timepos if none exists)
  */
 void
-Locations::marks_either_side (samplepos_t const sample, samplepos_t& before, samplepos_t& after) const
+Locations::marks_either_side (timepos_t const & pos, timepos_t& before, timepos_t& after) const
 {
-	before = after = max_samplepos;
+	before = after = std::numeric_limits<timepos_t>::max();
 
 	LocationList locs;
 
@@ -1224,7 +1250,7 @@ Locations::marks_either_side (samplepos_t const sample, samplepos_t& before, sam
 
 	/* Get a list of positions; don't store any that are exactly on our requested position */
 
-	std::list<samplepos_t> positions;
+	std::list<timepos_t> positions;
 
 	for (LocationList::const_iterator i = locs.begin(); i != locs.end(); ++i) {
 		if (((*i)->is_auto_loop() || (*i)->is_auto_punch())) {
@@ -1233,15 +1259,15 @@ Locations::marks_either_side (samplepos_t const sample, samplepos_t& before, sam
 
 		if (!(*i)->is_hidden()) {
 			if ((*i)->is_mark ()) {
-				if ((*i)->start_sample() != sample) {
-					positions.push_back ((*i)->start_sample ());
+				if ((*i)->start_time() != pos) {
+					positions.push_back ((*i)->start_time ());
 				}
 			} else {
-				if ((*i)->start_sample() != sample) {
-					positions.push_back ((*i)->start_sample ());
+				if ((*i)->start_time() != pos) {
+					positions.push_back ((*i)->start_time ());
 				}
-				if ((*i)->end_sample() != sample) {
-					positions.push_back ((*i)->end_sample ());
+				if ((*i)->end_time() != pos) {
+					positions.push_back ((*i)->end_time ());
 				}
 			}
 		}
@@ -1253,8 +1279,9 @@ Locations::marks_either_side (samplepos_t const sample, samplepos_t& before, sam
 
 	positions.sort ();
 
-	std::list<samplepos_t>::iterator i = positions.begin ();
-	while (i != positions.end () && *i < sample) {
+	std::list<timepos_t>::iterator i = positions.begin ();
+
+	while (i != positions.end () && *i < pos) {
 		++i;
 	}
 

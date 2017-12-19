@@ -246,7 +246,6 @@ children = [
         'libs/plugins/a-eq.lv2',
         'libs/plugins/a-reverb.lv2',
         'libs/plugins/a-fluidsynth.lv2',
-        # 'gtk2_ardour',
         'export',
         'midi_maps',
         'mcp',
@@ -260,6 +259,7 @@ children = [
         'libs/vfork',
         'libs/ardouralsautil',
         'tools/luadevel',
+        'gtk2_ardour',
 ]
 
 i18n_children = [

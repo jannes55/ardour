@@ -183,26 +183,26 @@ MidiRegion::clone (boost::shared_ptr<MidiSource> newsrc) const
 
 int
 MidiRegion::read_at (Evoral::EventSink<samplepos_t>& out,
-                     timepos_t                     position,
-                     timecnt_t                     dur,
-                     Temporal::Range<samplepos_t>*     loop_range,
-                     MidiCursor&                    cursor,
-                     uint32_t                       chan_n,
-                     NoteMode                       mode,
-                     MidiStateTracker*              tracker,
-                     MidiChannelFilter*             filter) const
+                     timepos_t                       position,
+                     timecnt_t                       dur,
+                     Temporal::Range*                loop_range,
+                     MidiCursor&                     cursor,
+                     uint32_t                        chan_n,
+                     NoteMode                        mode,
+                     MidiStateTracker*               tracker,
+                     MidiChannelFilter*              filter) const
 {
 	return _read_at (_sources, out, position, dur, loop_range, cursor, chan_n, mode, tracker, filter);
 }
 
 int
 MidiRegion::master_read_at (MidiRingBuffer<samplepos_t>& out,
-                            timepos_t                  position,
-                            timecnt_t                  dur,
-                            Temporal::Range<samplepos_t>*  loop_range,
-                            MidiCursor&                 cursor,
-                            uint32_t                    chan_n,
-                            NoteMode                    mode) const
+                            timepos_t                    position,
+                            timecnt_t                    dur,
+                            Temporal::Range*             loop_range,
+                            MidiCursor&                  cursor,
+                            uint32_t                     chan_n,
+                            NoteMode                     mode) const
 {
 	return _read_at (_master_sources, out, position, dur, loop_range, cursor, chan_n, mode); /* no tracker */
 }
@@ -212,7 +212,7 @@ MidiRegion::_read_at (const SourceList&              /*srcs*/,
                       Evoral::EventSink<samplepos_t>& dst,
                       timepos_t                       start,
                       timecnt_t                       dur,
-                      Temporal::Range<samplepos_t>*   loop_range,
+                      Temporal::Range*                loop_range,
                       MidiCursor&                     cursor,
                       uint32_t                        chan_n,
                       NoteMode                        mode,

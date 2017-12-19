@@ -105,9 +105,9 @@ public:
 	 * @param include_endpoint include the given processor in the bounced audio.
 	 * @return a new audio region (or nil in case of error)
 	 */
-	virtual boost::shared_ptr<Region> bounce_range (samplepos_t start, samplepos_t end, InterThreadInfo& itt,
+	virtual boost::shared_ptr<Region> bounce_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end, InterThreadInfo& itt,
 							boost::shared_ptr<Processor> endpoint, bool include_endpoint) = 0;
-	virtual int export_stuff (BufferSet& bufs, samplepos_t start_sample, samplecnt_t nframes,
+	virtual int export_stuff (BufferSet& bufs, Temporal::timepos_t const & start_sample, Temporal::timecnt_t const & nframes,
 				  boost::shared_ptr<Processor> endpoint, bool include_endpoint, bool for_export, bool for_freeze) = 0;
 
 	virtual int set_state (const XMLNode&, int version);

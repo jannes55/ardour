@@ -95,7 +95,7 @@ Editor::export_range ()
 	Location* l;
 	bool is_start;
 
-	if (((l = find_location_from_marker (marker, is_start)) != 0) && (l->end() > l->start())) {
+	if (((l = find_location_from_marker (marker, is_start)) != 0) && (l->end_time() > l->start_time())) {
 		ExportRangeDialog dialog (*this, l->id().to_s());
 		dialog.set_session (_session);
 		dialog.run();
@@ -281,8 +281,8 @@ Editor::write_region (string path, boost::shared_ptr<AudioRegion> region)
 
 	}
 
-	to_read = region->length();
-	pos = region->position();
+	to_read = region->length_samples();
+	pos = region->position_sample();
 
 	while (to_read) {
 		samplepos_t this_time;
@@ -360,7 +360,7 @@ Editor::write_audio_selection (TimeSelection& ts)
 }
 
 bool
-Editor::write_audio_range (AudioPlaylist& playlist, const ChanCount& count, list<AudioRange>& range)
+Editor::write_audio_range (AudioPlaylist& playlist, const ChanCount& count, list<ARDOUR::TimelineRange>& range)
 {
 	boost::shared_ptr<AudioFileSource> fs;
 	const samplepos_t chunk_size = 4096;
@@ -417,10 +417,10 @@ Editor::write_audio_range (AudioPlaylist& playlist, const ChanCount& count, list
 	}
 
 
-	for (list<AudioRange>::iterator i = range.begin(); i != range.end();) {
+	for (list<TimelineRange>::iterator i = range.begin(); i != range.end();) {
 
-		nframes = (*i).length();
-		pos = (*i).start;
+		nframes = (*i).length_samples();
+		pos = (*i).start_sample();
 
 		while (nframes) {
 			samplepos_t this_time;
@@ -444,14 +444,14 @@ Editor::write_audio_range (AudioPlaylist& playlist, const ChanCount& count, list
 			pos += this_time;
 		}
 
-		list<AudioRange>::iterator tmp = i;
+		list<TimelineRange>::iterator tmp = i;
 		++tmp;
 
 		if (tmp != range.end()) {
 
 			/* fill gaps with silence */
 
-			nframes = (*tmp).start - (*i).end;
+			nframes = (*tmp).start_sample() - (*i).end_sample();
 
 			while (nframes) {
 

@@ -1598,7 +1598,7 @@ Editor::select_all_in_track (Selection::Operation op)
 
 	begin_reversible_selection_op (X_("Select All in Track"));
 
-	clicked_routeview->get_selectables (0, max_samplepos, 0, DBL_MAX, touched);
+	clicked_routeview->get_selectables (0, std::numeric_limits<timepos_t>::max(), 0, DBL_MAX, touched);
 
 	switch (op) {
 	case Selection::Toggle:
@@ -1661,7 +1661,7 @@ Editor::select_all_objects (Selection::Operation op)
 		if ((*iter)->hidden()) {
 			continue;
 		}
-		(*iter)->get_selectables (0, max_samplepos, 0, DBL_MAX, touched);
+		(*iter)->fget_selectables (0, std::numeric_limits<Temporal::timepos_t>::max(), 0, DBL_MAX, touched);
 	}
 
 	begin_reversible_selection_op (X_("select all"));
@@ -1732,7 +1732,7 @@ Editor::invert_selection ()
  *  within the region are already selected.
  */
 void
-Editor::select_all_within (samplepos_t start, samplepos_t end, double top, double bot, const TrackViewList& tracklist, Selection::Operation op, bool preserve_if_selected)
+Editor::select_all_within (Temporal::timepos_t const & start, Temporal::timepos_t const & end, double top, double bot, const TrackViewList& tracklist, Selection::Operation op, bool preserve_if_selected)
 {
 	list<Selectable*> found;
 
@@ -1875,7 +1875,7 @@ Editor::select_all_selectables_using_time_selection ()
 		if ((*iter)->hidden()) {
 			continue;
 		}
-		(*iter)->get_selectables (start, end - 1, 0, DBL_MAX, touched);
+		(*iter)->get_selectables (start, end.decrement(), 0, DBL_MAX, touched);
 	}
 
 	begin_reversible_selection_op (X_("select all from range"));
@@ -1907,7 +1907,7 @@ Editor::select_all_selectables_using_punch()
 		if ((*iter)->hidden()) {
 			continue;
 		}
-		(*iter)->get_selectables (location->start(), location->end() - 1, 0, DBL_MAX, touched);
+		(*iter)->get_selectables (location->start(), location->end().decrement(), 0, DBL_MAX, touched);
 	}
 	begin_reversible_selection_op (X_("select all from punch"));
 	selection->set (touched);
@@ -1938,7 +1938,7 @@ Editor::select_all_selectables_using_loop()
 		if ((*iter)->hidden()) {
 			continue;
 		}
-		(*iter)->get_selectables (location->start(), location->end() - 1, 0, DBL_MAX, touched);
+		(*iter)->get_selectables (location->start(), location->end().decrement(), 0, DBL_MAX, touched);
 	}
 	begin_reversible_selection_op (X_("select all from loop"));
 	selection->set (touched);

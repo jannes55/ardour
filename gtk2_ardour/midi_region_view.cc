@@ -102,7 +102,7 @@ MidiRegionView::MidiRegionView (ArdourCanvas::Container*      parent,
 	, _current_range_max(0)
 	, _region_relative_time_converter(r->session().tempo_map(), r->position())
 	, _source_relative_time_converter(r->session().tempo_map(), r->position() - r->start())
-	, _region_relative_time_converter_double(r->session().tempo_map(), r->position())
+
 	, _active_notes(0)
 	, _note_group (new ArdourCanvas::Container (group))
 	, _note_diff_command (0)
@@ -148,7 +148,6 @@ MidiRegionView::MidiRegionView (ArdourCanvas::Container*      parent,
 	, _current_range_max(0)
 	, _region_relative_time_converter(r->session().tempo_map(), r->position())
 	, _source_relative_time_converter(r->session().tempo_map(), r->position() - r->start())
-	, _region_relative_time_converter_double(r->session().tempo_map(), r->position())
 	, _active_notes(0)
 	, _note_group (new ArdourCanvas::Container (group))
 	, _note_diff_command (0)
@@ -201,7 +200,6 @@ MidiRegionView::MidiRegionView (const MidiRegionView& other)
 	, _current_range_max(0)
 	, _region_relative_time_converter(other.region_relative_time_converter())
 	, _source_relative_time_converter(other.source_relative_time_converter())
-	, _region_relative_time_converter_double(other.region_relative_time_converter_double())
 	, _active_notes(0)
 	, _note_group (new ArdourCanvas::Container (get_canvas_group()))
 	, _note_diff_command (0)
@@ -232,7 +230,6 @@ MidiRegionView::MidiRegionView (const MidiRegionView& other, boost::shared_ptr<M
 	, _current_range_max(0)
 	, _region_relative_time_converter(other.region_relative_time_converter())
 	, _source_relative_time_converter(other.source_relative_time_converter())
-	, _region_relative_time_converter_double(other.region_relative_time_converter_double())
 	, _active_notes(0)
 	, _note_group (new ArdourCanvas::Container (get_canvas_group()))
 	, _note_diff_command (0)
@@ -1462,7 +1459,6 @@ MidiRegionView::region_resized (const PropertyChange& what_changed)
 
 	if (what_changed.contains (ARDOUR::Properties::position)) {
 		_region_relative_time_converter.set_origin_b(_region->position());
-		_region_relative_time_converter_double.set_origin_b(_region->position());
 		/* reset_width dependent_items() redisplays model */
 
 	}
@@ -1705,8 +1701,8 @@ MidiRegionView::note_in_region_range (const boost::shared_ptr<NoteType> note, bo
 	const boost::shared_ptr<ARDOUR::MidiRegion> midi_reg = midi_region();
 
 	/* must compare double explicitly as Beats::operator< rounds to ppqn */
-	const bool outside = (note->time().to_double() < midi_reg->start_beats() ||
-			      note->time().to_double() >= midi_reg->start_beats() + midi_reg->length_beats());
+	const bool outside = (note->time() < midi_reg->start_beats() ||
+			      note->time() >= midi_reg->start_beats() + midi_reg->length_beats());
 
 	visible = (note->note() >= _current_range_min) &&
 		(note->note() <= _current_range_max);
@@ -1738,7 +1734,7 @@ MidiRegionView::update_sustained (Note* ev, bool update_ghost_regions)
 	boost::shared_ptr<NoteType> note = ev->note();
 
 	const double session_source_start = _region->quarter_note() - mr->start_beats();
-	const samplepos_t note_start_samples = map.sample_at_quarter_note (note->time().to_double() + session_source_start) - _region->position();
+	const samplepos_t note_start_samples = map.sample_at (session_source_start + Temporal::Beats::ticks (note->time())) - _region->position();
 
 	const double x0 = trackview.editor().sample_to_pixel (note_start_samples);
 	double x1;
@@ -2873,41 +2869,33 @@ MidiRegionView::get_end_position_pixels()
 samplepos_t
 MidiRegionView::source_beats_to_absolute_samples(Temporal::Beats beats) const
 {
-	/* the time converter will return the sample corresponding to `beats'
-	   relative to the start of the source. The start of the source
-	   is an implied position given by region->position - region->start
+	/* return the sample corresponding to `beats' relative to the start of
+	   the source. The start of the source is an implied position given by
+	   region->position - region->start
 	*/
-	const samplepos_t source_start = _region->position() - _region->start();
-	return  source_start +  _source_relative_time_converter.to (beats);
+	const timepos_t source_start = _region->position() - _region->start();
+	const timepos_t result = source_start + beats;
+	return result.sample();
 }
 
 Temporal::Beats
 MidiRegionView::absolute_samples_to_source_beats(samplepos_t samples) const
 {
-	/* the `samples' argument needs to be converted into a sample count
-	   relative to the start of the source before being passed in to the
-	   converter.
-	*/
-	const samplepos_t source_start = _region->position() - _region->start();
-	return  _source_relative_time_converter.from (samples - source_start);
+	const timepos_t source_start = _region->position() - _region->start();
+	const timepos_t result = samples - source_start;
+	return result.beats();
 }
 
 samplepos_t
-MidiRegionView::region_beats_to_region_samples(Temporal::Beats beats) const
+MidiRegionView::region_beats_to_absolute_samples(Temporal::Beats beats) const
 {
-	return _region_relative_time_converter.to(beats);
+	return (_region->position() + beats).sample();
 }
 
 Temporal::Beats
 MidiRegionView::region_samples_to_region_beats(samplepos_t samples) const
 {
-	return _region_relative_time_converter.from(samples);
-}
-
-double
-MidiRegionView::region_samples_to_region_beats_double (samplepos_t samples) const
-{
-	return _region_relative_time_converter_double.from(samples);
+	return (_region->position() + samples).beats ();
 }
 
 void
@@ -3738,7 +3726,7 @@ MidiRegionView::selection_as_cut_buffer () const
 
 /** This method handles undo */
 bool
-MidiRegionView::paste (samplepos_t pos, const ::Selection& selection, PasteContext& ctx, const int32_t sub_num)
+MidiRegionView::paste (Temporal::timepos_t const & pos, const ::Selection& selection, PasteContext& ctx, const int32_t sub_num)
 {
 	bool commit = false;
 	// Paste notes, if available

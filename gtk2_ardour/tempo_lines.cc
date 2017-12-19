@@ -29,24 +29,20 @@
 
 using namespace std;
 
-TempoLines::TempoLines (ArdourCanvas::Container* group, double, ARDOUR::BeatsSamplesConverter* bfc)
+TempoLines::TempoLines (ArdourCanvas::Container* group, double)
 	: lines (group, ArdourCanvas::LineSet::Vertical)
-	, _bfc (bfc)
 {
 	lines.set_extent (ArdourCanvas::COORD_MAX);
 }
 
 TempoLines::~TempoLines ()
 {
-	delete _bfc;
-	_bfc = 0;
 }
 
 void
-TempoLines::tempo_map_changed (samplepos_t new_origin)
+TempoLines::tempo_map_changed ()
 {
 	lines.clear ();
-	_bfc->set_origin_b (new_origin);
 }
 
 void
@@ -62,10 +58,10 @@ TempoLines::hide ()
 }
 
 void
-TempoLines::draw_ticks (std::vector<ARDOUR::TempoMap::BBTPoint>& grid,
-			unsigned                                              divisions,
-                        samplecnt_t                                            leftmost_sample,
-                        samplecnt_t                                            sample_rate)
+TempoLines::draw_ticks (std::vector<Temporal::TempoMapPoint>& grid,
+			unsigned                              divisions,
+                        samplecnt_t                           leftmost_sample,
+                        samplecnt_t                           sample_rate)
 {
 	const uint32_t base = UIConfiguration::instance().color_mod("measure line beat", "measure line beat");
 
@@ -89,12 +85,12 @@ TempoLines::draw_ticks (std::vector<ARDOUR::TempoMap::BBTPoint>& grid,
 }
 
 void
-TempoLines::draw (std::vector<ARDOUR::TempoMap::BBTPoint>& grid,
-		  unsigned                                              divisions,
-                  samplecnt_t                                            leftmost_sample,
-                  samplecnt_t                                            sample_rate)
+TempoLines::draw (std::vector<Temporal::TempoMapPoint>& grid,
+		  unsigned                              divisions,
+                  samplecnt_t                           leftmost_sample,
+                  samplecnt_t                           sample_rate)
 {
-	std::vector<ARDOUR::TempoMap::BBTPoint>::const_iterator i;
+	std::vector<Temporal::TempoMapPoint>::const_iterator i;
 	double  beat_density;
 
 	uint32_t beats = 0;

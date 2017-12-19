@@ -23,20 +23,23 @@
 #include <cmath>
 #include <sstream>
 #include <algorithm>
+
+#include "pbd/memento_command.h"
+#include "pbd/stacktrace.h"
+#include "pbd/enumwriter.h"
+#include "pbd/types_convert.h"
+#include "pbd/i18n.h"
+
+#include "temporal/tempo.h"
+
+#include "evoral/Curve.hpp"
+
 #include "ardour/automation_list.h"
-#include "ardour/beats_samples_converter.h"
 #include "ardour/event_type_map.h"
 #include "ardour/parameter_descriptor.h"
 #include "ardour/parameter_types.h"
 #include "ardour/evoral_types_convert.h"
 #include "ardour/types_convert.h"
-#include "evoral/Curve.hpp"
-#include "pbd/memento_command.h"
-#include "pbd/stacktrace.h"
-#include "pbd/enumwriter.h"
-#include "pbd/types_convert.h"
-
-#include "pbd/i18n.h"
 
 using namespace std;
 using namespace ARDOUR;
@@ -308,27 +311,39 @@ AutomationList::thaw ()
 }
 
 bool
-AutomationList::paste (const ControlList& alist, double pos, BeatsSamplesConverter const& bfc)
+AutomationList::paste (const ControlList& alist, Temporal::timepos_t const & pos, Temporal::TempoMap const & tempo_map)
 {
-	AutomationType src_type = (AutomationType)alist.parameter().type();
-	AutomationType dst_type = (AutomationType)_parameter.type();
-
-	if (parameter_is_midi (src_type) == parameter_is_midi (dst_type)) {
+	if (time_style() == alist.time_style()) {
 		return ControlList::paste (alist, pos);
 	}
-	bool to_sample = parameter_is_midi (src_type);
+
+	/* time domains differ - need to map the time of all points in alist
+	 * into our time domain
+	 */
+
+	bool to_sample = (time_style() == Temporal::AudioTime);
 
 	ControlList cl (alist);
 	cl.clear ();
+
 	for (const_iterator i = alist.begin ();i != alist.end (); ++i) {
-		double when = (*i)->when;
+
+		/* when could be beats or samples, depending on alist.time_style() */
+
+		Evoral::ControlEvent::when_t our_when;
+
 		if (to_sample) {
-			when = bfc.to (Temporal::Beats::ticks ((*i)->when));
+			/* assume that pos is canonically specified in samples */
+			Temporal::Beats b = (*i)->when_as_beats ().beats ();
+			our_when = tempo_map.sample_quarters_delta_as_samples (pos.sample(), b);
 		} else {
-			when = bfc.from ((samplecnt_t) (*i)->when).to_ticks();
+			/* assume that pos is canonically specified in beats */
+			our_when = tempo_map.samplewalk_to_quarters (pos.beats(), (*i)->when_as_sample().sample()).to_ticks ();
 		}
-		cl.fast_simple_add (when, (*i)->value);
+
+		cl.fast_simple_add (our_when, (*i)->value);
 	}
+
 	return ControlList::paste (cl, pos);
 }
 

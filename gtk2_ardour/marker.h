@@ -31,9 +31,11 @@
 #include "canvas/fwd.h"
 #include "canvas/types.h"
 
-namespace ARDOUR {
-	class TempoSection;
-	class MeterSection;
+namespace Temporal {
+	class TempoMetric;
+	class TempoMapPoint;
+	class Tempo;
+	class Meter;
 }
 
 class PublicEditor;
@@ -61,7 +63,7 @@ public:
 
 
 	ArdourMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Type,
-	              samplepos_t sample = 0, bool handle_events = true);
+	              Temporal::timepos_t const & sample = Temporal::timepos_t(), bool handle_events = true);
 
 	virtual ~ArdourMarker ();
 
@@ -75,13 +77,13 @@ public:
 	void set_show_line (bool);
 	void canvas_height_set (double);
 
-	void set_position (samplepos_t);
+	void set_position (Temporal::timepos_t const &);
 	void set_name (const std::string&);
 	void set_points_color (uint32_t rgba);
 	void set_color_rgba (uint32_t rgba);
 	void setup_line ();
 
-	samplepos_t position() const { return sample_position; }
+	Temporal::timepos_t position() const { return timeline_position; }
 
 	ArdourCanvas::Container * get_parent() { return _parent; }
 	void reparent (ArdourCanvas::Container & parent);
@@ -115,7 +117,7 @@ protected:
 
 	std::string  _name;
 	double        unit_position;
-	samplepos_t    sample_position;
+	Temporal::timepos_t timeline_position;
 	double       _shift;
 	Type         _type;
 	int           name_height;
@@ -139,29 +141,34 @@ private:
 	ArdourMarker & operator= (ArdourMarker const &);
 };
 
-class TempoMarker : public ArdourMarker
+class MetricMarker : public ArdourMarker
 {
   public:
-	TempoMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, ARDOUR::TempoSection&);
-	~TempoMarker ();
+	MetricMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint &);
+	~MetricMarker ();
 
-	ARDOUR::TempoSection& tempo() const { return _tempo; }
+	Temporal::TempoMetric & metric() const;
+	Temporal::TempoMapPoint & point() const { return _point; }
 
-	void update_height_mark (const double ratio);
   private:
-	ARDOUR::TempoSection& _tempo;
+	Temporal::TempoMapPoint & _point;
 };
 
-class MeterMarker : public ArdourMarker
+class TempoMarker : public MetricMarker
 {
   public:
-	MeterMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, ARDOUR::MeterSection&);
-	~MeterMarker ();
+	TempoMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint &);
 
-	ARDOUR::MeterSection& meter() const { return _meter; }
+	Temporal::Tempo & tempo() const;
+	void update_height_mark (const double ratio);
+};
 
-  private:
-	ARDOUR::MeterSection& _meter;
+class MeterMarker : public MetricMarker
+{
+  public:
+	MeterMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint &);
+
+	Temporal::Meter & meter() const;
 };
 
 #endif /* __gtk_ardour_marker_h__ */

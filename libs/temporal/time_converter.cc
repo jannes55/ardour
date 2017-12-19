@@ -21,6 +21,7 @@
 #include "temporal/beats.h"
 #include "temporal/types.h"
 #include "temporal/time_converter.h"
+#include "temporal/tempo.h"
 
 namespace Temporal {
 
@@ -30,5 +31,11 @@ TimeConverter<A,B,C>::~TimeConverter()
 
 template class TimeConverter<double, Temporal::samplepos_t,Temporal::samplecnt_t>;
 template class TimeConverter<Temporal::Beats, Temporal::samplepos_t,Temporal::samplecnt_t>;
+
+Temporal::timepos_t
+DistanceMeasure::operator() (Temporal::timecnt_t const & duration, Temporal::LockStyle canonical_domain) const
+{
+	return timepos_t (_tempo_map.full_duration_at (_origin, duration, canonical_domain));
+}
 
 } // namespace Temporal

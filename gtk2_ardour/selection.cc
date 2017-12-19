@@ -770,7 +770,7 @@ Selection::set (vector<RegionView*>& v)
  *  the list of tracks it applies to.
  */
 long
-Selection::set (samplepos_t start, samplepos_t end)
+Selection::set (Temporal::timepos_t const & start, Temporal::timepos_t const & end)
 {
 	clear_objects();  //enforce region/object exclusivity
 	clear_time();
@@ -780,7 +780,7 @@ Selection::set (samplepos_t start, samplepos_t end)
 	}
 
 	if (time.empty()) {
-		time.push_back (AudioRange (start, end, ++next_time_id));
+		time.push_back (TimelineRange (start, end, ++next_time_id));
 	} else {
 		/* reuse the first entry, and remove all the rest */
 

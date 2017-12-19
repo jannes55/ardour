@@ -43,7 +43,7 @@ public:
 	RegionLayeringOrderEditor (PublicEditor&);
 	virtual ~RegionLayeringOrderEditor ();
 
-	void set_context (const std::string &, ARDOUR::Session *, TimeAxisView *, boost::shared_ptr<ARDOUR::Playlist>, ARDOUR::samplepos_t);
+	void set_context (const std::string &, ARDOUR::Session *, TimeAxisView *, boost::shared_ptr<ARDOUR::Playlist>, Temporal::timepos_t const &);
 	void maybe_present ();
 
 protected:

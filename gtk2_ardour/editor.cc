@@ -47,6 +47,8 @@
 #include "pbd/stacktrace.h"
 #include "pbd/timersub.h"
 
+#include "temporal/types.h"
+
 #include <glibmm/miscutils.h>
 #include <glibmm/uriutils.h>
 #include <gtkmm/image.h>
@@ -1322,8 +1324,8 @@ Editor::set_session (Session *t)
 
 	//initialize _leftmost_sample to the extents of the session
 	//this prevents a bogus setting of leftmost = "0" if the summary view asks for the leftmost sample before the visible state has been loaded from instant.xml
-	_leftmost_sample = session_gui_extents().first;
-	
+	_leftmost_sample = session_gui_extents().first.sample();
+
 	_playlist_selector->set_session (_session);
 	nudge_clock->set_session (_session);
 	_summary->set_session (_session);
@@ -1397,7 +1399,6 @@ Editor::set_session (Session *t)
 	_session->RouteAdded.connect (_session_connections, invalidator (*this), boost::bind (&Editor::add_routes, this, _1), gui_context());
 	_session->DirtyChanged.connect (_session_connections, invalidator (*this), boost::bind (&Editor::update_title, this), gui_context());
 	_session->tempo_map().PropertyChanged.connect (_session_connections, invalidator (*this), boost::bind (&Editor::tempo_map_changed, this, _1), gui_context());
-	_session->tempo_map().MetricPositionChanged.connect (_session_connections, invalidator (*this), boost::bind (&Editor::tempometric_position_changed, this, _1), gui_context());
 	_session->Located.connect (_session_connections, invalidator (*this), boost::bind (&Editor::located, this), gui_context());
 	_session->config.ParameterChanged.connect (_session_connections, invalidator (*this), boost::bind (&Editor::parameter_changed, this, _1), gui_context());
 	_session->StateSaved.connect (_session_connections, invalidator (*this), boost::bind (&Editor::session_state_saved, this, _1), gui_context());
@@ -1414,7 +1415,7 @@ Editor::set_session (Session *t)
 
 	restore_ruler_visibility ();
 	//tempo_map_changed (PropertyChange (0));
-	_session->tempo_map().apply_with_metrics (*this, &Editor::draw_metric_marks);
+	_session->tempo_map().apply_with_points (*this, &Editor::draw_metric_marks);
 
 	for (TrackViewList::iterator i = track_views.begin(); i != track_views.end(); ++i) {
 		(static_cast<TimeAxisView*>(*i))->set_samples_per_pixel (samples_per_pixel);
@@ -1752,7 +1753,7 @@ Editor::loudness_analyze_region_selection ()
 			continue;
 		}
 		assert (dynamic_cast<RouteTimeAxisView *> (&arv->get_time_axis_view ()));
-		total_work += arv->region ()->length ();
+		total_work += arv->region ()->length_samples ();
 	}
 
 	SimpleProgressDialog spd (_("Region Loudness Analysis"), sigc::mem_fun (ag, &AnalysisGraph::cancel));
@@ -1788,7 +1789,7 @@ Editor::loudness_analyze_range_selection ()
 	Selection& s (PublicEditor::instance ().get_selection ());
 	TimeSelection ts = s.time;
 	ARDOUR::AnalysisGraph ag (_session);
-	samplecnt_t total_work = 0;
+	timecnt_t total_work = 0;
 
 	for (TrackSelection::iterator i = s.tracks.begin (); i != s.tracks.end (); ++i) {
 		boost::shared_ptr<AudioPlaylist> pl = boost::dynamic_pointer_cast<AudioPlaylist> ((*i)->playlist ());
@@ -1799,14 +1800,19 @@ Editor::loudness_analyze_range_selection ()
 		if (!pl || !rui) {
 			continue;
 		}
-		for (std::list<AudioRange>::iterator j = ts.begin (); j != ts.end (); ++j) {
+		for (TimeSelection::iterator j = ts.begin (); j != ts.end (); ++j) {
 			total_work += j->length ();
 		}
 	}
 
+	/* convert work to samples */
+
+	Temporal::DistanceMeasure dm (_session->tempo_map(), ts.begin()->from);
+	const samplecnt_t total_work_samples = dm (total_work, Temporal::AudioTime).sample();
+
 	SimpleProgressDialog spd (_("Range Loudness Analysis"), sigc::mem_fun (ag, &AnalysisGraph::cancel));
 	ScopedConnection c;
-	ag.set_total_samples (total_work);
+	ag.set_total_samples (total_work_samples);
 	ag.Progress.connect_same_thread (c, boost::bind (&SimpleProgressDialog::update_progress, &spd, _1, _2));
 	spd.show();
 
@@ -1907,7 +1913,7 @@ Editor::add_region_context_items (Menu_Helpers::MenuList& edit_items, boost::sha
 		act->set_sensitive (true);
 	}
 
-	const samplepos_t position = get_preferred_edit_position (EDIT_IGNORE_NONE, true);
+	const timepos_t position = get_preferred_edit_position (EDIT_IGNORE_NONE, true);
 
 	edit_items.push_back (*_popup_region_menu_item);
 	if (Config->get_layer_model() == Manual && track->playlist()->count_regions_at (position) > 1 && (layering_order_editor == 0 || !layering_order_editor->is_visible ())) {
@@ -2597,7 +2603,7 @@ Editor::get_state ()
 	node->add_child_nocopy (selection->get_state ());
 	node->add_child_nocopy (_regions->get_state ());
 
-	node->set_property ("nudge-clock-value", nudge_clock->current_duration());
+	node->set_property ("nudge-clock-value", nudge_clock->current_time_duration ());
 
 	node->add_child_nocopy (LuaInstance::instance()->get_action_state());
 	node->add_child_nocopy (LuaInstance::instance()->get_hook_state());
@@ -2643,7 +2649,7 @@ Editor::trackview_by_y_position (double y, bool trackview_relative_offset) const
  *  @param event Event to get current key modifier information from, or 0.
  */
 void
-Editor::snap_to_with_modifier (MusicSample& start, GdkEvent const * event, RoundMode direction, bool for_mark)
+Editor::snap_to_with_modifier (Temporal::timepos_t & start, GdkEvent const * event, Temporal::RoundMode direction, bool for_mark)
 {
 	if (!_session || !event) {
 		return;
@@ -2653,7 +2659,7 @@ Editor::snap_to_with_modifier (MusicSample& start, GdkEvent const * event, Round
 		if (_snap_mode == SnapOff) {
 			snap_to_internal (start, direction, for_mark);
 		} else {
-			start.set (start.sample, 0);
+			start = start.sample();
 		}
 	} else {
 		if (_snap_mode != SnapOff) {
@@ -2662,16 +2668,16 @@ Editor::snap_to_with_modifier (MusicSample& start, GdkEvent const * event, Round
 			/* SnapOff, but we pressed the snap_delta modifier */
 			snap_to_internal (start, direction, for_mark);
 		} else {
-			start.set (start.sample, 0);
+			start = start.sample ();
 		}
 	}
 }
 
 void
-Editor::snap_to (MusicSample& start, RoundMode direction, bool for_mark, bool ensure_snap)
+Editor::snap_to (Temporal::timepos_t & start, Temporal::RoundMode direction, bool for_mark, bool ensure_snap)
 {
 	if (!_session || (_snap_mode == SnapOff && !ensure_snap)) {
-		start.set (start.sample, 0);
+		start = start.sample ();
 		return;
 	}
 
@@ -2679,15 +2685,15 @@ Editor::snap_to (MusicSample& start, RoundMode direction, bool for_mark, bool en
 }
 
 void
-Editor::timecode_snap_to_internal (MusicSample& pos, RoundMode direction, bool /*for_mark*/)
+Editor::timecode_snap_to_internal (Temporal::timepos_t & pos, Temporal::RoundMode direction, bool /*for_mark*/)
 {
-	samplepos_t start = pos.sample;
+	samplepos_t start = pos.sample();
 	const samplepos_t one_timecode_second = (samplepos_t)(rint(_session->timecode_frames_per_second()) * _session->samples_per_timecode_frame());
 	samplepos_t one_timecode_minute = (samplepos_t)(rint(_session->timecode_frames_per_second()) * _session->samples_per_timecode_frame() * 60);
 
 	switch (_snap_type) {
 	case SnapToTimecodeFrame:
-		if ((direction == RoundUpMaybe || direction == RoundDownMaybe) &&
+		if ((direction == Temporal::RoundUpMaybe || direction == Temporal::RoundDownMaybe) &&
 		    fmod((double)start, (double)_session->samples_per_timecode_frame()) == 0) {
 			/* start is already on a whole timecode frame, do nothing */
 		} else if (((direction == 0) && (fmod((double)start, (double)_session->samples_per_timecode_frame()) > (_session->samples_per_timecode_frame() / 2))) || (direction > 0)) {
@@ -2703,7 +2709,7 @@ Editor::timecode_snap_to_internal (MusicSample& pos, RoundMode direction, bool /
 		} else {
 			start -= _session->config.get_timecode_offset ();
 		}
-		if ((direction == RoundUpMaybe || direction == RoundDownMaybe) &&
+		if ((direction == Temporal::RoundUpMaybe || direction == Temporal::RoundDownMaybe) &&
 		    (start % one_timecode_second == 0)) {
 			/* start is already on a whole second, do nothing */
 		} else if (((direction == 0) && (start % one_timecode_second > one_timecode_second / 2)) || direction > 0) {
@@ -2725,7 +2731,7 @@ Editor::timecode_snap_to_internal (MusicSample& pos, RoundMode direction, bool /
 		} else {
 			start -= _session->config.get_timecode_offset ();
 		}
-		if ((direction == RoundUpMaybe || direction == RoundDownMaybe) &&
+		if ((direction == Temporal::RoundUpMaybe || direction == Temporal::RoundDownMaybe) &&
 		    (start % one_timecode_minute == 0)) {
 			/* start is already on a whole minute, do nothing */
 		} else if (((direction == 0) && (start % one_timecode_minute > one_timecode_minute / 2)) || direction > 0) {
@@ -2744,17 +2750,19 @@ Editor::timecode_snap_to_internal (MusicSample& pos, RoundMode direction, bool /
 		abort(); /*NOTREACHED*/
 	}
 
-	pos.set (start, 0);
+	pos = start;
 }
 
 void
-Editor::snap_to_internal (MusicSample& start, RoundMode direction, bool for_mark, bool ensure_snap)
+Editor::snap_to_internal (Temporal::timepos_t & start, Temporal::RoundMode direction, bool for_mark, bool ensure_snap)
 {
-	const samplepos_t one_second = _session->sample_rate();
-	const samplepos_t one_minute = _session->sample_rate() * 60;
-	samplepos_t presnap = start.sample;
-	samplepos_t before;
-	samplepos_t after;
+	const samplecnt_t one_second = _session->sample_rate();
+	const samplecnt_t one_minute = _session->sample_rate() * 60;
+	timepos_t presnap = start;
+	timepos_t before;
+	timepos_t after;
+	Temporal::Beats beats;
+	Temporal::BBT_Time bbt;
 
 	switch (_snap_type) {
 	case SnapToTimecodeFrame:
@@ -2763,105 +2771,139 @@ Editor::snap_to_internal (MusicSample& start, RoundMode direction, bool for_mark
 		return timecode_snap_to_internal (start, direction, for_mark);
 
 	case SnapToCDFrame:
-		if ((direction == RoundUpMaybe || direction == RoundDownMaybe) &&
-		    start.sample % (one_second/75) == 0) {
+		if ((direction == Temporal::RoundUpMaybe || direction == Temporal::RoundDownMaybe) &&
+		    start.sample() % (one_second/75) == 0) {
 			/* start is already on a whole CD sample, do nothing */
-		} else if (((direction == 0) && (start.sample % (one_second/75) > (one_second/75) / 2)) || (direction > 0)) {
-			start.sample = (samplepos_t) ceil ((double) start.sample / (one_second / 75)) * (one_second / 75);
+		} else if (((direction == 0) && (start.sample() % (one_second/75) > (one_second/75) / 2)) || (direction > 0)) {
+			start = (samplepos_t) ceil ((double) start.sample() / (one_second / 75)) * (one_second / 75);
 		} else {
-			start.sample = (samplepos_t) floor ((double) start.sample / (one_second / 75)) * (one_second / 75);
+			start = (samplepos_t) floor ((double) start.sample() / (one_second / 75)) * (one_second / 75);
 		}
 
-		start.set (start.sample, 0);
+		start = start.sample ();
 
 		break;
 
 	case SnapToSeconds:
-		if ((direction == RoundUpMaybe || direction == RoundDownMaybe) &&
-		    start.sample % one_second == 0) {
+		if ((direction == Temporal::RoundUpMaybe || direction == Temporal::RoundDownMaybe) &&
+		    start.sample() % one_second == 0) {
 			/* start is already on a whole second, do nothing */
-		} else if (((direction == 0) && (start.sample % one_second > one_second / 2)) || (direction > 0)) {
-			start.sample = (samplepos_t) ceil ((double) start.sample / one_second) * one_second;
+		} else if (((direction == 0) && (start.sample() % one_second > one_second / 2)) || (direction > 0)) {
+			start = (samplepos_t) ceil ((double) start.sample() / one_second) * one_second;
 		} else {
-			start.sample = (samplepos_t) floor ((double) start.sample / one_second) * one_second;
+			start = (samplepos_t) floor ((double) start.sample() / one_second) * one_second;
 		}
 
-		start.set (start.sample, 0);
+		start = start.sample ();
 
 		break;
 
 	case SnapToMinutes:
-		if ((direction == RoundUpMaybe || direction == RoundDownMaybe) &&
-		    start.sample % one_minute == 0) {
+		if ((direction == Temporal::RoundUpMaybe || direction == Temporal::RoundDownMaybe) &&
+		    start.sample() % one_minute == 0) {
 			/* start is already on a whole minute, do nothing */
-		} else if (((direction == 0) && (start.sample % one_minute > one_minute / 2)) || (direction > 0)) {
-			start.sample = (samplepos_t) ceil ((double) start.sample / one_minute) * one_minute;
+		} else if (((direction == 0) && (start.sample() % one_minute > one_minute / 2)) || (direction > 0)) {
+			start = (samplepos_t) ceil ((double) start.sample() / one_minute) * one_minute;
 		} else {
-			start.sample = (samplepos_t) floor ((double) start.sample / one_minute) * one_minute;
+			start = (samplepos_t) floor ((double) start.sample() / one_minute) * one_minute;
 		}
 
-		start.set (start.sample, 0);
+		start = start.sample ();
 
 		break;
 
 	case SnapToBar:
-		start = _session->tempo_map().round_to_bar (start.sample, direction);
+		bbt = start.bbt();
+		switch (direction) {
+		case Temporal::RoundDownMaybe:
+			start = bbt.round_down_to_bar();
+			break;
+		case Temporal::RoundDownAlways:
+			start = bbt.prev_bar ();
+			break;
+		case Temporal::RoundNearest:
+			start = _session->tempo_map().round_to_bar (bbt);
+			break;
+		case Temporal::RoundUpAlways:
+			start = bbt.next_bar ();
+			break;
+		case Temporal::RoundUpMaybe:
+			start = bbt.round_up_to_bar();
+			break;
+		}
 		break;
 
 	case SnapToBeat:
-		start = _session->tempo_map().round_to_beat (start.sample, direction);
+		beats = start.beats ();
+		switch (direction) {
+		case Temporal::RoundDownMaybe:
+			start = beats.prev_beat ();
+			break;
+		case Temporal::RoundDownAlways:
+			start = beats.round_down_to_beat ();
+			break;
+		case Temporal::RoundNearest:
+			start = beats.round_to_beat ();
+			break;
+		case Temporal::RoundUpAlways:
+			start = beats.round_up_to_beat ();
+			break;
+		case Temporal::RoundUpMaybe:
+			start = beats.next_beat ();
+			break;
+		}
 		break;
 
 	case SnapToBeatDiv128:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 128, direction);
+		start = start.beats().round_to_subdivision (128, direction);
 		break;
 	case SnapToBeatDiv64:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 64, direction);
+		start = start.beats().round_to_subdivision (64, direction);
 		break;
 	case SnapToBeatDiv32:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 32, direction);
+		start = start.beats().round_to_subdivision (32, direction);
 		break;
 	case SnapToBeatDiv28:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 28, direction);
+		start = start.beats().round_to_subdivision (28, direction);
 		break;
 	case SnapToBeatDiv24:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 24, direction);
+		start = start.beats().round_to_subdivision (24, direction);
 		break;
 	case SnapToBeatDiv20:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 20, direction);
+		start = start.beats().round_to_subdivision (20, direction);
 		break;
 	case SnapToBeatDiv16:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 16, direction);
+		start = start.beats().round_to_subdivision (16, direction);
 		break;
 	case SnapToBeatDiv14:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 14, direction);
+		start = start.beats().round_to_subdivision (14, direction);
 		break;
 	case SnapToBeatDiv12:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 12, direction);
+		start = start.beats().round_to_subdivision (12, direction);
 		break;
 	case SnapToBeatDiv10:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 10, direction);
+		start = start.beats().round_to_subdivision (10, direction);
 		break;
 	case SnapToBeatDiv8:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 8, direction);
+		start = start.beats().round_to_subdivision (8, direction);
 		break;
 	case SnapToBeatDiv7:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 7, direction);
+		start = start.beats().round_to_subdivision (7, direction);
 		break;
 	case SnapToBeatDiv6:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 6, direction);
+		start = start.beats().round_to_subdivision (6, direction);
 		break;
 	case SnapToBeatDiv5:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 5, direction);
+		start = start.beats().round_to_subdivision (5, direction);
 		break;
 	case SnapToBeatDiv4:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 4, direction);
+		start = start.beats().round_to_subdivision (4, direction);
 		break;
 	case SnapToBeatDiv3:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 3, direction);
+		start = start.beats().round_to_subdivision (3, direction);
 		break;
 	case SnapToBeatDiv2:
-		start = _session->tempo_map().round_to_quarter_note_subdivision (start.sample, 2, direction);
+		start = start.beats().round_to_subdivision (2, direction);
 		break;
 
 	case SnapToMark:
@@ -2869,31 +2911,28 @@ Editor::snap_to_internal (MusicSample& start, RoundMode direction, bool for_mark
 			return;
 		}
 
-		_session->locations()->marks_either_side (start.sample, before, after);
+		_session->locations()->marks_either_side (start.sample(), before, after);
 
 		if (before == max_samplepos && after == max_samplepos) {
 			/* No marks to snap to, so just don't snap */
 			return;
 		} else if (before == max_samplepos) {
-			start.sample = after;
+			start = after;
 		} else if (after == max_samplepos) {
-			start.sample = before;
+			start = before;
 		} else if (before != max_samplepos && after != max_samplepos) {
-			if ((direction == RoundUpMaybe || direction == RoundUpAlways))
-				start.sample = after;
-			else if ((direction == RoundDownMaybe || direction == RoundDownAlways))
-				start.sample = before;
+			if ((direction == Temporal::RoundUpMaybe || direction == Temporal::RoundUpAlways))
+				start = after;
+			else if ((direction == Temporal::RoundDownMaybe || direction == Temporal::RoundDownAlways))
+				start = before;
 			else if (direction ==  0 ) {
-				if ((start.sample - before) < (after - start.sample)) {
-					start.sample = before;
+				if ((start - before) < (after - start)) {
+					start = before;
 				} else {
-					start.sample = after;
+					start = after;
 				}
 			}
 		}
-
-		start.set (start.sample, 0);
-
 		break;
 
 	case SnapToRegionStart:
@@ -2902,13 +2941,13 @@ Editor::snap_to_internal (MusicSample& start, RoundMode direction, bool for_mark
 	case SnapToRegionBoundary:
 		if (!region_boundary_cache.empty()) {
 
-			vector<samplepos_t>::iterator prev = region_boundary_cache.end ();
-			vector<samplepos_t>::iterator next = region_boundary_cache.end ();
+			RegionBoundaryCache::iterator prev = region_boundary_cache.end ();
+			RegionBoundaryCache::iterator next = region_boundary_cache.end ();
 
 			if (direction > 0) {
-				next = std::upper_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start.sample);
+				next = std::upper_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start.sample());
 			} else {
-				next = std::lower_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start.sample);
+				next = std::lower_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start.sample());
 			}
 
 			if (next != region_boundary_cache.begin ()) {
@@ -2916,17 +2955,15 @@ Editor::snap_to_internal (MusicSample& start, RoundMode direction, bool for_mark
 				prev--;
 			}
 
-			samplepos_t const p = (prev == region_boundary_cache.end()) ? region_boundary_cache.front () : *prev;
-			samplepos_t const n = (next == region_boundary_cache.end()) ? region_boundary_cache.back () : *next;
+			RegionBoundaryCache::value_type const p = (prev == region_boundary_cache.end()) ? region_boundary_cache.front () : *prev;
+			RegionBoundaryCache::value_type const n = (next == region_boundary_cache.end()) ? region_boundary_cache.back () : *next;
 
-			if (start.sample > (p + n) / 2) {
-				start.sample = n;
+			if (start.sample() > (p + n) / 2) {
+				start = n;
 			} else {
-				start.sample = p;
+				start = p;
 			}
 		}
-
-		start.set (start.sample, 0);
 
 		break;
 	}
@@ -2941,14 +2978,14 @@ Editor::snap_to_internal (MusicSample& start, RoundMode direction, bool for_mark
 			return;
 		}
 
-		if (presnap > start.sample) {
-			if (presnap > (start.sample + pixel_to_sample(snap_threshold))) {
-				start.set (presnap, 0);
+		if (presnap > start) {
+			if (presnap.sample() > (start + pixel_to_sample (snap_threshold)).sample()) {
+				start = presnap;
 			}
 
-		} else if (presnap < start.sample) {
-			if (presnap < (start.sample - pixel_to_sample(snap_threshold))) {
-				start.set (presnap, 0);
+		} else if (presnap < start) {
+			if (presnap.sample() < (start - pixel_to_sample (snap_threshold)).sample()) {
+				start = presnap;
 			}
 		}
 
@@ -3942,7 +3979,7 @@ Editor::set_show_measures (bool yn)
 				tempo_lines->show();
 			}
 
-			std::vector<TempoMap::BBTPoint> grid;
+			Temporal::TempoMapPoints grid;
 			compute_current_bbt_points (grid, _leftmost_sample, _leftmost_sample + current_page_samples());
 			draw_measures (grid);
 		}
@@ -4005,8 +4042,8 @@ Editor::playlist_selector () const
 	return *_playlist_selector;
 }
 
-samplecnt_t
-Editor::get_paste_offset (samplepos_t pos, unsigned paste_count, samplecnt_t duration)
+Temporal::timecnt_t
+Editor::get_paste_offset (Temporal::timepos_t const & pos, unsigned paste_count, Temporal::timecnt_t const & duration)
 {
 	if (paste_count == 0) {
 		/* don't bother calculating an offset that will be zero anyway */
@@ -4014,14 +4051,13 @@ Editor::get_paste_offset (samplepos_t pos, unsigned paste_count, samplecnt_t dur
 	}
 
 	/* calculate basic unsnapped multi-paste offset */
-	samplecnt_t offset = paste_count * duration;
+	Temporal::timecnt_t offset = duration * paste_count;
 
 	/* snap offset so pos + offset is aligned to the grid */
-	MusicSample offset_pos (pos + offset, 0);
-	snap_to(offset_pos, RoundUpMaybe);
-	offset = offset_pos.sample - pos;
+	Temporal::timepos_t snap_pos (pos + offset);
+	snap_to (snap_pos, Temporal::RoundUpMaybe);
 
-	return offset;
+	return snap_pos - pos;
 }
 
 unsigned
@@ -4094,20 +4130,22 @@ Editor::get_grid_music_divisions (uint32_t event_state)
 Temporal::Beats
 Editor::get_grid_type_as_beats (bool& success, samplepos_t position)
 {
+	using namespace Temporal;
+
 	success = true;
 
 	const unsigned divisions = get_grid_beat_divisions(position);
 	if (divisions) {
-		return Temporal::Beats(1.0 / (double)get_grid_beat_divisions(position));
+		return Beats(1.0 / (double)get_grid_beat_divisions(position));
 	}
 
 	switch (_snap_type) {
 	case SnapToBeat:
-		return Temporal::Beats(4.0 / _session->tempo_map().meter_at_sample (position).note_divisor());
+		return Beats(4.0 / _session->tempo_map().meter_at (position).note_value());
 	case SnapToBar:
 		if (_session) {
-			const Meter& m = _session->tempo_map().meter_at_sample (position);
-			return Temporal::Beats((4.0 * m.divisions_per_bar()) / m.note_divisor());
+			const Meter& m = _session->tempo_map().meter_at (position);
+			return Beats ((4.0 * m.divisions_per_bar()) / m.note_value());
 		}
 		break;
 	default:
@@ -4115,16 +4153,16 @@ Editor::get_grid_type_as_beats (bool& success, samplepos_t position)
 		break;
 	}
 
-	return Temporal::Beats();
+	return Beats();
 }
 
-samplecnt_t
-Editor::get_nudge_distance (samplepos_t pos, samplecnt_t& next)
+timecnt_t
+Editor::get_nudge_distance (timepos_t const & pos, timecnt_t& next)
 {
-	samplecnt_t ret;
+	timecnt_t ret;
 
-	ret = nudge_clock->current_duration (pos);
-	next = ret + 1; /* XXXX fix me */
+	ret = nudge_clock->current_time_duration ();
+	next = ret + samplepos_t (1); /* XXXX fix me */
 
 	return ret;
 }
@@ -4518,7 +4556,7 @@ void
 Editor::on_samples_per_pixel_changed ()
 {
 	if (tempo_lines) {
-		tempo_lines->tempo_map_changed(_session->tempo_map().music_origin());
+		tempo_lines->tempo_map_changed ();
 	}
 
 	bool const showing_time_selection = selection->time.length() > 0;
@@ -4698,11 +4736,30 @@ Editor::sort_track_selection (TrackViewList& sel)
 	sel.sort (cmp);
 }
 
-samplepos_t
+Temporal::timepos_t
 Editor::get_preferred_edit_position (EditIgnoreOption ignore, bool from_context_menu, bool from_outside_canvas)
 {
+	/*
+	   how are we going to get an edit position that is not in samples ?
+	   we would need context to know if it was appropriate
+	   e.g. is playhead position at some BBT value or a samplepos?
+	   i can't see a way to know this. and also, the playhead is more or
+	   less defined as being defined in samples.
+
+	   for the mouse it's trickier ... we have a pixel grid, and we can
+	   mostly only map (directly) between pixels and samples. all non-sample
+	   time domain answers would come from first getting a sample value. note though that
+	   this would just represent a simple scalar multiple of the pixel position, so there's
+	   no loss of information there.
+
+	   ultimately, the magic really happens in snap_to() which can fix the time domain
+	   based on grid setting. i think this may be the only time domain context we have, in general.
+	   it would be nice to know "oh, we're editing MIDI so we should use BeatTime, but that would
+	   complicate mixed-data edits too.
+	*/
+
 	bool ignored;
-	samplepos_t where = 0;
+	Temporal::timepos_t where = 0;
 	EditPoint ep = _edit_point;
 
 	if (Profile->get_mixbus()) {
@@ -4730,8 +4787,6 @@ Editor::get_preferred_edit_position (EditIgnoreOption ignore, bool from_context_
 		ep = EditAtPlayhead;
 	}
 
-	MusicSample snap_mf (0, 0);
-
 	switch (ep) {
 	case EditAtPlayhead:
 		if (_dragging_playhead && _control_scroll_target) {
@@ -4748,9 +4803,9 @@ Editor::get_preferred_edit_position (EditIgnoreOption ignore, bool from_context_
 			Location* loc = find_location_from_marker (selection->markers.front(), is_start);
 			if (loc) {
 				if (is_start) {
-					where =  loc->start();
+					where =  loc->start_time();
 				} else {
-					where = loc->end();
+					where = loc->end_time();
 				}
 				DEBUG_TRACE (DEBUG::CutNPaste, string_compose ("GPEP: use selected marker @ %1\n", where));
 				break;
@@ -4760,13 +4815,13 @@ Editor::get_preferred_edit_position (EditIgnoreOption ignore, bool from_context_
 
 	default:
 	case EditAtMouse:
-		if (!mouse_sample (where, ignored)) {
+		samplepos_t ms;
+		if (!mouse_sample (ms, ignored)) {
 			/* XXX not right but what can we do ? */
 			return 0;
 		}
-		snap_mf.sample = where;
-		snap_to (snap_mf);
-		where = snap_mf.sample;
+		where = ms;
+		snap_to (where);
 		DEBUG_TRACE (DEBUG::CutNPaste, string_compose ("GPEP: use mouse @ %1\n", where));
 		break;
 	}
@@ -4775,7 +4830,7 @@ Editor::get_preferred_edit_position (EditIgnoreOption ignore, bool from_context_
 }
 
 void
-Editor::set_loop_range (samplepos_t start, samplepos_t end, string cmd)
+Editor::set_loop_range (timepos_t const & start, timepos_t const & end, string cmd)
 {
 	if (!_session) return;
 
@@ -4784,7 +4839,7 @@ Editor::set_loop_range (samplepos_t start, samplepos_t end, string cmd)
 	Location* tll;
 
 	if ((tll = transport_loop_location()) == 0) {
-		Location* loc = new Location (*_session, start, end, _("Loop"),  Location::IsAutoLoop, get_grid_music_divisions(0));
+		Location* loc = new Location (*_session, start, end, _("Loop"),  Location::IsAutoLoop);
 		XMLNode &before = _session->locations()->get_state();
 		_session->locations()->add (loc, true);
 		_session->set_auto_loop_location (loc);
@@ -4802,7 +4857,7 @@ Editor::set_loop_range (samplepos_t start, samplepos_t end, string cmd)
 }
 
 void
-Editor::set_punch_range (samplepos_t start, samplepos_t end, string cmd)
+Editor::set_punch_range (timepos_t const & start, timepos_t const & end, string cmd)
 {
 	if (!_session) return;
 
@@ -4811,7 +4866,7 @@ Editor::set_punch_range (samplepos_t start, samplepos_t end, string cmd)
 	Location* tpl;
 
 	if ((tpl = transport_punch_location()) == 0) {
-		Location* loc = new Location (*_session, start, end, _("Punch"),  Location::IsAutoPunch, get_grid_music_divisions(0));
+		Location* loc = new Location (*_session, start, end, _("Punch"),  Location::IsAutoPunch);
 		XMLNode &before = _session->locations()->get_state();
 		_session->locations()->add (loc, true);
 		_session->set_auto_punch_location (loc);
@@ -4834,7 +4889,7 @@ Editor::set_punch_range (samplepos_t start, samplepos_t end, string cmd)
  *  @param ts Tracks to look on; if this is empty, all tracks are examined.
  */
 void
-Editor::get_regions_at (RegionSelection& rs, samplepos_t where, const TrackViewList& ts) const
+Editor::get_regions_at (RegionSelection& rs, timepos_t const & where, const TrackViewList& ts) const
 {
 	const TrackViewList* tracks;
 
@@ -4868,7 +4923,7 @@ Editor::get_regions_at (RegionSelection& rs, samplepos_t where, const TrackViewL
 }
 
 void
-Editor::get_regions_after (RegionSelection& rs, samplepos_t where, const TrackViewList& ts) const
+Editor::get_regions_after (RegionSelection& rs, timepos_t const & where, const TrackViewList& ts) const
 {
 	const TrackViewList* tracks;
 
@@ -4931,7 +4986,7 @@ Editor::get_regions_from_selection_and_edit_point (EditIgnoreOption ignore, bool
 			/* no region selected or entered, but some selected tracks:
 			 * act on all regions on the selected tracks at the edit point
 			 */
-			samplepos_t const where = get_preferred_edit_position (ignore, from_context_menu, from_outside_canvas);
+			timepos_t const where = get_preferred_edit_position (ignore, from_context_menu, from_outside_canvas);
 			get_regions_at(regions, where, tracks);
 		}
 	}
@@ -5992,7 +6047,7 @@ Editor::show_editor_list (bool yn)
 void
 Editor::change_region_layering_order (bool from_context_menu)
 {
-	const samplepos_t position = get_preferred_edit_position (EDIT_IGNORE_NONE, from_context_menu);
+	const timepos_t position = get_preferred_edit_position (EDIT_IGNORE_NONE, from_context_menu);
 
 	if (!clicked_routeview) {
 		if (layering_order_editor) {
@@ -6248,4 +6303,16 @@ Editor::use_own_window (bool and_fill_it)
 	}
 
 	return win;
+}
+
+double
+Editor::time_to_pixel (timecnt_t const & pos) const
+{
+	return sample_to_pixel (pos.samples());
+}
+
+double
+Editor::time_to_pixel_unrounded (timecnt_t const & pos) const
+{
+	return sample_to_pixel_unrounded (pos.samples());
 }

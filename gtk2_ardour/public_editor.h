@@ -65,6 +65,11 @@ namespace ARDOUR {
 	class Stripable;
 }
 
+namespace Temporal {
+	class Tempo;
+	class Meter;
+}
+
 namespace Gtk {
 	class Container;
 	class Menu;
@@ -152,10 +157,10 @@ public:
 	 * Snap a value according to the current snap setting.
 	 * ensure_snap overrides SnapOff and magnetic snap
 	 */
-	virtual void snap_to (ARDOUR::MusicSample& first,
-	                      ARDOUR::RoundMode   direction = ARDOUR::RoundNearest,
-	                      bool                for_mark  = false,
-	                      bool                ensure_snap = false) = 0;
+	virtual void snap_to (Temporal::timepos_t & first,
+	                      Temporal::RoundMode   direction = Temporal::RoundNearest,
+	                      bool                  for_mark  = false,
+	                      bool                  ensure_snap = false) = 0;
 
 	/** Undo some transactions.
 	 * @param n Number of transactions to undo.
@@ -207,6 +212,8 @@ public:
 	virtual samplepos_t playhead_cursor_sample () const = 0;
 	virtual double sample_to_pixel (samplepos_t sample) const = 0;
 	virtual double sample_to_pixel_unrounded (samplepos_t sample) const = 0;
+	virtual double time_to_pixel (Temporal::timecnt_t const &) const = 0;
+	virtual double time_to_pixel_unrounded (Temporal::timecnt_t const &) const = 0;
 
 	virtual Selection& get_selection () const = 0;
 	virtual bool get_selection_extents (samplepos_t &start, samplepos_t &end) const = 0;
@@ -227,8 +234,8 @@ public:
 	virtual void set_show_measures (bool yn) = 0;
 	virtual bool show_measures () const = 0;
 	virtual void remove_tracks () = 0;
-	virtual void set_loop_range (samplepos_t start, samplepos_t end, std::string cmd) = 0;
-	virtual void set_punch_range (samplepos_t start, samplepos_t end, std::string cmd) = 0;
+	virtual void set_loop_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end, std::string cmd) = 0;
+	virtual void set_punch_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end, std::string cmd) = 0;
 
 	virtual void jump_forward_to_mark () = 0;
 	virtual void jump_backward_to_mark () = 0;
@@ -256,10 +263,10 @@ public:
 
 	/** Import existing media */
 	virtual void do_import (std::vector<std::string> paths, Editing::ImportDisposition, Editing::ImportMode mode, ARDOUR::SrcQuality,
-	                        ARDOUR::MidiTrackNameSource, ARDOUR::MidiTempoMapDisposition, samplepos_t&,
+	                        ARDOUR::MidiTrackNameSource, ARDOUR::MidiTempoMapDisposition, Temporal::timepos_t&,
 	                        boost::shared_ptr<ARDOUR::PluginInfo> instrument=boost::shared_ptr<ARDOUR::PluginInfo>()) = 0;
 	virtual void do_embed (std::vector<std::string> paths, Editing::ImportDisposition, Editing::ImportMode mode,
-	                       samplepos_t&,
+	                       Temporal::timepos_t&,
 	                       boost::shared_ptr<ARDOUR::PluginInfo> instrument=boost::shared_ptr<ARDOUR::PluginInfo>()) = 0;
 
 	/** Open main export dialog */
@@ -330,15 +337,15 @@ public:
 	virtual void remove_last_capture () = 0;
 	virtual void maximise_editing_space () = 0;
 	virtual void restore_editing_space () = 0;
-	virtual samplepos_t get_preferred_edit_position (Editing::EditIgnoreOption = Editing::EDIT_IGNORE_NONE, bool from_context_menu = false, bool from_outside_canvas = false) = 0;
+	virtual Temporal::timepos_t get_preferred_edit_position (Editing::EditIgnoreOption = Editing::EDIT_IGNORE_NONE, bool from_context_menu = false, bool from_outside_canvas = false) = 0;
 	virtual void toggle_meter_updating() = 0;
-	virtual void split_regions_at (ARDOUR::MusicSample, RegionSelection&, bool snap) = 0;
+	virtual void split_regions_at (Temporal::timepos_t const &, RegionSelection&, bool snap) = 0;
 	virtual void split_region_at_points (boost::shared_ptr<ARDOUR::Region>, ARDOUR::AnalysisFeatureList&, bool can_ferret, bool select_new = false) = 0;
 	virtual void mouse_add_new_marker (samplepos_t where, bool is_cd=false) = 0;
 	virtual void foreach_time_axis_view (sigc::slot<void,TimeAxisView&>) = 0;
 	virtual void add_to_idle_resize (TimeAxisView*, int32_t) = 0;
-	virtual samplecnt_t get_nudge_distance (samplepos_t pos, samplecnt_t& next) = 0;
-	virtual samplecnt_t get_paste_offset (samplepos_t pos, unsigned paste_count, samplecnt_t duration) = 0;
+	virtual Temporal::timecnt_t get_nudge_distance (Temporal::timepos_t const & pos, Temporal::timecnt_t& next) = 0;
+	virtual Temporal::timecnt_t get_paste_offset (Temporal::timepos_t const & pos, unsigned paste_count, Temporal::timecnt_t const & duration) = 0;
 	virtual unsigned get_grid_beat_divisions(samplepos_t position) = 0;
 	virtual Temporal::Beats get_grid_type_as_beats (bool& success, samplepos_t position) = 0;
 	virtual int32_t get_grid_music_divisions (uint32_t event_state) = 0;
@@ -462,21 +469,21 @@ public:
 	virtual ARDOUR::Location* find_location_from_marker (ArdourMarker *, bool &) const = 0;
 	virtual ArdourMarker* find_marker_from_location_id (PBD::ID const &, bool) const = 0;
 
-	virtual void snap_to_with_modifier (ARDOUR::MusicSample& first,
+	virtual void snap_to_with_modifier (Temporal::timepos_t & first,
 	                                    GdkEvent const *    ev,
-	                                    ARDOUR::RoundMode   direction = ARDOUR::RoundNearest,
+	                                    Temporal::RoundMode direction = Temporal::RoundNearest,
 	                                    bool                for_mark  = false) = 0;
 
-	virtual void get_regions_at (RegionSelection &, samplepos_t where, TrackViewList const &) const = 0;
-	virtual void get_regions_after (RegionSelection&, samplepos_t where, const TrackViewList& ts) const = 0;
+	virtual void get_regions_at (RegionSelection &, Temporal::timepos_t const & where, TrackViewList const &) const = 0;
+	virtual void get_regions_after (RegionSelection&, Temporal::timepos_t const & where, const TrackViewList& ts) const = 0;
 	virtual RegionSelection get_regions_from_selection_and_mouse (samplepos_t) = 0;
 	virtual void get_regionviews_by_id (PBD::ID const id, RegionSelection & regions) const = 0;
 	virtual void get_per_region_note_selection (std::list<std::pair<PBD::ID, std::set<boost::shared_ptr<Evoral::Note<Temporal::Beats> > > > >&) const = 0;
 
 	virtual void mouse_add_new_tempo_event (samplepos_t where) = 0;
 	virtual void mouse_add_new_meter_event (samplepos_t where) = 0;
-	virtual void edit_tempo_section (ARDOUR::TempoSection*) = 0;
-	virtual void edit_meter_section (ARDOUR::MeterSection*) = 0;
+	virtual void edit_tempo_section (Temporal::Tempo const &) = 0;
+	virtual void edit_meter_section (Temporal::Meter const &) = 0;
 
 	/// Singleton instance, set up by Editor::Editor()
 

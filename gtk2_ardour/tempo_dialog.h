@@ -38,8 +38,8 @@
 class TempoDialog : public ArdourDialog
 {
 public:
-	TempoDialog (ARDOUR::TempoMap&, samplepos_t, const std::string & action);
-	TempoDialog (ARDOUR::TempoMap&, ARDOUR::TempoSection&, const std::string & action);
+	TempoDialog (Temporal::TempoMap&, samplepos_t, const std::string & action);
+	TempoDialog (Temporal::TempoMap&, ARDOUR::TempoSection&, const std::string & action);
 
 	double get_bpm ();
 	double get_end_bpm ();
@@ -79,8 +79,8 @@ private:
 	double last_t;
 	gint64 first_t;
 
-	ARDOUR::TempoMap* _map;
-	ARDOUR::TempoSection* _section;
+	Temporal::TempoMap& _map;
+	Temporal::TempoMetric& _section;
 
 	Gtk::ComboBoxText pulse_selector;
 	Gtk::Adjustment   bpm_adjustment;

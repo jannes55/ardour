@@ -181,9 +181,10 @@ AudioTrack::set_state_part_two ()
 }
 
 int
-AudioTrack::export_stuff (BufferSet& buffers, samplepos_t start, samplecnt_t nframes,
+AudioTrack::export_stuff (BufferSet& buffers, timepos_t const & start, timecnt_t const & duration,
 			  boost::shared_ptr<Processor> endpoint, bool include_endpoint, bool for_export, bool for_freeze)
 {
+	samplecnt_t nframes = duration.samples();
 	boost::scoped_array<gain_t> gain_buffer (new gain_t[nframes]);
 	boost::scoped_array<Sample> mix_buffer (new Sample[nframes]);
 
@@ -195,7 +196,7 @@ AudioTrack::export_stuff (BufferSet& buffers, samplepos_t start, samplecnt_t nfr
 	assert(buffers.count().n_audio() >= 1);
 	assert ((samplecnt_t) buffers.get_audio(0).capacity() >= nframes);
 
-	if (apl->read (buffers.get_audio(0).data(), mix_buffer.get(), gain_buffer.get(), start, nframes) != nframes) {
+	if (apl->read (buffers.get_audio(0).data(), mix_buffer.get(), gain_buffer.get(), start.sample(), nframes) != nframes) {
 		return -1;
 	}
 
@@ -205,7 +206,7 @@ AudioTrack::export_stuff (BufferSet& buffers, samplepos_t start, samplecnt_t nfr
 	++bi;
 	for ( ; bi != buffers.audio_end(); ++bi, ++n) {
 		if (n < _disk_reader->output_streams().n_audio()) {
-			if (apl->read (bi->data(), mix_buffer.get(), gain_buffer.get(), start, nframes, n) != nframes) {
+			if (apl->read (bi->data(), mix_buffer.get(), gain_buffer.get(), start.sample(), nframes, n) != nframes) {
 				return -1;
 			}
 			b = bi->data();
@@ -215,7 +216,7 @@ AudioTrack::export_stuff (BufferSet& buffers, samplepos_t start, samplecnt_t nfr
 		}
 	}
 
-	bounce_process (buffers, start, nframes, endpoint, include_endpoint, for_export, for_freeze);
+	bounce_process (buffers, start.sample(), nframes, endpoint, include_endpoint, for_export, for_freeze);
 
 	return 0;
 }
@@ -284,7 +285,7 @@ AudioTrack::bounce (InterThreadInfo& itt)
 }
 
 boost::shared_ptr<Region>
-AudioTrack::bounce_range (samplepos_t start, samplepos_t end, InterThreadInfo& itt,
+AudioTrack::bounce_range (timepos_t const & start, timepos_t const & end, InterThreadInfo& itt,
 			  boost::shared_ptr<Processor> endpoint, bool include_endpoint)
 {
 	vector<boost::shared_ptr<Source> > srcs;

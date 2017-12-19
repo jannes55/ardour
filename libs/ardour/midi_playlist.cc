@@ -114,7 +114,7 @@ int
 MidiPlaylist::read (Evoral::EventSink<samplepos_t>& dst,
                     timepos_t                       start,
                     timecnt_t                       dur,
-                    Temporal::Range<samplepos_t>*   loop_range,
+                    Temporal::Range*                loop_range,
                     unsigned                        chan_n,
                     MidiChannelFilter*              filter)
 {
@@ -210,7 +210,7 @@ MidiPlaylist::read (Evoral::EventSink<samplepos_t>& dst,
 			             string_compose ("\t%1 ended, resolve notes and delete (%2) tracker\n",
 			                             mr->name(), ((new_tracker) ? "new" : "old")));
 
-			tracker->tracker.resolve_notes (tgt, loop_range ? loop_range->squish ((*i)->last_sample()) : (*i)->last_sample());
+			tracker->tracker.resolve_notes (tgt, loop_range ? loop_range->squish ((*i)->last_sample()).sample() : (*i)->last_sample());
 			tracker->cursor.invalidate (false);
 			if (!new_tracker) {
 				_note_trackers.erase (t);

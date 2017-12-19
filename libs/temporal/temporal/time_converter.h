@@ -16,12 +16,15 @@
  * 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef TEMPORAL_TIME_CONVERTER_HPP
-#define TEMPORAL_TIME_CONVERTER_HPP
+#ifndef __libtemporal_time_converter_h__
+#define __libtemporal_time_converter_h__
 
+#include "temporal/timeline.h"
 #include "temporal/visibility.h"
 
 namespace Temporal {
+
+class TempoMap;
 
 /** A bidirectional converter between two different time units.
  *
@@ -59,6 +62,21 @@ protected:
 	B _origin;
 };
 
+class LIBTEMPORAL_API DistanceMeasure
+{
+  public:
+	DistanceMeasure (TempoMap const & map, timepos_t const & o)
+		: _tempo_map (map), _origin (o) {}
+
+	timepos_t operator() (Temporal::timecnt_t const & duration, Temporal::LockStyle canonical_domain) const;
+	timepos_t origin() const { return _origin; }
+
+  private:
+	TempoMap const & _tempo_map;
+	timepos_t        _origin;
+};
+
+
 } // namespace Temporal
 
-#endif // TEMPORAL_TIME_CONVERTER_HPP
+#endif /* __libtemporal_time_converter_h__ */

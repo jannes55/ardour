@@ -86,10 +86,10 @@ class LIBARDOUR_API Auditioner : public Track
 	boost::shared_ptr<Region> bounce (InterThreadInfo&)
 		{ return boost::shared_ptr<Region> (); }
 
-	boost::shared_ptr<Region> bounce_range (samplepos_t, samplepos_t, InterThreadInfo&, boost::shared_ptr<Processor>, bool)
+	boost::shared_ptr<Region> bounce_range (Temporal::timepos_t const &, Temporal::timepos_t const &, InterThreadInfo&, boost::shared_ptr<Processor>, bool)
 		{ return boost::shared_ptr<Region> (); }
 
-	int export_stuff (BufferSet&, samplepos_t, samplecnt_t, boost::shared_ptr<Processor>, bool, bool, bool)
+	int export_stuff (BufferSet&, Temporal::timepos_t const &, Temporal::timecnt_t const &, boost::shared_ptr<Processor>, bool, bool, bool)
 		{ return -1; }
 
   private:

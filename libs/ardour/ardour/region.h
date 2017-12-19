@@ -169,12 +169,12 @@ public:
 	 */
 	samplepos_t latest_possible_sample () const;
 
-	Temporal::Range<timepos_t> last_range () const {
-		return Temporal::Range<timepos_t> (_last_position, _last_position + _last_length - 1);
+	Temporal::TimeRange last_range () const {
+		return Temporal::TimeRange (_last_position, _last_position + _last_length - 1);
 	}
 
-	Temporal::Range<timepos_t> range () const {
-		return Temporal::Range<timepos_t> (first_sample(), last_sample());
+	Temporal::TimeRange range () const {
+		return Temporal::TimeRange (first_sample(), last_sample());
 	}
 
 	bool hidden ()           const { return _hidden; }

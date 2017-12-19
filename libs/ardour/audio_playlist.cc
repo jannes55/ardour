@@ -151,10 +151,10 @@ struct ReadSorter {
 
 /** A segment of region that needs to be read */
 struct Segment {
-	Segment (boost::shared_ptr<AudioRegion> r, Temporal::Range<samplepos_t> a) : region (r), range (a) {}
+	Segment (boost::shared_ptr<AudioRegion> r, Temporal::Range a) : region (r), range (a) {}
 
 	boost::shared_ptr<AudioRegion> region; ///< the region
-	Temporal::Range<samplepos_t> range;       ///< range of the region to read, in session samples
+	Temporal::Range                range;       ///< range of the region to read, in session samples
 };
 
 /** @param start Start position in session samples.
@@ -197,7 +197,7 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 	   handled completely (ie for which no more regions need to be read).
 	   It is a list of ranges in session samples.
 	*/
-	Temporal::RangeList<samplepos_t> done;
+	Temporal::RangeList done;
 
 	/* This will be a list of the bits of regions that we need to read */
 	list<Segment> to_do;
@@ -213,28 +213,27 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 		/* Work out which bits of this region need to be read;
 		   first, trim to the range we are reading...
 		*/
-		Temporal::Range<timepos_t> rrange = ar->range ();
-
-		Temporal::Range<samplepos_t> region_range (max (rrange.from.sample(), start),
-		                                         min (rrange.to.sample(), start + cnt - 1));
+		Temporal::Range rrange = ar->range ();
+		Temporal::Range region_range (max (rrange.from.sample(), start),
+		                              min (rrange.to.sample(), start + cnt - 1));
 
 		/* ... and then remove the bits that are already done */
 
-		Temporal::RangeList<samplepos_t> region_to_do = Temporal::subtract (region_range, done);
+		Temporal::RangeList region_to_do = Temporal::subtract (region_range, done);
 
 		/* Make a note to read those bits, adding their bodies (the parts between end-of-fade-in
 		   and start-of-fade-out) to the `done' list.
 		*/
 
-		Temporal::RangeList<samplepos_t>::List t = region_to_do.get ();
+		Temporal::RangeList::List t = region_to_do.get ();
 
-		for (Temporal::RangeList<samplepos_t>::List::iterator j = t.begin(); j != t.end(); ++j) {
-			Temporal::Range<samplepos_t> d = *j;
+		for (Temporal::RangeList::List::iterator j = t.begin(); j != t.end(); ++j) {
+			Temporal::Range d = *j;
 			to_do.push_back (Segment (ar, d));
 
 			if (ar->opaque ()) {
 				/* Cut this range down to just the body and mark it done */
-				Temporal::Range<samplepos_t> body = ar->body_range ();
+				Temporal::Range body = ar->body_range ();
 				if (body.from < d.to && body.to > d.from) {
 					d.from = max (d.from, body.from);
 					d.to = min (d.to, body.to);
@@ -249,8 +248,8 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 		DEBUG_TRACE (DEBUG::AudioPlayback, string_compose ("\tPlaylist %1 read %2 @ %3 for %4, channel %5, buf @ %6 offset %7\n",
 								   name(), i->region->name(), i->range.from,
 								   i->range.to - i->range.from + 1, (int) chan_n,
-								   buf, i->range.from - start));
-		i->region->read_at (buf + i->range.from - start, mixdown_buffer, gain_buffer, i->range.from, i->range.to - i->range.from + 1, chan_n);
+		                                                   buf, i->range.from - start));
+		i->region->read_at (buf + i->range.from.sample() - start, mixdown_buffer, gain_buffer, i->range.from.sample(), i->range.to.sample() - i->range.from.sample() + 1, chan_n);
 	}
 
 	return cnt;

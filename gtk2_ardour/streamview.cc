@@ -551,7 +551,7 @@ StreamView::set_selected_regionviews (RegionSelection& regions)
  *  @param result Filled in with selectable things.
  */
 void
-StreamView::get_selectables (samplepos_t start, samplepos_t end, double top, double bottom, list<Selectable*>& results, bool within)
+StreamView::get_selectables (Temporal::timepos_t const & start, Temporal::timepos_t const & end, double top, double bottom, list<Selectable*>& results, bool within)
 {
 	if (_trackview.editor().internal_editing()) {
 		return;  // Don't select regions with an internal tool

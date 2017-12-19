@@ -95,7 +95,7 @@ public:
 	void selection_click (GdkEventButton*);
 	void set_selected_points (PointSelection&);
 	void set_selected_regionviews (RegionSelection&);
-	void get_selectables (ARDOUR::samplepos_t start, ARDOUR::samplepos_t end, double top, double bot, std::list<Selectable *>&, bool within = false);
+	void get_selectables (Temporal::timepos_t const &, Temporal::timepos_t const &, double, double, std::list<Selectable*>&, bool within = false);
 	void get_inverted_selectables (Selection&, std::list<Selectable*>&);
 	void set_layer_display (LayerDisplay d, bool apply_to_selection = false);
 	LayerDisplay layer_display () const;
@@ -105,7 +105,7 @@ public:
 
 	/* Editing operations */
 	void cut_copy_clear (Selection&, Editing::CutCopyOp);
-	bool paste (ARDOUR::samplepos_t, const Selection&, PasteContext& ctx, const int32_t sub_num);
+	bool paste (Temporal::timepos_t const &, const Selection&, PasteContext& ctx, const int32_t sub_num);
 	RegionView* combine_regions ();
 	void uncombine_regions ();
 	void uncombine_region (RegionView*);

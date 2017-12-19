@@ -258,8 +258,8 @@ AutomationController::set_freq_beats(double beats)
 {
 	const ARDOUR::ParameterDescriptor& desc    = _controllable->desc();
 	const ARDOUR::Session&             session = _controllable->session();
-	const samplepos_t                   pos     = session.transport_sample();
-	const ARDOUR::Tempo&               tempo   = session.tempo_map().tempo_at_sample (pos);
+	const samplepos_t                  pos     = session.transport_sample();
+	const Temporal::Tempo&             tempo   = session.tempo_map().tempo_at (pos);
 	const double                       bpm     = tempo.note_types_per_minute();
 	const double                       bps     = bpm / 60.0;
 	const double                       freq    = bps / beats;

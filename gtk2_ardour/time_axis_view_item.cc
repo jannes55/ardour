@@ -52,6 +52,7 @@ using namespace PBD;
 using namespace ARDOUR;
 using namespace ARDOUR_UI_UTILS;
 using namespace Gtkmm2ext;
+using namespace Temporal;
 
 Pango::FontDescription TimeAxisViewItem::NAME_FONT;
 const double TimeAxisViewItem::NAME_X_OFFSET = 15.0;
@@ -276,13 +277,13 @@ TimeAxisViewItem::canvas_group_event (GdkEvent* /*ev*/)
  */
 
 bool
-TimeAxisViewItem::set_position(samplepos_t pos, void* src, double* delta)
+TimeAxisViewItem::set_position(timepos_t pos, void* src, double* delta)
 {
 	if (position_locked) {
 		return false;
 	}
 
-	sample_position = pos;
+	position = pos.sample();
 
 	double new_unit_pos = trackview.editor().sample_to_pixel (pos);
 
@@ -319,7 +320,7 @@ TimeAxisViewItem::get_position() const
  */
 
 bool
-TimeAxisViewItem::set_duration (samplecnt_t dur, void* src)
+TimeAxisViewItem::set_duration (timecnt_t dur, void* src)
 {
 	if ((dur > max_item_duration) || (dur < min_item_duration)) {
 		warning << string_compose (
@@ -335,8 +336,8 @@ TimeAxisViewItem::set_duration (samplecnt_t dur, void* src)
 
 	item_duration = dur;
 
-	double end_pixel = trackview.editor().sample_to_pixel (sample_position + dur);
-	double first_pixel = trackview.editor().sample_to_pixel (sample_position);
+	double end_pixel = trackview.editor().time_to_pixel (position + dur);
+	double first_pixel = trackview.editor().time_to_pixel (position);
 
 	reset_width_dependent_items (end_pixel - first_pixel);
 
@@ -345,7 +346,7 @@ TimeAxisViewItem::set_duration (samplecnt_t dur, void* src)
 }
 
 /** @return duration of this item */
-samplepos_t
+timecnt_t
 TimeAxisViewItem::get_duration() const
 {
 	return item_duration;
@@ -358,14 +359,14 @@ TimeAxisViewItem::get_duration() const
  * @param src the identity of the object that initiated the change
  */
 void
-TimeAxisViewItem::set_max_duration(samplecnt_t dur, void* src)
+TimeAxisViewItem::set_max_duration(timecnt_t dur, void* src)
 {
 	max_item_duration = dur;
 	MaxDurationChanged(max_item_duration, src); /* EMIT_SIGNAL */
 }
 
 /** @return the maximum duration that this item may have */
-samplecnt_t
+timecnt_t
 TimeAxisViewItem::get_max_duration() const
 {
 	return max_item_duration;
@@ -378,14 +379,14 @@ TimeAxisViewItem::get_max_duration() const
  * @param src the identity of the object that initiated the change
  */
 void
-TimeAxisViewItem::set_min_duration(samplecnt_t dur, void* src)
+TimeAxisViewItem::set_min_duration(timecnt_t dur, void* src)
 {
 	min_item_duration = dur;
 	MinDurationChanged(max_item_duration, src); /* EMIT_SIGNAL */
 }
 
 /** @return the minimum duration that this item mey have */
-samplecnt_t
+timecnt_t
 TimeAxisViewItem::get_min_duration() const
 {
 	return min_item_duration;

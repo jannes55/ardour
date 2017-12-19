@@ -27,10 +27,10 @@ namespace ARDOUR {
 	class RouteGroup;
 }
 
-class TimeSelection : public std::list<ARDOUR::AudioRange>
+class TimeSelection : public std::list<ARDOUR::TimelineRange>
 {
 public:
-	ARDOUR::AudioRange& operator[](uint32_t);
+	Temporal::TimeRange & operator[](uint32_t);
 
 	ARDOUR::samplepos_t start();
 	ARDOUR::samplepos_t end_sample();
