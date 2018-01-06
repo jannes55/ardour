@@ -1619,9 +1619,7 @@ MidiRegionView::resolve_note(uint8_t note, Temporal::Beats end_time)
 			end_time - _active_notes[note]->note()->time());
 
 		/* End time is relative to the region being recorded. */
-		const samplepos_t end_time_samples = region_beats_to_region_samples(end_time);
-
-		_active_notes[note]->set_x1 (trackview.editor().sample_to_pixel(end_time_samples));
+		_active_notes[note]->set_x1 (trackview.editor().time_to_pixel(region_beats_to_region_time (end_time)));
 		_active_notes[note]->set_outline_all ();
 		_active_notes[note] = 0;
 	}
@@ -2078,7 +2076,7 @@ MidiRegionView::change_patch_change (MidiModel::PatchChangePtr old_change, const
  *  MidiTimeAxisView::get_channel_for_add())
  */
 void
-MidiRegionView::add_patch_change (samplecnt_t t, Evoral::PatchChange<Temporal::Beats> const & patch)
+MidiRegionView::add_patch_change (timecnt_t const & t, Evoral::PatchChange<Temporal::Beats> const & patch)
 {
 	string name = _("add patch change");
 
@@ -2866,30 +2864,29 @@ MidiRegionView::get_end_position_pixels()
 	return trackview.editor().sample_to_pixel(sample);
 }
 
-samplepos_t
-MidiRegionView::source_beats_to_absolute_samples(Temporal::Beats beats) const
+Temporal::timepos_t
+MidiRegionView::source_beats_to_absolute_time (Temporal::Beats beats) const
 {
-	/* return the sample corresponding to `beats' relative to the start of
+	/* return the time corresponding to `beats' relative to the start of
 	   the source. The start of the source is an implied position given by
 	   region->position - region->start
 	*/
 	const timepos_t source_start = _region->position() - _region->start();
-	const timepos_t result = source_start + beats;
-	return result.sample();
+	return source_start + beats;
 }
 
 Temporal::Beats
-MidiRegionView::absolute_samples_to_source_beats(samplepos_t samples) const
+MidiRegionView::absolute_time_to_source_beats(timepos_t const & time) const
 {
 	const timepos_t source_start = _region->position() - _region->start();
-	const timepos_t result = samples - source_start;
+	const timepos_t result = time - source_start;
 	return result.beats();
 }
 
-samplepos_t
+Temporal::timepos_t
 MidiRegionView::region_beats_to_absolute_samples(Temporal::Beats beats) const
 {
-	return (_region->position() + beats).sample();
+	return _region->position() + beats;
 }
 
 Temporal::Beats
@@ -4116,7 +4113,7 @@ MidiRegionView::move_step_edit_cursor (Temporal::Beats pos)
 	_step_edit_cursor_position = pos;
 
 	if (_step_edit_cursor) {
-		double pixel = trackview.editor().sample_to_pixel (region_beats_to_region_samples (pos));
+		double pixel = trackview.editor().time_to_pixel (region_beats_to_region_time (pos));
 		_step_edit_cursor->set_x0 (pixel);
 		set_step_edit_cursor_width (_step_edit_cursor_width);
 	}
@@ -4136,9 +4133,9 @@ MidiRegionView::set_step_edit_cursor_width (Temporal::Beats beats)
 	_step_edit_cursor_width = beats;
 
 	if (_step_edit_cursor) {
-		_step_edit_cursor->set_x1 (_step_edit_cursor->x0() + trackview.editor().sample_to_pixel (
-						   region_beats_to_region_samples (_step_edit_cursor_position + beats)
-						   - region_beats_to_region_samples (_step_edit_cursor_position)));
+		_step_edit_cursor->set_x1 (_step_edit_cursor->x0() + trackview.editor().time_to_pixel (
+			                           region_beats_to_region_time (_step_edit_cursor_position + beats)
+			                           - region_beats_to_region_time (_step_edit_cursor_position)));
 	}
 }
 

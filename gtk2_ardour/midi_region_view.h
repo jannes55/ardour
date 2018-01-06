@@ -147,7 +147,7 @@ public:
 	void change_patch_change (PatchChange& old_patch, const MIDI::Name::PatchPrimaryKey& new_patch);
 	void change_patch_change (ARDOUR::MidiModel::PatchChangePtr, Evoral::PatchChange<Temporal::Beats> const &);
 
-	void add_patch_change (samplecnt_t, Evoral::PatchChange<Temporal::Beats> const &);
+	void add_patch_change (Temporal::timecnt_t const &, Evoral::PatchChange<Temporal::Beats> const &);
 	void move_patch_change (PatchChange &, Temporal::Beats);
 	void delete_patch_change (PatchChange *);
 	void edit_patch_change (PatchChange *);
@@ -267,22 +267,22 @@ public:
 	 */
 	samplepos_t snap_pixel_to_sample(double x, bool ensure_snap = false);
 
-	/** Convert a timestamp in beats into absolute samples */
-	samplepos_t region_beats_to_absolute_samples(Temporal::Beats beats) const;
-	/** Convert a timestamp in beats into samples (both relative to region position) */
-	samplepos_t region_beats_to_region_samples(Temporal::Beats beats) const {
-		return region_beats_to_absolute_samples (beats) - _region->position().sample();
+	/** Convert a timestamp in beats into absolute time */
+	Temporal::timepos_t region_beats_to_absolute_time(Temporal::Beats beats) const;
+	/** Convert a timestamp in beats into timepos_t (both relative to region position) */
+	Temporal::timepos_t region_beats_to_region_time (Temporal::Beats beats) const {
+		return region_beats_to_absolute_time (beats) - _region->position();
 	}
-	/** Convert a timestamp in samples to beats (both relative to region position) */
-	Temporal::Beats region_samples_to_region_beats(samplepos_t) const;
+	/** Convert a timestamp as timepos_t to beats (both relative to region position) */
+	Temporal::Beats region_time_to_region_beats(Temporal::timepos_t const &) const;
 	/** Convert a timestamp in beats measured from source start into absolute samples */
-	samplepos_t source_beats_to_absolute_samples(Temporal::Beats beats) const;
+	Temporal::timepos_t source_beats_to_absolute_time(Temporal::Beats beats) const;
 	/** Convert a timestamp in beats measured from source start into region-relative samples */
-	samplepos_t source_beats_to_region_samples(Temporal::Beats beats) const {
-		return source_beats_to_absolute_samples (beats) - _region->position().sample();
+	Temporal::timepos_t source_beats_to_region_time(Temporal::Beats beats) const {
+		return source_beats_to_absolute_time (beats) - _region->position();
 	}
-	/** Convert a timestamp in absolute samples to beats measured from source start*/
-	Temporal::Beats absolute_samples_to_source_beats(samplepos_t) const;
+	/** Convert a timestamp in absolute time to beats measured from source start*/
+	Temporal::Beats absolute_time_to_source_beats(Temporal::timepos_t const &) const;
 
 	double session_relative_qn (double qn) const;
 

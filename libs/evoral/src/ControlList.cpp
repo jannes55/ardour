@@ -42,6 +42,8 @@
 
 #include "pbd/control_math.h"
 #include "pbd/compose.h"
+#include "pbd/error.h"
+#include "pbd/i18n.h"
 #include "pbd/debug.h"
 
 using namespace std;
@@ -2117,6 +2119,23 @@ ControlList::is_sorted () const
 		++i;
 	}
 	return true;
+}
+
+Temporal::timepos_t
+ControlList::control_point_time (ControlEvent const & ev) const
+{
+	switch (_time_style) {
+	case Temporal::AudioTime:
+		return ev.when_as_sample();
+	case Temporal::BeatTime:
+		return ev.when_as_beats();
+	default:
+		break;
+	}
+
+	PBD::fatal << _("programming error: ControlList with non beat, non audio time") << endmsg;
+	/*NOTREACHED*/
+	abort ();
 }
 
 void

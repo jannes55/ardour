@@ -1781,7 +1781,7 @@ Session::set_auto_punch_location (Location* location)
 }
 
 void
-Session::set_session_extents (samplepos_t start, samplepos_t end)
+Session::set_session_extents (timepos_t const & start, timepos_t const & end)
 {
 	Location* existing;
 	if ((existing = _locations->session_range_location()) == 0) {
@@ -1794,7 +1794,7 @@ Session::set_session_extents (samplepos_t start, samplepos_t end)
 		return;
 	}
 
-	existing->set_sample (start, end);
+	existing->set (start, end);
 
 	set_dirty();
 }

@@ -1762,3 +1762,134 @@ TempoMap::next_tempo (Tempo const & t) const
 
 	return 0;
 }
+
+uint32_t
+TempoMap::n_meters () const
+{
+	Glib::Threads::RWLock::ReaderLock lm (_lock);
+	uint32_t n = 0;
+
+	for (TempoMapPoints::const_iterator p = _points.begin(); p != _points.end(); ++p) {
+		if (!p->is_explicit()) {
+			continue;
+		}
+
+		if (p->flags() & TempoMapPoint::ExplicitMeter) {
+			++n;
+		}
+	}
+
+	return n;
+}
+
+uint32_t
+TempoMap::n_tempos () const
+{
+	Glib::Threads::RWLock::ReaderLock lm (_lock);
+	uint32_t n = 0;
+
+	for (TempoMapPoints::const_iterator p = _points.begin(); p != _points.end(); ++p) {
+		if (!p->is_explicit()) {
+			continue;
+		}
+
+		if (p->flags() & TempoMapPoint::ExplicitTempo) {
+			++n;
+		}
+	}
+
+	return n;
+}
+
+void
+TempoMap::insert_time (timepos_t const & pos, timecnt_t const & duration)
+{
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+	TempoMapPoints::iterator i;
+
+	switch (duration.style()) {
+	case AudioTime:
+		i = iterator_at (S2Sc (pos.sample()));
+		if (i->sample() < pos.sample()) {
+			++i;
+		}
+
+		while (i != _points.end()) {
+			i->set_sclock (S2Sc (i->sample() + duration.samples()));
+			++i;
+		}
+		break;
+	case BeatTime:
+		i = iterator_at (pos.beats());
+		if (i->quarters() < pos.beats()) {
+			++i;
+		}
+
+		while (i != _points.end()) {
+			i->set_quarters (i->quarters() + duration.beats());
+			++i;
+		}
+		break;
+	case BarTime:
+		i = iterator_at (pos.bbt());
+		if (i->bbt() < pos.bbt()) {
+			++i;
+		}
+
+		while (i != _points.end()) {
+			i->set_bbt (bbt_walk (i->bbt(), duration.bbt()));
+			++i;
+		}
+		break;
+	}
+}
+
+bool
+TempoMap::remove_time (timepos_t const & pos, timecnt_t const & duration)
+{
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+	TempoMapPoints::iterator i;
+
+	bool moved = false;
+
+	switch (duration.style()) {
+	case AudioTime:
+		i = iterator_at (S2Sc (pos.sample()));
+		if (i->sample() < pos.sample()) {
+			++i;
+		}
+
+		while (i != _points.end()) {
+			i->set_sclock (S2Sc (i->sample() - duration.samples()));
+			++i;
+			moved = true;
+		}
+		break;
+	case BeatTime:
+		i = iterator_at (pos.beats());
+		if (i->quarters() < pos.beats()) {
+			++i;
+		}
+
+		while (i != _points.end()) {
+			i->set_quarters (i->quarters() - duration.beats());
+			++i;
+			moved = true;
+		}
+		break;
+	case BarTime:
+		i = iterator_at (pos.bbt());
+		if (i->bbt() < pos.bbt()) {
+			++i;
+		}
+
+		while (i != _points.end()) {
+			i->set_bbt (bbt_walk (i->bbt(), -duration.bbt()));
+			++i;
+			moved = true;
+		}
+		break;
+	}
+
+	return moved;
+}

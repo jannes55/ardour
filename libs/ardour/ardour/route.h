@@ -154,7 +154,7 @@ public:
 
 	/* end of vfunc-based API */
 
-	void shift (samplepos_t, samplecnt_t);
+	void shift (Temporal::timepos_t const &, Temporal::timecnt_t const &);
 
 	void set_trim (gain_t val, PBD::Controllable::GroupControlDisposition);
 

@@ -357,6 +357,9 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	void set_sample_rate (samplecnt_t sr);
 	samplecnt_t sample_rate() const { return _sample_rate; }
 
+	void insert_time (timepos_t const & pos, timecnt_t const & duration);
+	bool remove_time (timepos_t const & pos, timecnt_t const & duration);
+
 	bool set_tempo_and_meter (Tempo const &, Meter const &, samplepos_t, bool ramp, bool flexible);
 	bool set_tempo (Tempo const &, BBT_Time const &, bool ramp = false);
 	bool set_tempo (Tempo const &, samplepos_t, bool ramp = false);
@@ -369,6 +372,9 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	bool can_remove (Meter const &) const;
 
 	bool is_initial (Tempo const &) const;
+
+	uint32_t n_meters() const;
+	uint32_t n_tempos() const;
 
 	Tempo const * next_tempo (Tempo const &) const;
 	Meter const * next_meter (Meter const &) const;

@@ -6609,8 +6609,7 @@ NoteCreateDrag::grid_samples (samplepos_t t) const
 	const Temporal::Beats grid_beats = _region_view->get_grid_beats (t);
 	const Temporal::Beats t_beats = _region_view->region_samples_to_region_beats (t);
 
-	return _region_view->region_beats_to_region_samples (t_beats + grid_beats)
-		- _region_view->region_beats_to_region_samples (t_beats);
+	return (_region_view->region_beats_to_region_time (t_beats + grid_beats) - _region_view->region_beats_to_region_time (t_beats)).sample();
 }
 
 void

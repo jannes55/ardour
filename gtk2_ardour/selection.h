@@ -129,7 +129,7 @@ public:
 	void set (MidiRegionView*);
 	void set (std::vector<RegionView*>&);
 	long set (Temporal::timepos_t const &, Temporal::timepos_t const &);
-	void set_preserving_all_ranges (samplepos_t, samplepos_t);
+	void set_preserving_all_ranges (Temporal::timepos_t const &, Temporal::timepos_t const &);
 	void set (boost::shared_ptr<Evoral::ControlList>);
 	void set (boost::shared_ptr<ARDOUR::Playlist>);
 	void set (const std::list<boost::shared_ptr<ARDOUR::Playlist> >&);
@@ -186,7 +186,7 @@ public:
 
 	void remove_regions (TimeAxisView *);
 
-	void move_time (samplecnt_t);
+	void move_time (Temporal::timecnt_t const &);
 
 	void replace (uint32_t time_index, samplepos_t start, samplepos_t end);
 

@@ -777,7 +777,7 @@ AutomationTimeAxisView::add_automation_event (GdkEvent* event, samplepos_t sampl
 }
 
 bool
-AutomationTimeAxisView::paste (Temporal::timepos_t const & pos, const Selection& selection, PasteContext& ctx, const int32_t divisions)
+AutomationTimeAxisView::paste (Temporal::timepos_t const & pos, const Selection& selection, PasteContext& ctx)
 {
 	if (_line) {
 		return paste_one (pos, ctx.count, ctx.times, selection, ctx.counts, ctx.greedy);

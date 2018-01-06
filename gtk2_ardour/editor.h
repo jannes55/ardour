@@ -252,7 +252,7 @@ public:
 	/* selection */
 
 	Selection& get_selection() const { return *selection; }
-	bool get_selection_extents (samplepos_t &start, samplepos_t &end) const;  // the time extents of the current selection, whether Range, Region(s), Control Points, or Notes
+	bool get_selection_extents (Temporal::timepos_t &start, Temporal::timepos_t &end) const;  // the time extents of the current selection, whether Range, Region(s), Control Points, or Notes
 	Selection& get_cut_buffer() const { return *cut_buffer; }
 
 	void set_selection (std::list<Selectable*>, Selection::Operation);
@@ -549,13 +549,13 @@ public:
 	void metric_get_minsec (std::vector<ArdourCanvas::Ruler::Mark>&, gdouble, gdouble, gint);
 
 	/* editing operations that need to be public */
-	void mouse_add_new_marker (samplepos_t where, bool is_cd=false);
+	void mouse_add_new_marker (Temporal::timepos_t const & where, bool is_cd=false);
 	void split_regions_at (Temporal::timepos_t const &, RegionSelection&, bool snap = true);
 	void split_region_at_points (boost::shared_ptr<ARDOUR::Region>, ARDOUR::AnalysisFeatureList&, bool can_ferret, bool select_new = false);
 	RegionSelection get_regions_from_selection_and_mouse (samplepos_t);
 
-	void mouse_add_new_tempo_event (samplepos_t where);
-	void mouse_add_new_meter_event (samplepos_t where);
+	void mouse_add_new_tempo_event (Temporal::timepos_t const & where);
+	void mouse_add_new_meter_event (Temporal::timepos_t const & where);
 	void edit_tempo_section (Temporal::Tempo const &);
 	void edit_meter_section (Temporal::Meter const &);
 
@@ -1037,7 +1037,7 @@ private:
 	EditorCursor* playhead_cursor;
 	samplepos_t playhead_cursor_sample () const;
 
-	samplepos_t get_region_boundary (samplepos_t pos, int32_t dir, bool with_selection, bool only_onscreen);
+	Temporal::timepos_t get_region_boundary (Temporal::timepos_t const & pos, int32_t dir, bool with_selection, bool only_onscreen);
 
 	void    cursor_to_region_boundary (bool with_selection, int32_t dir);
 	void    cursor_to_next_region_boundary (bool with_selection);
@@ -1062,8 +1062,8 @@ private:
 	void    select_all_selectables_between (bool within);
 	void    select_range_between ();
 
-	boost::shared_ptr<ARDOUR::Region> find_next_region (ARDOUR::timepos_t const &, ARDOUR::RegionPoint, int32_t dir, TrackViewList&, TimeAxisView ** = 0);
-	Temporal::timepos_t find_next_region_boundary (ARDOUR::timepos_t const &, int32_t dir, const TrackViewList&);
+	boost::shared_ptr<ARDOUR::Region> find_next_region (Temporal::timepos_t const &, ARDOUR::RegionPoint, int32_t dir, TrackViewList&, TimeAxisView ** = 0);
+	Temporal::timepos_t find_next_region_boundary (Temporal::timepos_t const &, int32_t dir, const TrackViewList&);
 
 	typedef std::vector<Temporal::timepos_t> RegionBoundaryCache;
 	RegionBoundaryCache region_boundary_cache;
@@ -1220,18 +1220,18 @@ private:
 
 	/* CUT/COPY/PASTE */
 
-	samplepos_t last_paste_pos;
-	unsigned   paste_count;
+	Temporal::timepos_t last_paste_pos;
+	unsigned  paste_count;
 
 	void cut_copy (Editing::CutCopyOp);
 	bool can_cut_copy () const;
-	void cut_copy_points (Editing::CutCopyOp, Temporal::Beats earliest=Temporal::Beats(), bool midi=false);
+	void cut_copy_points (Editing::CutCopyOp, Temporal::timepos_t earliest = Temporal::timepos_t(), bool midi=false);
 	void cut_copy_regions (Editing::CutCopyOp, RegionSelection&);
 	void cut_copy_ranges (Editing::CutCopyOp);
 	void cut_copy_midi (Editing::CutCopyOp);
 
 	void mouse_paste ();
-	void paste_internal (Temporal::timepos_t const & position, float times, const int32_t sub_num);
+	void paste_internal (Temporal::timepos_t const & position, float times);
 
 	/* EDITING OPERATIONS */
 
@@ -1259,8 +1259,8 @@ private:
 	void lower_region_to_bottom ();
 	void split_region_at_transients ();
 	void crop_region_to_selection ();
-	void crop_region_to (samplepos_t start, samplepos_t end);
-	void set_sync_point (samplepos_t, const RegionSelection&);
+	void crop_region_to (Temporal::timepos_t const & start, Temporal::timepos_t const & end);
+	void set_sync_point (Temporal::timepos_t const &, const RegionSelection&);
 	void set_region_sync_position ();
 	void remove_region_sync();
 	void align_regions (ARDOUR::RegionPoint);
@@ -1299,10 +1299,10 @@ private:
 	void fork_region ();
 
 	void do_insert_time ();
-	void insert_time (samplepos_t, samplecnt_t, Editing::InsertTimeOption, bool, bool, bool, bool, bool, bool);
+	void insert_time (Temporal::timepos_t const &, Temporal::timecnt_t const &, Editing::InsertTimeOption, bool, bool, bool, bool, bool, bool);
 
 	void do_remove_time ();
-	void remove_time (samplepos_t pos, samplecnt_t distance, Editing::InsertTimeOption opt, bool ignore_music_glue, bool markers_too,
+	void remove_time (Temporal::timepos_t const & pos, Temporal::timecnt_t const & distance, Editing::InsertTimeOption opt, bool ignore_music_glue, bool markers_too,
 			bool glued_markers_too, bool locked_markers_too, bool tempo_too);
 
 	void tab_to_transient (bool forward);
@@ -1343,7 +1343,7 @@ private:
 	void play_location (ARDOUR::Location&);
 	void loop_location (ARDOUR::Location&);
 
-	void calc_extra_zoom_edges(samplepos_t &start, samplepos_t &end);
+	void calc_extra_zoom_edges(Temporal::timepos_t &start, Temporal::timepos_t &end);
 	void temporal_zoom_selection (Editing::ZoomAxis);
 	void temporal_zoom_session ();
 	void temporal_zoom_extents ();
@@ -1484,7 +1484,7 @@ private:
 	void set_selection_from_loop ();
 	void set_selection_from_region ();
 
-	void add_location_mark (samplepos_t where);
+	void add_location_mark (Temporal::timepos_t const & where);
 	void add_location_from_region ();
 	void add_locations_from_region ();
 	void add_location_from_selection ();
@@ -2170,7 +2170,7 @@ private:
 
 	void selected_marker_moved (ARDOUR::Location*);
 
-	bool get_edit_op_range (samplepos_t& start, samplepos_t& end) const;
+	bool get_edit_op_range (Temporal::timepos_t& start, Temporal::timepos_t& end) const;
 
 	void get_regions_at (RegionSelection&, Temporal::timepos_t const & where, const TrackViewList& ts) const;
 	void get_regions_after (RegionSelection&, Temporal::timepos_t const & where, const TrackViewList& ts) const;

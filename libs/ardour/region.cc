@@ -1849,3 +1849,9 @@ Region::recompute_position_from_lock_style ()
 	 * of timepos_t non-canonical values, we could possibly do it here.
 	 */
 }
+
+timepos_t
+Region::end() const
+{
+	return _position.val() + _length.val();
+}

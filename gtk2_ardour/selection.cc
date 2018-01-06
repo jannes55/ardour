@@ -502,15 +502,15 @@ Selection::add (samplepos_t start, samplepos_t end)
 }
 
 void
-Selection::move_time (samplecnt_t distance)
+Selection::move_time (timecnt_t const & distance)
 {
 	if (distance == 0) {
 		return;
 	}
 
-	for (list<AudioRange>::iterator i = time.begin(); i != time.end(); ++i) {
-		(*i).start += distance;
-		(*i).end += distance;
+	for (list<TimelineRange>::iterator i = time.begin(); i != time.end(); ++i) {
+		(*i).from += distance;
+		(*i).to += distance;
 	}
 
 	TimeChanged ();
@@ -807,11 +807,11 @@ Selection::set (Temporal::timepos_t const & start, Temporal::timepos_t const & e
  *  @param end New end time.
  */
 void
-Selection::set_preserving_all_ranges (samplepos_t start, samplepos_t end)
+Selection::set_preserving_all_ranges (timepos_t const & start, timepos_t const & end)
 {
 	clear_objects();  //enforce region/object exclusivity
 
-	if ((start == 0 && end == 0) || (end < start)) {
+	if ((start == std::numeric_limits<timepos_t>::min() && end == std::numeric_limits<timepos_t>::min()) || (end < start)) {
 		return;
 	}
 

@@ -155,7 +155,7 @@ private:
 
 	int sorter (Gtk::TreeModel::iterator, Gtk::TreeModel::iterator);
 
-	void format_position (ARDOUR::samplepos_t pos, char* buf, size_t bufsize, bool onoff = true);
+	void format_position (Temporal::timepos_t const & pos, char* buf, size_t bufsize, bool onoff = true);
 
 	void add_region (boost::shared_ptr<ARDOUR::Region>);
 

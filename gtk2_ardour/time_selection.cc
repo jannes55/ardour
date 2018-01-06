@@ -29,17 +29,17 @@
 using namespace ARDOUR;
 using namespace PBD;
 
-Temporal::Range<Temporal::samplepos_t>&
+TimelineRange&
 TimeSelection::operator[] (uint32_t which)
 {
-	for (std::list<Range>::iterator i = begin(); i != end(); ++i) {
+	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
 		if ((*i).id == which) {
 			return *i;
 		}
 	}
 	fatal << string_compose (_("programming error: request for non-existent audio range (%1)!"), which) << endmsg;
 	abort(); /*NOTREACHED*/
-	return *(new AudioRange(0,0,0)); /* keep the compiler happy; never called */
+	return *(new ARDOUR::TimelineRange(0,0,0)); /* keep the compiler happy; never called */
 }
 
 bool
@@ -69,7 +69,7 @@ TimeSelection::consolidate ()
 }
 
 samplepos_t
-TimeSelection::start ()
+TimeSelection::start_sample ()
 {
 	if (empty()) {
 		return 0;
@@ -101,11 +101,53 @@ TimeSelection::end_sample ()
 }
 
 samplecnt_t
-TimeSelection::length()
+TimeSelection::length_samples()
 {
 	if (empty()) {
 		return 0;
 	}
 
 	return end_sample() - start() + 1;
+}
+
+timepos_t
+TimeSelection::start_time ()
+{
+	if (empty()) {
+		return 0;
+	}
+
+	timepos_t first = std::numeric_limits<timepos_t>::max();
+
+	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
+		if ((*i).start < first) {
+			first = (*i).start;
+		}
+	}
+	return first;
+}
+
+timepos_t
+TimeSelection::end_time()
+{
+	timepos_t last = std::numeric_limits<timepos_t>::min();
+
+	/* XXX make this work like RegionSelection: no linear search needed */
+
+	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
+		if ((*i).end() > last) {
+			last = (*i).end;
+		}
+	}
+	return last;
+}
+
+timecnt_t
+TimeSelection::length()
+{
+	if (empty()) {
+		return timecnt_t();
+	}
+
+	return timecnt_t (end() - start() + 1);
 }

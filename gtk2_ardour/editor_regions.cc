@@ -727,20 +727,20 @@ EditorRegions::update_all_rows ()
 }
 
 void
-EditorRegions::format_position (samplepos_t pos, char* buf, size_t bufsize, bool onoff)
+EditorRegions::format_position (timepos_t const & pos, char* buf, size_t bufsize, bool onoff)
 {
 	Temporal::BBT_Time bbt;
 	Temporal::Time timecode;
 
-	if (pos < 0) {
-		error << string_compose (_("EditorRegions::format_position: negative timecode position: %1"), pos) << endmsg;
+	if (pos < std::numeric_limits<timepos_t>::min()) {
+		error << string_compose (_("EditorRegions::format_position: negative position: %1"), pos) << endmsg;
 		snprintf (buf, bufsize, "invalid");
 		return;
 	}
 
 	switch (ARDOUR_UI::instance()->secondary_clock->mode ()) {
 	case AudioClock::BBT:
-		bbt = _session->tempo_map().bbt_at_sample (pos);
+		bbt = pos.bbt();
 		if (onoff) {
 			snprintf (buf, bufsize, "%03d|%02d|%04d" , bbt.bars, bbt.beats, bbt.ticks);
 		} else {
@@ -754,7 +754,7 @@ EditorRegions::format_position (samplepos_t pos, char* buf, size_t bufsize, bool
 		int mins;
 		float secs;
 
-		left = pos;
+		left = pos.sample();
 		hrs = (int) floor (left / (_session->sample_rate() * 60.0f * 60.0f));
 		left -= (samplecnt_t) floor (hrs * _session->sample_rate() * 60.0f * 60.0f);
 		mins = (int) floor (left / (_session->sample_rate() * 60.0f));
@@ -769,15 +769,15 @@ EditorRegions::format_position (samplepos_t pos, char* buf, size_t bufsize, bool
 
 	case AudioClock::Samples:
 		if (onoff) {
-			snprintf (buf, bufsize, "%" PRId64, pos);
+			snprintf (buf, bufsize, "%" PRId64, pos.sample());
 		} else {
-			snprintf (buf, bufsize, "(%" PRId64 ")", pos);
+			snprintf (buf, bufsize, "(%" PRId64 ")", pos.sample());
 		}
 		break;
 
 	case AudioClock::Timecode:
 	default:
-		_session->timecode_time (pos, timecode);
+		_session->timecode_time (pos.sample(), timecode);
 		if (onoff) {
 			snprintf (buf, bufsize, "%02d:%02d:%02d:%02d", timecode.hours, timecode.minutes, timecode.seconds, timecode.frames);
 		} else {
@@ -882,11 +882,11 @@ EditorRegions::populate_row_length (boost::shared_ptr<Region> region, TreeModel:
 	char buf[16];
 
 	if (ARDOUR_UI::instance()->secondary_clock->mode () == AudioClock::BBT) {
-		TempoMap& map (_session->tempo_map());
-		Temporal::BBT_Time bbt = map.bbt_at_beat (map.beat_at_sample (region->last_sample()) - map.beat_at_sample (region->first_sample()));
+		Temporal::TempoMap& map (_session->tempo_map());
+		Temporal::BBT_Time bbt = map.bbt_at (region->last().beats() - region->position().beats());
 		snprintf (buf, sizeof (buf), "%03d|%02d|%04d" , bbt.bars, bbt.beats, bbt.ticks);
 	} else {
-		format_position (region->length(), buf, sizeof (buf));
+		format_position (region->length_samples(), buf, sizeof (buf));
 	}
 
 	row[_columns.length] = buf;
@@ -992,7 +992,7 @@ EditorRegions::populate_row_glued (boost::shared_ptr<Region> region, TreeModel::
 	if (region->whole_file() || used > 1) {
 		row[_columns.glued] = false;
 	} else {
-		if (region->position_lock_style() == MusicTime) {
+		if (region->position_lock_style() != Temporal::AudioTime) {
 			row[_columns.glued] = true;
 		} else {
 			row[_columns.glued] = false;
@@ -1169,7 +1169,7 @@ EditorRegions::button_press (GdkEventButton *ev)
 int
 EditorRegions::sorter (TreeModel::iterator a, TreeModel::iterator b)
 {
-	int cmp = 0;
+	timecnt_t cmp;
 
 	boost::shared_ptr<Region> r1 = (*a)[_columns.region];
 	boost::shared_ptr<Region> r2 = (*b)[_columns.region];
@@ -1319,7 +1319,7 @@ EditorRegions::drag_data_received (const RefPtr<Gdk::DragContext>& context,
 	}
 
 	if (_editor->convert_drop_to_paths (paths, context, x, y, data, info, time) == 0) {
-		samplepos_t pos = 0;
+		timepos_t pos;
 		bool copy = ((context->get_actions() & (Gdk::ACTION_COPY | Gdk::ACTION_LINK | Gdk::ACTION_MOVE)) == Gdk::ACTION_COPY);
 
 		if (UIConfiguration::instance().get_only_copy_imported_files() || copy) {
@@ -1494,8 +1494,8 @@ EditorRegions::glued_changed (std::string const & path)
 	if (i) {
 		boost::shared_ptr<ARDOUR::Region> region = (*i)[_columns.region];
 		if (region) {
-			/* `glued' means MusicTime, and we're toggling here */
-			region->set_position_lock_style ((*i)[_columns.glued] ? AudioTime : MusicTime);
+			/* `glued' means BarTime, and we're toggling here */
+			region->set_position_lock_style ((*i)[_columns.glued] ? Temporal::AudioTime : Temporal::BarTime);
 		}
 	}
 

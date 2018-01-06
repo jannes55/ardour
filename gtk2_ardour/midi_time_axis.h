@@ -88,7 +88,7 @@ public:
 	void show_existing_automation (bool apply_to_selection = false);
 	void create_automation_child (const Evoral::Parameter& param, bool show);
 
-	bool paste (Temporal::timepos_t const &, const Selection&, PasteContext& ctx, const int32_t sub_num);
+	bool paste (Temporal::timepos_t const &, const Selection&, PasteContext& ctx);
 
 	ARDOUR::NoteMode  note_mode() const { return _note_mode; }
 	ARDOUR::ColorMode color_mode() const { return _color_mode; }

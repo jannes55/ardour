@@ -184,15 +184,14 @@ class TimeAxisView : public virtual AxisView
 	 */
 	virtual bool paste (Temporal::timepos_t const & pos,
 	                    const Selection&   selection,
-	                    PasteContext&      ctx,
-			    const int32_t sub_num) { return false; }
+	                    PasteContext&      ctx) { return false; }
 
 	virtual void set_selected_regionviews (RegionSelection&) {}
 	virtual void set_selected_points (PointSelection&);
 
 	virtual void fade_range (TimeSelection&) {}
 
-	virtual boost::shared_ptr<ARDOUR::Region> find_next_region (samplepos_t /*pos*/, ARDOUR::RegionPoint, int32_t /*dir*/) {
+	virtual boost::shared_ptr<ARDOUR::Region> find_next_region (Temporal::timepos_t const & /*pos*/, ARDOUR::RegionPoint, int32_t /*dir*/) {
 		return boost::shared_ptr<ARDOUR::Region> ();
 	}
 

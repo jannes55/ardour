@@ -30,11 +30,15 @@ namespace ARDOUR {
 class TimeSelection : public std::list<ARDOUR::TimelineRange>
 {
 public:
-	Temporal::TimeRange & operator[](uint32_t);
+	ARDOUR::TimelineRange & operator[](uint32_t);
 
-	ARDOUR::samplepos_t start();
+	ARDOUR::samplepos_t start_sample();
 	ARDOUR::samplepos_t end_sample();
-	ARDOUR::samplepos_t length();
+	ARDOUR::samplepos_t length_samples();
+
+	Temporal::timepos_t start_time();
+	Temporal::timepos_t end_time();
+	Temporal::timecnt_t length();
 
 	bool consolidate ();
 };

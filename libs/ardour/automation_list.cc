@@ -321,7 +321,7 @@ AutomationList::paste (const ControlList& alist, Temporal::timepos_t const & pos
 	 * into our time domain
 	 */
 
-	bool to_sample = (time_style() == Temporal::AudioTime);
+	const bool to_sample = (time_style() == Temporal::AudioTime);
 
 	ControlList cl (alist);
 	cl.clear ();

@@ -1060,7 +1060,7 @@ Editor::compute_bbt_ruler_scale (samplepos_t lower, samplepos_t upper)
 		break;
 	}
 
-	const Temporal::Beats ceil_upper_beat = _session->tempo_map().beat_at (upper).round_up_to_beat();
+	const Temporal::Beats ceil_upper_beat = _session->tempo_map().quarter_note_at (upper).round_up_to_beat();
 
 	if (ceil_upper_beat == floor_lower_beat) {
 		return;

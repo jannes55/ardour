@@ -4128,14 +4128,14 @@ Route::set_pending_declick (int declick)
  */
 
 void
-Route::shift (samplepos_t pos, samplecnt_t samples)
+Route::shift (timepos_t const & pos, timecnt_t const & duration)
 {
 	/* gain automation */
 	{
 		boost::shared_ptr<AutomationControl> gc = _amp->gain_control();
 
 		XMLNode &before = gc->alist()->get_state ();
-		gc->alist()->shift (pos, samples);
+		gc->alist()->shift (pos, duration);
 		XMLNode &after = gc->alist()->get_state ();
 		_session.add_command (new MementoCommand<AutomationList> (*gc->alist().get(), &before, &after));
 	}
@@ -4145,7 +4145,7 @@ Route::shift (samplepos_t pos, samplecnt_t samples)
 		boost::shared_ptr<AutomationControl> gc = _trim->gain_control();
 
 		XMLNode &before = gc->alist()->get_state ();
-		gc->alist()->shift (pos, samples);
+		gc->alist()->shift (pos, duration);
 		XMLNode &after = gc->alist()->get_state ();
 		_session.add_command (new MementoCommand<AutomationList> (*gc->alist().get(), &before, &after));
 	}
@@ -4161,7 +4161,7 @@ Route::shift (samplepos_t pos, samplecnt_t samples)
 			if (pc) {
 				boost::shared_ptr<AutomationList> al = pc->alist();
 				XMLNode& before = al->get_state ();
-				al->shift (pos, samples);
+				al->shift (pos, duration);
 				XMLNode& after = al->get_state ();
 				_session.add_command (new MementoCommand<AutomationList> (*al.get(), &before, &after));
 			}
@@ -4180,7 +4180,7 @@ Route::shift (samplepos_t pos, samplecnt_t samples)
 				if (ac) {
 					boost::shared_ptr<AutomationList> al = ac->alist();
 					XMLNode &before = al->get_state ();
-					al->shift (pos, samples);
+					al->shift (pos, duration);
 					XMLNode &after = al->get_state ();
 					_session.add_command (new MementoCommand<AutomationList> (*al.get(), &before, &after));
 				}

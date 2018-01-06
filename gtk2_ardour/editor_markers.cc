@@ -645,7 +645,7 @@ Editor::LocationMarkers::setup_lines ()
 }
 
 void
-Editor::mouse_add_new_marker (samplepos_t where, bool is_cd)
+Editor::mouse_add_new_marker (timepos_t const & where, bool is_cd)
 {
 	string markername;
 	int flags = (is_cd ? Location::IsCDMarker|Location::IsMark : Location::IsMark);
@@ -1273,9 +1273,9 @@ Editor::marker_menu_set_from_selection (bool /*force_regions*/)
 		} else {
 
 			if (!selection->time.empty()) {
-				l->set (selection->time.start(), selection->time.end_sample());
+				l->set (selection->time.start_time(), selection->time.end_time());
 			} else if (!selection->regions.empty()) {
-				l->set (selection->regions.start(), selection->regions.end_sample());
+				l->set (selection->regions.start_time(), selection->regions.end_time());
 			}
 		}
 	}

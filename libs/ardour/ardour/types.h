@@ -296,8 +296,7 @@ namespace ARDOUR {
 	struct TimelineRange : public Temporal::TimeRange {
 		uint32_t id;
 
-		TimelineRange (samplepos_t s, samplepos_t e, uint32_t i) : Temporal::TimeRange (timepos_t (s), timepos_t (e)), id (i) {}
-		TimelineRange (Temporal::BBT_Time& s, Temporal::BBT_Time& e, uint32_t i) : Temporal::TimeRange (timepos_t (s), timepos_t (e)), id (i) {}
+		TimelineRange (Temporal::timepos_t const & s, Temporal::timepos_t e, uint32_t i) : Temporal::TimeRange (s, e), id (i) {}
 
 		samplecnt_t length_samples() const { return (to - from).sample() + 1; }
 

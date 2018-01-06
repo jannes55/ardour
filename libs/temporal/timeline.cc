@@ -16,6 +16,8 @@
     Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 */
 
+#include <cstdlib>
+
 #include <exception>
 #include <sstream>
 
@@ -49,6 +51,22 @@ timecnt_t::timecnt_t (timepos_t const & tp)
 		break;
 	case Temporal::BarTime:
 		_bbt = tp.bbt ();
+		break;
+	}
+}
+
+timecnt_t
+timecnt_t::abs () const
+{
+	switch (_style) {
+	case Temporal::AudioTime:
+		return timecnt_t (::abs (_samples));
+		break;
+	case Temporal::BeatTime:
+#warning fix timecnt_t::abs for beats
+	        break;
+	case Temporal::BarTime:
+#warning fix timecnt_t::abs for bars
 		break;
 	}
 }
@@ -315,6 +333,22 @@ timepos_t::update_audio_and_bbt_times () const
 }
 
 timepos_t
+timepos_t::operator/(double d) const
+{
+	assert (d >= 0.0); /* do not allow a position to become negative via division */
+	switch (lock_style()) {
+	case Temporal::AudioTime:
+		return timepos_t (samplepos_t (llrint (_samplepos / d)));
+	case Temporal::BeatTime:
+		return timepos_t (beats() / d);
+	default:
+		break;
+	}
+
+	throw TemporalStyleException ("cannot divide BBT time");
+}
+
+timepos_t
 timepos_t::operator*(double d) const
 {
 	assert (d >= 0.0); /* do not allow a position to become negative via multiplication */
@@ -331,15 +365,37 @@ timepos_t::operator*(double d) const
 }
 
 timepos_t &
+timepos_t::operator/=(double d)
+{
+	assert (d >= 0.0); /* do not allow a position to become negative via division */
+	switch (lock_style()) {
+	case Temporal::AudioTime:
+		_samplepos = samplepos_t (llrint (_samplepos / d));
+		_lock_status.set_dirty (Dirty (BeatsDirty|BBTDirty));
+		return *this;
+	case Temporal::BeatTime:
+		_beats = _beats / d;
+		_lock_status.set_dirty (Dirty (SampleDirty|BBTDirty));
+		return *this;
+	default:
+		break;
+	}
+
+	throw TemporalStyleException ("cannot divide BBT time");
+}
+
+timepos_t &
 timepos_t::operator*=(double d)
 {
 	assert (d >= 0.0); /* do not allow a position to become negative via multiplication */
 	switch (lock_style()) {
 	case Temporal::AudioTime:
 		_samplepos = samplepos_t (llrint (_samplepos * d));
+		_lock_status.set_dirty (Dirty (BeatsDirty|BBTDirty));
 		return *this;
 	case Temporal::BeatTime:
 		_beats = _beats * d;
+		_lock_status.set_dirty (Dirty (SampleDirty|BBTDirty));
 		return *this;
 	default:
 		break;
@@ -392,51 +448,6 @@ timepos_t::operator+(timepos_t const & d) const
 	return timepos_t (*this);
 }
 
-timepos_t
-timepos_t::operator- (timepos_t const & d) const
-{
-	switch (_lock_status.style()) {
-	case AudioTime:
-		switch (d.lock_style()) {
-		case AudioTime:
-			return timepos_t (_samplepos - d.sample());
-		case BeatTime:
-			update_music_times ();
-			return timepos_t (_beats - d.beats());
-		case BarTime:
-			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
-		}
-		break;
-	case BeatTime:
-		switch (d.lock_style()) {
-		case AudioTime:
-			update_audio_and_bbt_times ();
-			return timepos_t (_samplepos - d.sample());
-		case BeatTime:
-			return timepos_t (_beats - d.beats());
-		case BarTime:
-			update_music_times ();
-			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
-		}
-		break;
-	case BarTime:
-		switch (d.lock_style()) {
-		case AudioTime:
-			update_audio_and_beat_times ();
-			return timepos_t (_samplepos - d.sample());
-		case BeatTime:
-			update_music_times ();
-			return timepos_t (_beats - d.beats());
-		case BarTime:
-			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
-		}
-		break;
-	}
-	/*NOTREACHED*/
-	return timepos_t (*this);
-}
-
-/* */
 
 timepos_t
 timepos_t::operator+ (samplepos_t s) const
@@ -488,6 +499,153 @@ timepos_t::operator+ (Temporal::BBT_Offset const & bbt) const
 
 	_bbt = _tempo_map->bbt_walk (_bbt, BBT_Offset (bbt));
 	return *this;
+}
+
+/* */
+
+timecnt_t
+timepos_t::exclusive_delta (timepos_t const & d) const
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		switch (d.lock_style()) {
+		case AudioTime:
+			return timecnt_t (_samplepos - d.sample());
+		case BeatTime:
+			update_music_times ();
+			return timecnt_t (_beats - d.beats());
+		case BarTime:
+			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+		}
+		break;
+	case BeatTime:
+		switch (d.lock_style()) {
+		case AudioTime:
+			update_audio_and_bbt_times ();
+			return timecnt_t (_samplepos - d.sample());
+		case BeatTime:
+			return timecnt_t (_beats - d.beats());
+		case BarTime:
+			update_music_times ();
+			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+		}
+		break;
+	case BarTime:
+		switch (d.lock_style()) {
+		case AudioTime:
+			update_audio_and_beat_times ();
+			return timecnt_t (_samplepos - d.sample());
+		case BeatTime:
+			update_music_times ();
+			return timecnt_t (_beats - d.beats());
+		case BarTime:
+			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+		}
+		break;
+	}
+	/*NOTREACHED*/
+	return timepos_t (*this);
+}
+
+timecnt_t
+timepos_t::exclusive_delta (samplepos_t s) const
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		break;
+	case BeatTime:
+		update_audio_and_bbt_times ();
+		break;
+	case BarTime:
+		update_audio_and_beat_times ();
+		break;
+	}
+
+	if (_samplepos < s) {
+		PBD::warning << string_compose (_("programming warning: sample arithmetic will generate negative sample time (%1 - %2)"), _samplepos, s) << endmsg;
+	}
+
+	return timecnt_t (_samplepos - s);
+}
+
+timecnt_t
+timepos_t::exclusive_delta (Temporal::Beats const & b) const
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		update_music_times ();
+		break;
+	case BeatTime:
+		break;
+	case BarTime:
+		update_audio_and_beat_times ();
+		break;
+	}
+
+	return timecnt_t (_beats - b);
+}
+
+timecnt_t
+timepos_t::exclusive_delta (Temporal::BBT_Offset const & bbt) const
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		update_music_times ();
+		break;
+	case BeatTime:
+		update_audio_and_bbt_times ();
+		break;
+	case BarTime:
+		break;
+	}
+
+	return timecnt_t (_tempo_map->bbt_walk (_bbt, -bbt));
+}
+
+/* */
+
+timepos_t
+timepos_t::operator- (timepos_t const & d) const
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		switch (d.lock_style()) {
+		case AudioTime:
+			return timepos_t (_samplepos - d.sample());
+		case BeatTime:
+			update_music_times ();
+			return timepos_t (_beats - d.beats());
+		case BarTime:
+			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+		}
+		break;
+	case BeatTime:
+		switch (d.lock_style()) {
+		case AudioTime:
+			update_audio_and_bbt_times ();
+			return timepos_t (_samplepos - d.sample());
+		case BeatTime:
+			return timepos_t (_beats - d.beats());
+		case BarTime:
+			update_music_times ();
+			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+		}
+		break;
+	case BarTime:
+		switch (d.lock_style()) {
+		case AudioTime:
+			update_audio_and_beat_times ();
+			return timepos_t (_samplepos - d.sample());
+		case BeatTime:
+			update_music_times ();
+			return timepos_t (_beats - d.beats());
+		case BarTime:
+			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+		}
+		break;
+	}
+	/*NOTREACHED*/
+	return timepos_t (*this);
 }
 
 timepos_t
@@ -562,6 +720,8 @@ timepos_t:: operator+= (samplepos_t s)
 	}
 
 	_samplepos -= s;
+	_lock_status.set_dirty (Dirty (BBTDirty|BeatsDirty));
+
 	return *this;
 }
 
@@ -580,6 +740,8 @@ timepos_t::operator+=(Temporal::Beats const & b)
 	}
 
 	_beats += b;
+	_lock_status.set_dirty (Dirty (SampleDirty|BBTDirty));
+
 	return *this;
 }
 
@@ -598,6 +760,8 @@ timepos_t:: operator+=(Temporal::BBT_Offset const & bbt)
 	}
 
 	_bbt = _tempo_map->bbt_walk (_bbt, bbt);
+	_lock_status.set_dirty (Dirty (SampleDirty|BeatsDirty));
+
 	return *this;
 }
 
@@ -616,6 +780,8 @@ timepos_t:: operator-= (samplepos_t s)
 	}
 
 	_samplepos -= s;
+	_lock_status.set_dirty (Dirty (BBTDirty|BeatsDirty));
+
 	return *this;
 }
 
@@ -634,6 +800,8 @@ timepos_t::operator-=(Temporal::Beats const & b)
 	}
 
 	_beats -= b;
+	_lock_status.set_dirty (Dirty (BBTDirty|SampleDirty));
+
 	return *this;
 }
 
@@ -652,6 +820,8 @@ timepos_t:: operator-=(Temporal::BBT_Offset const & bbt)
 	}
 
 	_bbt = _tempo_map->bbt_walk (_bbt, -bbt);
+	_lock_status.set_dirty (Dirty (SampleDirty|BeatsDirty));
+
 	return *this;
 }
 

@@ -472,7 +472,7 @@ public:
 
 	void set_auto_punch_location (Location *);
 	void set_auto_loop_location (Location *);
-	void set_session_extents (samplepos_t start, samplepos_t end);
+	void set_session_extents (Temporal::timepos_t const & start, Temporal::timepos_t const & end);
 	bool end_is_free () const { return _session_range_end_is_free; }
 	void set_end_is_free (bool);
 	int location_name(std::string& result, std::string base = std::string(""));

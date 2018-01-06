@@ -2945,9 +2945,9 @@ Editor::snap_to_internal (Temporal::timepos_t & start, Temporal::RoundMode direc
 			RegionBoundaryCache::iterator next = region_boundary_cache.end ();
 
 			if (direction > 0) {
-				next = std::upper_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start.sample());
+				next = std::upper_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start);
 			} else {
-				next = std::lower_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start.sample());
+				next = std::lower_bound (region_boundary_cache.begin(), region_boundary_cache.end(), start);
 			}
 
 			if (next != region_boundary_cache.begin ()) {
@@ -3665,11 +3665,11 @@ Editor::duplicate_range (bool with_dialog)
 	}
 
 	if ((current_mouse_mode() == Editing::MouseRange)) {
-		if (selection->time.length()) {
+		if (selection->time.length() != timecnt_t()) {
 			duplicate_selection (times);
 		}
 	} else if (get_smart_mode()) {
-		if (selection->time.length()) {
+		if (selection->time.length() != timecnt_t()) {
 			duplicate_selection (times);
 		} else
 			duplicate_some_regions (rs, times);
@@ -4561,7 +4561,7 @@ Editor::on_samples_per_pixel_changed ()
 
 	bool const showing_time_selection = selection->time.length() > 0;
 
-	if (showing_time_selection && selection->time.start () != selection->time.end_sample ()) {
+	if (showing_time_selection && selection->time.start_time () != selection->time.end_time ()) {
 		for (TrackViewList::iterator i = selection->tracks.begin(); i != selection->tracks.end(); ++i) {
 			(*i)->reshow_selection (selection->time);
 		}

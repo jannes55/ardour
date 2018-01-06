@@ -116,6 +116,7 @@ public:
 	timepos_t position ()  const { return _position.val(); }
 	timepos_t start ()     const { return _start.val(); }
 	timecnt_t length ()    const { return _length.val(); }
+	timepos_t end()        const;
 
 	samplepos_t position_sample ()  const { return _position.val().sample(); }
 	samplepos_t start_sample ()     const { return _start.val().sample(); }
@@ -158,6 +159,10 @@ public:
 
 	samplepos_t first_sample () const { return _position.val().sample(); }
 	samplepos_t last_sample ()  const { samplepos_t r = _position.val().sample(); r += _length.val().samples(); r -= 1; return r; }
+
+	/* first() is an alias; last() just hides some math */
+
+	timepos_t first() const { return _position.val(); }
 	timepos_t last() const { return _position.val() + _length.val() - 1; }
 
 	/** Return the earliest possible value of _position given the

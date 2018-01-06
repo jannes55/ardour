@@ -2113,7 +2113,7 @@ Editor::select_range_between ()
 }
 
 bool
-Editor::get_edit_op_range (samplepos_t& start, samplepos_t& end) const
+Editor::get_edit_op_range (timepos_t& start, timepos_t& end) const
 {
 //	samplepos_t m;
 //	bool ignored;
@@ -2123,7 +2123,7 @@ Editor::get_edit_op_range (samplepos_t& start, samplepos_t& end) const
 	if ( (mouse_mode == MouseRange || get_smart_mode() ) &&  !selection->time.empty()) {
 		/* we know that these are ordered */
 		start = selection->time.start();
-		end = selection->time.end_sample();
+		end = selection->time.end();
 		return true;
 	} else {
 		start = 0;

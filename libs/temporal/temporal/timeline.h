@@ -76,6 +76,8 @@ class LIBTEMPORAL_API timecnt_t {
 
 	static timecnt_t const & max() { return _max_timecnt; }
 
+	timecnt_t abs() const;
+
 	Temporal::LockStyle    style()   const { return _style; }
 
 	samplepos_t            samples() const { assert (_style == Temporal::AudioTime); return _samples; }
@@ -86,6 +88,37 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t & operator= (Temporal::Beats const & b) { _style = Temporal::BeatTime; _beats = b; return *this; }
 	timecnt_t & operator= (Temporal::BBT_Offset const & bbt) { _style = Temporal::BarTime; _bbt = bbt; return *this; }
 	timecnt_t & operator= (timepos_t const & s);
+
+	/* return a timecnt_t that is the next (later) possible position given
+	 * this one
+	 */
+	timecnt_t increment () const {
+		switch (_style) {
+		case Temporal::BeatTime:
+			return timecnt_t (_beats + Beats (1));
+		case Temporal::AudioTime:
+			return timecnt_t (_samples < max_samplepos ? _samples + 1 : _samples);
+		default:
+			/* can't do math on BBT time, see bbt_time.h for details */
+			break;
+		}
+
+		abort ();
+	}
+
+	timecnt_t decrement () const {
+		switch (_style) {
+		case Temporal::BeatTime:
+			return timecnt_t (_beats - Beats (1)); /* beats can go negative */
+		case Temporal::AudioTime:
+			return timecnt_t (_samples > 0 ? _samples - 1 : _samples); /* samples cannot go negative */
+		default:
+			/* can't do math on BBT time, see bbt_time.h for details */
+			break;
+		}
+
+		abort ();
+	}
 
 	timecnt_t operator*(double) const;
 	timecnt_t operator/(double n) const;
@@ -325,9 +358,9 @@ class LIBTEMPORAL_API timepos_t {
 	timepos_t increment () const {
 		switch (_lock_status.style()) {
 		case Temporal::BeatTime:
-			return timepos_t (_beats + Beats::ticks (1));
+			return timepos_t (_beats + Beats (1));
 		case Temporal::AudioTime:
-			return timepos_t (_samplepos + 1);
+			return timepos_t (_samplepos < max_samplepos ? _samplepos + 1 : _samplepos);
 		default:
 			/* can't do math on BBT time, see bbt_time.h for details */
 			break;
@@ -339,9 +372,9 @@ class LIBTEMPORAL_API timepos_t {
 	timepos_t decrement () const {
 		switch (_lock_status.style()) {
 		case Temporal::BeatTime:
-			return timepos_t (_beats - Beats::ticks (1));
+			return timepos_t (_beats - Beats (1)); /* beats can go negative */
 		case Temporal::AudioTime:
-			return timepos_t (_samplepos - 1);
+			return timepos_t (_samplepos > 0 ? _samplepos - 1 : _samplepos); /* samples cannot go negative */
 		default:
 			/* can't do math on BBT time, see bbt_time.h for details */
 			break;
@@ -476,16 +509,40 @@ class LIBTEMPORAL_API timepos_t {
 	timepos_t operator+(Temporal::Beats const &) const;
 	timepos_t operator+(Temporal::BBT_Offset const &) const;
 
+	/* delta generates a timecnt_t, which may be negative
+
+	   inclusive delta:
+	   if the result is termed r, then this + r = d
+
+	   exclusive delta:
+	   if the result is termed r, then this + r = last position before d
+	*/
+
+	timecnt_t exclusive_delta (timecnt_t const & d) const;
+	timecnt_t exclusive_delta (timepos_t const & d) const;
+	timecnt_t exclusive_delta (samplepos_t) const;
+	timecnt_t exclusive_delta (Temporal::Beats const &) const;
+	timecnt_t exclusive_delta (Temporal::BBT_Offset const &) const;
+
+	timecnt_t inclusive_delta (timecnt_t const & d) const            { return exclusive_delta (d).increment(); }
+	timecnt_t inclusive_delta (timepos_t const & d) const            { return exclusive_delta (d).increment(); }
+	timecnt_t inclusive_delta (samplepos_t d) const                  { return exclusive_delta (d).increment(); }
+	timecnt_t inclusive_delta (Temporal::Beats const & d) const      { return exclusive_delta (d).increment(); }
+	timecnt_t inclusive_delta (Temporal::BBT_Offset const & d) const { return exclusive_delta (d).increment(); }
+
+	/* operator- generates a timepos_t which is always zero or positive */
+
 	timepos_t operator-(timecnt_t const & d) const;
 	timepos_t operator-(timepos_t const & d) const;
 	timepos_t operator-(samplepos_t) const;
 	timepos_t operator-(Temporal::Beats const &) const;
 	timepos_t operator-(Temporal::BBT_Offset const &) const;
 
+	timepos_t operator/(double) const;
 	timepos_t operator*(double) const;
-	timepos_t operator*(int) const;
+
 	timepos_t & operator*=(double);
-	timepos_t & operator*=(int);
+	timepos_t & operator/=(double);
 
 	timepos_t & operator+=(timecnt_t const & d);
 	timepos_t & operator+=(samplepos_t);
