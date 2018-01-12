@@ -75,7 +75,7 @@ private:
 	void set_editor (std::pair<double, double>);
 	void set_editor_x (double);
 	void set_editor_x (std::pair<double, double>);
-	void playhead_position_changed (samplepos_t);
+	void playhead_position_changed (Temporal::timepos_t); /* note: NOT a reference .. signal handling */
 	double editor_y_to_summary (double) const;
 	Position get_position (double, double) const;
 	void set_cursor (Position);

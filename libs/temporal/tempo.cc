@@ -466,6 +466,24 @@ TempoMap::set_dirty (bool yn)
 }
 
 Meter const &
+TempoMap::meter_at (timepos_t const & time) const
+{
+	switch (time.lock_style()) {
+	case AudioTime:
+		return meter_at (time.sample());
+		break;
+	case BarTime:
+		return meter_at (time.bbt());
+		break;
+	case BeatTime:
+		return meter_at (time.beats());
+		break;
+	}
+	/*NOTREACHED*/
+	return meter_at (0);
+}
+
+Meter const &
 TempoMap::meter_at (samplepos_t s) const
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
@@ -484,6 +502,24 @@ TempoMap::meter_at (Temporal::BBT_Time const & bbt) const
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
 	return meter_at_locked (bbt);
+}
+
+Tempo const &
+TempoMap::tempo_at (timepos_t const & time) const
+{
+	switch (time.lock_style()) {
+	case AudioTime:
+		return tempo_at (time.sample());
+		break;
+	case BarTime:
+		return tempo_at (time.bbt());
+		break;
+	case BeatTime:
+		return tempo_at (time.beats());
+		break;
+	}
+	/*NOTREACHED*/
+	return tempo_at (0);
 }
 
 Tempo const &
@@ -872,6 +908,25 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 }
 
 bool
+TempoMap::set_tempo (Tempo const & t, timepos_t const & time, bool ramp)
+{
+	switch (time.lock_style()) {
+	case AudioTime:
+		return set_tempo (t, time.sample(), ramp);
+		break;
+	case BarTime:
+		return set_tempo (t, time.bbt(), ramp);
+		break;
+	case BeatTime:
+		cerr << (_("programming error: beat time used in tempo map as current")) << endl;
+		abort ();
+		break;
+	}
+	/*NOTREACHED*/
+	return false;
+}
+
+bool
 TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -911,6 +966,25 @@ TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, t, meter, 0, Temporal::Beats(), on_beat, ramp));
 
 	return true;
+}
+
+bool
+TempoMap::set_meter (Meter const & m, timepos_t const & time)
+{
+	switch (time.lock_style()) {
+	case AudioTime:
+		return set_meter (m, time.sample());
+		break;
+	case BarTime:
+		return set_meter (m, time.bbt());
+		break;
+	case BeatTime:
+		cerr << (_("programming error: beat time used in tempo map as current")) << endl;
+		abort ();
+		break;
+	}
+	/*NOTREACHED*/
+	return false;
 }
 
 bool
@@ -1294,7 +1368,7 @@ TempoMap::remove_explicit_point (samplepos_t s)
 }
 
 bool
-TempoMap::move_to (timepos_t cur, timepos_t dest, bool push)
+TempoMap::move_to (timepos_t const & cur, timepos_t const & dest, bool push)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 
@@ -1651,6 +1725,15 @@ TempoMap::is_initial (Tempo const & t) const
 	assert (!_points.empty());
 	return &t == dynamic_cast<Tempo const *> (&_points.front().metric());
 }
+
+bool
+TempoMap::is_initial (Meter const & m) const
+{
+	Glib::Threads::RWLock::ReaderLock lm (_lock);
+	assert (!_points.empty());
+	return &m == dynamic_cast<Meter const *> (&_points.front().metric());
+}
+
 
 bool
 TempoMap::can_remove (Meter const & m) const

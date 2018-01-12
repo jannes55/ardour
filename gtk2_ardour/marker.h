@@ -144,20 +144,20 @@ private:
 class MetricMarker : public ArdourMarker
 {
   public:
-	MetricMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint &);
+	MetricMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint const &);
 	~MetricMarker ();
 
 	Temporal::TempoMetric & metric() const;
-	Temporal::TempoMapPoint & point() const { return _point; }
+	Temporal::TempoMapPoint const & point() const { return _point; }
 
   private:
-	Temporal::TempoMapPoint & _point;
+	Temporal::TempoMapPoint const & _point;
 };
 
 class TempoMarker : public MetricMarker
 {
   public:
-	TempoMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint &);
+	TempoMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint const &);
 
 	Temporal::Tempo & tempo() const;
 	void update_height_mark (const double ratio);
@@ -166,7 +166,7 @@ class TempoMarker : public MetricMarker
 class MeterMarker : public MetricMarker
 {
   public:
-	MeterMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint &);
+	MeterMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint const &);
 
 	Temporal::Meter & meter() const;
 };

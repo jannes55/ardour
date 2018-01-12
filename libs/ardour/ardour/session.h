@@ -1031,8 +1031,8 @@ public:
 	/* temporary hacks to allow selection to be pushed from GUI into backend.
 	   Whenever we move the selection object into libardour, these will go away.
 	 */
-	void set_range_selection (samplepos_t start, samplepos_t end);
-	void set_object_selection (samplepos_t start, samplepos_t end);
+	void set_range_selection (timepos_t const & start, timepos_t const & end);
+	void set_object_selection (timepos_t const & start, timepos_t const & end);
 	void clear_range_selection ();
 	void clear_object_selection ();
 

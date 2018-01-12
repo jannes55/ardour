@@ -197,7 +197,7 @@ public:
 	void   delete_note (boost::shared_ptr<NoteType>);
 	size_t selection_size() { return _selection.size(); }
 	void   select_all_notes ();
-	void   select_range(samplepos_t start, samplepos_t end);
+	void   select_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end);
 	void   invert_selection ();
 
 	Temporal::Beats earliest_in_selection ();

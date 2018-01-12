@@ -83,7 +83,6 @@ namespace ARDOUR {
 	class Region;
 	class RouteGroup;
 	class Session;
-	class TempoSection;
 	class Track;
 }
 
@@ -269,7 +268,7 @@ public:
 	void invert_selection_in_track ();
 	void invert_selection ();
 	void deselect_all ();
-	long select_range (samplepos_t, samplepos_t);
+	long select_range (Temporal::timepos_t const &, Temporal::timepos_t const &);
 
 	void set_selected_regionview_from_region_list (boost::shared_ptr<ARDOUR::Region> region, Selection::Operation op = Selection::Set);
 
@@ -330,7 +329,7 @@ public:
 	void mixer_strip_width_changed ();
 	void hide_track_in_display (TimeAxisView* tv, bool apply_to_selection = false);
 	void show_track_in_display (TimeAxisView* tv, bool move_into_view = false);
-	void tempo_curve_selected (ARDOUR::TempoSection* ts, bool yn);
+	void tempo_curve_selected (Temporal::TempoMapPoint* ts, bool yn);
 
 	/* nudge is initiated by transport controls owned by ARDOUR_UI */
 
@@ -556,8 +555,8 @@ public:
 
 	void mouse_add_new_tempo_event (Temporal::timepos_t const & where);
 	void mouse_add_new_meter_event (Temporal::timepos_t const & where);
-	void edit_tempo_section (Temporal::Tempo const &);
-	void edit_meter_section (Temporal::Meter const &);
+	void edit_tempo_section (Temporal::TempoMapPoint const &);
+	void edit_meter_section (Temporal::TempoMapPoint const &);
 
 protected:
 	void map_transport_state ();

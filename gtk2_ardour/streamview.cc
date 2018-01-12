@@ -589,11 +589,11 @@ StreamView::get_selectables (Temporal::timepos_t const & start, Temporal::timepo
 		}
 
 		if (within) {
-			if ((*i)->region()->coverage (start, end) == Evoral::OverlapExternal && layer_ok) {
+			if ((*i)->region()->coverage (start, end) == Temporal::OverlapExternal && layer_ok) {
 				results.push_back (*i);
 			}
 		} else {
-			if ((*i)->region()->coverage (start, end) != Evoral::OverlapNone && layer_ok) {
+			if ((*i)->region()->coverage (start, end) != Temporal::OverlapNone && layer_ok) {
 				results.push_back (*i);
 			}
 		}

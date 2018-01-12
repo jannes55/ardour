@@ -669,24 +669,21 @@ Editor::set_selected_regionview_from_click (bool press, Selection::Operation op)
 	} else if (op == Selection::Extend) {
 
 		list<Selectable*> results;
-		samplepos_t last_sample;
-		samplepos_t first_sample;
+		timepos_t last_position;
+		timepos_t first_position = std::numeric_limits<timepos_t>::max();
 		bool same_track = false;
 
 		/* 1. find the last selected regionview in the track that was clicked in */
 
-		last_sample = 0;
-		first_sample = max_samplepos;
-
 		for (RegionSelection::iterator x = selection->regions.begin(); x != selection->regions.end(); ++x) {
 			if (&(*x)->get_time_axis_view() == &clicked_regionview->get_time_axis_view()) {
 
-				if ((*x)->region()->last_sample() > last_sample) {
-					last_sample = (*x)->region()->last_sample();
+				if ((*x)->region()->last() > last_position) {
+					last_position = (*x)->region()->last();
 				}
 
-				if ((*x)->region()->first_sample() < first_sample) {
-					first_sample = (*x)->region()->first_sample();
+				if ((*x)->region()->position() < first_position) {
+					first_position = (*x)->region()->position();
 				}
 
 				same_track = true;
@@ -697,39 +694,39 @@ Editor::set_selected_regionview_from_click (bool press, Selection::Operation op)
 
 			/* 2. figure out the boundaries for our search for new objects */
 
-			switch (clicked_regionview->region()->coverage (first_sample, last_sample)) {
-			case Evoral::OverlapNone:
-				if (last_sample < clicked_regionview->region()->first_sample()) {
-					first_sample = last_sample;
-					last_sample = clicked_regionview->region()->last_sample();
+			switch (clicked_regionview->region()->coverage (first_position, last_position)) {
+			case Temporal::OverlapNone:
+				if (last_position < clicked_regionview->region()->position()) {
+					first_position = last_position;
+					last_position = clicked_regionview->region()->last();
 				} else {
-					last_sample = first_sample;
-					first_sample = clicked_regionview->region()->first_sample();
+					last_position = first_position;
+					first_position = clicked_regionview->region()->position();
 				}
 				break;
 
-			case Evoral::OverlapExternal:
-				if (last_sample < clicked_regionview->region()->first_sample()) {
-					first_sample = last_sample;
-					last_sample = clicked_regionview->region()->last_sample();
+			case Temporal::OverlapExternal:
+				if (last_position < clicked_regionview->region()->position()) {
+					first_position = last_position;
+					last_position = clicked_regionview->region()->last();
 				} else {
-					last_sample = first_sample;
-					first_sample = clicked_regionview->region()->first_sample();
+					last_position = first_position;
+					first_position = clicked_regionview->region()->position();
 				}
 				break;
 
-			case Evoral::OverlapInternal:
-				if (last_sample < clicked_regionview->region()->first_sample()) {
-					first_sample = last_sample;
-					last_sample = clicked_regionview->region()->last_sample();
+			case Temporal::OverlapInternal:
+				if (last_position < clicked_regionview->region()->position()) {
+					first_position = last_position;
+					last_position = clicked_regionview->region()->last();
 				} else {
-					last_sample = first_sample;
-					first_sample = clicked_regionview->region()->first_sample();
+					last_position = first_position;
+					first_position = clicked_regionview->region()->position();
 				}
 				break;
 
-			case Evoral::OverlapStart:
-			case Evoral::OverlapEnd:
+			case Temporal::OverlapStart:
+			case Temporal::OverlapEnd:
 				/* nothing to do except add clicked region to selection, since it
 				   overlaps with the existing selection in this track.
 				*/
@@ -744,15 +741,15 @@ Editor::set_selected_regionview_from_click (bool press, Selection::Operation op)
 			*/
 
 
-			first_sample = clicked_regionview->region()->position();
-			last_sample = clicked_regionview->region()->last_sample();
+			first_position = clicked_regionview->region()->position();
+			last_position = clicked_regionview->region()->last();
 
 			for (RegionSelection::iterator i = selection->regions.begin(); i != selection->regions.end(); ++i) {
-				if ((*i)->region()->position() < first_sample) {
-					first_sample = (*i)->region()->position();
+				if ((*i)->region()->position() < first_position) {
+					first_position = (*i)->region()->position();
 				}
-				if ((*i)->region()->last_sample() + 1 > last_sample) {
-					last_sample = (*i)->region()->last_sample();
+				if ((*i)->region()->last().increment() > last_position) {
+					last_position = (*i)->region()->last();
 				}
 			}
 		}
@@ -865,7 +862,7 @@ Editor::set_selected_regionview_from_click (bool press, Selection::Operation op)
 		*/
 
 		for (set<RouteTimeAxisView*>::iterator t = relevant_tracks.begin(); t != relevant_tracks.end(); ++t) {
-			(*t)->get_selectables (first_sample, last_sample, -1.0, -1.0, results);
+			(*t)->get_selectables (first_position, last_position, -1.0, -1.0, results);
 		}
 
 		/* 4. convert to a vector of regions */
@@ -1188,7 +1185,7 @@ Editor::time_selection_changed ()
 
 	if (_session && !_drags->active()) {
 		if (selection->time.length() != 0) {
-			_session->set_range_selection (selection->time.start(), selection->time.end_sample());
+			_session->set_range_selection (selection->time.start_time(), selection->time.end_time());
 		} else {
 			_session->clear_range_selection ();
 		}
@@ -1253,7 +1250,7 @@ Editor::sensitize_the_right_region_actions (bool because_canvas_crossing)
 			}
 		} else {
 			RegionSelection at_edit_point;
-			samplepos_t const where = get_preferred_edit_position (Editing::EDIT_IGNORE_NONE, false, !within_track_canvas);
+			timepos_t const where = get_preferred_edit_position (Editing::EDIT_IGNORE_NONE, false, !within_track_canvas);
 			get_regions_at (at_edit_point, where, selection->tracks);
 			if (!at_edit_point.empty()) {
 				have_edit_point = true;
@@ -1347,7 +1344,7 @@ Editor::sensitize_the_right_region_actions (bool because_canvas_crossing)
 			have_video_unlocked = true;
 		}
 
-		if (r->position_lock_style() == MusicTime) {
+		if (r->position_lock_style() != Temporal::AudioTime) {
 			have_position_lock_style_music = true;
 		} else {
 			have_position_lock_style_audio = true;
@@ -1571,7 +1568,7 @@ Editor::region_selection_changed ()
 
 	if (_session) {
 		if (!selection->regions.empty()) {
-			_session->set_object_selection (selection->regions.start(), selection->regions.end_sample());
+			_session->set_object_selection (selection->regions.start_time(), selection->regions.end_time());
 		} else {
 			_session->clear_object_selection ();
 		}
@@ -1661,7 +1658,7 @@ Editor::select_all_objects (Selection::Operation op)
 		if ((*iter)->hidden()) {
 			continue;
 		}
-		(*iter)->fget_selectables (0, std::numeric_limits<Temporal::timepos_t>::max(), 0, DBL_MAX, touched);
+		(*iter)->get_selectables (std::numeric_limits<Temporal::timepos_t>::min(), std::numeric_limits<Temporal::timepos_t>::max(), 0, DBL_MAX, touched);
 	}
 
 	begin_reversible_selection_op (X_("select all"));
@@ -1801,7 +1798,7 @@ Editor::set_selection_from_region ()
 
 	/* select range (this will clear the region selection) */
 
-	selection->set (selection->regions.start(), selection->regions.end_sample());
+	selection->set (selection->regions.start_time(), selection->regions.end_time());
 
 	/* and select the tracks */
 
@@ -1839,7 +1836,7 @@ void
 Editor::set_selection_from_range (Location& loc)
 {
 	begin_reversible_selection_op (X_("set selection from range"));
-	selection->set (loc.start(), loc.end());
+	selection->set (loc.start_time(), loc.end_time());
 	commit_reversible_selection_op ();
 
 	if (!get_smart_mode () || mouse_mode != Editing::MouseObject) {
@@ -1856,10 +1853,10 @@ Editor::select_all_selectables_using_time_selection ()
 		return;
 	}
 
-	samplepos_t start = selection->time[clicked_selection].start;
-	samplepos_t end = selection->time[clicked_selection].end;
+	timepos_t start = selection->time[clicked_selection].start();
+	timepos_t end = selection->time[clicked_selection].end();
 
-	if (end - start < 1)  {
+	if (end < start) {
 		return;
 	}
 
@@ -1890,10 +1887,9 @@ Editor::select_all_selectables_using_punch()
 	Location* location = _session->locations()->auto_punch_location();
 	list<Selectable *> touched;
 
-	if (location == 0 || (location->end() - location->start() <= 1))  {
+	if (location == 0 || (location->end_time() < location->start_time())) {
 		return;
 	}
-
 
 	TrackViewList* ts;
 
@@ -1907,7 +1903,7 @@ Editor::select_all_selectables_using_punch()
 		if ((*iter)->hidden()) {
 			continue;
 		}
-		(*iter)->get_selectables (location->start(), location->end().decrement(), 0, DBL_MAX, touched);
+		(*iter)->get_selectables (location->start_time(), location->end_time().decrement(), 0, DBL_MAX, touched);
 	}
 	begin_reversible_selection_op (X_("select all from punch"));
 	selection->set (touched);
@@ -1921,10 +1917,9 @@ Editor::select_all_selectables_using_loop()
 	Location* location = _session->locations()->auto_loop_location();
 	list<Selectable *> touched;
 
-	if (location == 0 || (location->end() - location->start() <= 1))  {
+	if (location == 0 || (location->end_time() - location->start_time() <= 1))  {
 		return;
 	}
-
 
 	TrackViewList* ts;
 
@@ -1938,7 +1933,7 @@ Editor::select_all_selectables_using_loop()
 		if ((*iter)->hidden()) {
 			continue;
 		}
-		(*iter)->get_selectables (location->start(), location->end().decrement(), 0, DBL_MAX, touched);
+		(*iter)->get_selectables (location->start_time(), location->end_time().decrement(), 0, DBL_MAX, touched);
 	}
 	begin_reversible_selection_op (X_("select all from loop"));
 	selection->set (touched);
@@ -1949,8 +1944,8 @@ Editor::select_all_selectables_using_loop()
 void
 Editor::select_all_selectables_using_cursor (EditorCursor *cursor, bool after)
 {
-	samplepos_t start;
-	samplepos_t end;
+	timepos_t start;
+	timepos_t end;
 	list<Selectable *> touched;
 
 	if (after) {
@@ -2002,8 +1997,8 @@ Editor::select_all_selectables_using_cursor (EditorCursor *cursor, bool after)
 void
 Editor::select_all_selectables_using_edit (bool after, bool from_context_menu)
 {
-	samplepos_t start;
-	samplepos_t end;
+	timepos_t start;
+	timepos_t end;
 	list<Selectable *> touched;
 
 	if (after) {
@@ -2053,8 +2048,8 @@ Editor::select_all_selectables_using_edit (bool after, bool from_context_menu)
 void
 Editor::select_all_selectables_between (bool within)
 {
-	samplepos_t start;
-	samplepos_t end;
+	timepos_t start;
+	timepos_t end;
 	list<Selectable *> touched;
 
 	if (!get_edit_op_range (start, end)) {
@@ -2092,8 +2087,8 @@ Editor::select_all_selectables_between (bool within)
 void
 Editor::select_range_between ()
 {
-	samplepos_t start;
-	samplepos_t end;
+	timepos_t start;
+	timepos_t end;
 
 	if ( !selection->time.empty() ) {
 		selection->clear_time ();
@@ -2122,8 +2117,8 @@ Editor::get_edit_op_range (timepos_t& start, timepos_t& end) const
 
 	if ( (mouse_mode == MouseRange || get_smart_mode() ) &&  !selection->time.empty()) {
 		/* we know that these are ordered */
-		start = selection->time.start();
-		end = selection->time.end();
+		start = selection->time.start_time();
+		end = selection->time.end_time();
 		return true;
 	} else {
 		start = 0;
@@ -2222,7 +2217,7 @@ Editor::deselect_all ()
 }
 
 long
-Editor::select_range (samplepos_t s, samplepos_t e)
+Editor::select_range (timepos_t const & s, timepos_t const & e)
 {
 	begin_reversible_selection_op (X_("Select Range"));
 	selection->add (clicked_axisview);

@@ -29,7 +29,7 @@
 
 using namespace std;
 
-TempoLines::TempoLines (ArdourCanvas::Container* group, double)
+TempoLines::TempoLines (ArdourCanvas::Container* group)
 	: lines (group, ArdourCanvas::LineSet::Vertical)
 {
 	lines.set_extent (ArdourCanvas::COORD_MAX);
@@ -58,7 +58,7 @@ TempoLines::hide ()
 }
 
 void
-TempoLines::draw_ticks (std::vector<Temporal::TempoMapPoint>& grid,
+TempoLines::draw_ticks (TempoMapPoints& grid,
 			unsigned                              divisions,
                         samplecnt_t                           leftmost_sample,
                         samplecnt_t                           sample_rate)
@@ -85,10 +85,10 @@ TempoLines::draw_ticks (std::vector<Temporal::TempoMapPoint>& grid,
 }
 
 void
-TempoLines::draw (std::vector<Temporal::TempoMapPoint>& grid,
-		  unsigned                              divisions,
-                  samplecnt_t                           leftmost_sample,
-                  samplecnt_t                           sample_rate)
+TempoLines::draw (TempoMapPoints& grid,
+		  unsigned        divisions,
+                  samplepos_t     leftmost_sample,
+                  samplecnt_t     sample_rate)
 {
 	std::vector<Temporal::TempoMapPoint>::const_iterator i;
 	double  beat_density;

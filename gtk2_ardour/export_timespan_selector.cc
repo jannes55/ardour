@@ -137,7 +137,7 @@ ExportTimespanSelector::location_sorter(Gtk::TreeModel::iterator a, Gtk::TreeMod
 	if (l2 == ls)
 		return +1;
 
-	return l1->start() - l2->start();
+	return l1->start_time().sample() - l2->start_time().sample();
 }
 
 void
@@ -152,7 +152,7 @@ ExportTimespanSelector::add_range_to_selection (ARDOUR::Location const * loc, bo
 		id = loc->id().to_s();
 	}
 
-	span->set_range (loc->start(), loc->end());
+	span->set_range (loc->start_time(), loc->end_time());
 	span->set_name (loc->name());
 	span->set_range_id (id);
 	span->set_realtime (rt);

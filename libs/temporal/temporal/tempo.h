@@ -47,18 +47,23 @@ class TempoMap;
 
 class LIBTEMPORAL_API Tempo {
   public:
+	enum Type {
+		Ramped,
+		Constant
+	};
+
 	/**
 	 * @param npm Note Types per minute
-	 * @param type Note Type (default `4': quarter note)
+	 * @param note_type Note Type (default `4': quarter note)
 	 */
-	Tempo (double npm, int type = 4, bool ramp = false) :
+	Tempo (double npm, int note_type = 4, Type type = Tempo::Constant) :
 		_superclocks_per_note_type (double_npm_to_sc (npm)),
 		_end_superclocks_per_note_type (double_npm_to_sc (npm)),
 		_note_type (type),
 		_active (true),
 		_locked_to_meter (false),
 		_clamped (false),
-		_ramped (ramp) {}
+		_type (type) {}
 
 	/* these five methods should only be used to show and collect information to the user (for whom
 	 * bpm as a floating point number is the obvious representation)
@@ -98,7 +103,7 @@ class LIBTEMPORAL_API Tempo {
 	bool clamped() const { return _clamped; }
 	bool set_clamped (bool yn);
 
-	bool ramped () const { return _ramped; }
+	bool ramped () const { return _type != Constant; }
 	bool set_ramped (bool yn);
 
   protected:
@@ -108,7 +113,7 @@ class LIBTEMPORAL_API Tempo {
 	bool         _active;
 	bool         _locked_to_meter; /* XXX name has unclear meaning with nutempo */
 	bool         _clamped;
-	bool         _ramped;
+	Type         _type;
 
 	static inline double       sc_to_double_npm (superclock_t sc) { return (superclock_ticks_per_second * 60.0) / sc; }
 	static inline superclock_t double_npm_to_sc (double npm) { return llrint ((superclock_ticks_per_second / npm) * 60.0); }
@@ -361,17 +366,23 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	bool remove_time (timepos_t const & pos, timecnt_t const & duration);
 
 	bool set_tempo_and_meter (Tempo const &, Meter const &, samplepos_t, bool ramp, bool flexible);
+
 	bool set_tempo (Tempo const &, BBT_Time const &, bool ramp = false);
 	bool set_tempo (Tempo const &, samplepos_t, bool ramp = false);
+	bool set_tempo (Tempo const &, timepos_t const &, bool ramp = false);
+
 	bool set_meter (Meter const &, BBT_Time const &);
 	bool set_meter (Meter const &, samplepos_t);
+	bool set_meter (Meter const &, timepos_t const &);
+
 	void remove_explicit_point (samplepos_t);
-	bool move_to (timepos_t current, timepos_t destination, bool push = false);
+	bool move_to (timepos_t const & current, timepos_t const & destination, bool push = false);
 
 	bool can_remove (Tempo const &) const;
 	bool can_remove (Meter const &) const;
 
 	bool is_initial (Tempo const &) const;
+	bool is_initial (Meter const &) const;
 
 	uint32_t n_meters() const;
 	uint32_t n_tempos() const;
@@ -382,9 +393,12 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	Meter const & meter_at (samplepos_t sc) const;
 	Meter const & meter_at (Beats const & b) const;
 	Meter const & meter_at (BBT_Time const & bbt) const;
+	Meter const & meter_at (timepos_t const &) const;
+
 	Tempo const & tempo_at (samplepos_t sc) const;
 	Tempo const & tempo_at (Beats const &b) const;
 	Tempo const & tempo_at (BBT_Time const & bbt) const;
+	Tempo const & tempo_at (timepos_t const & t) const;
 
 	/* convenience function */
 	BBT_Time round_to_bar (BBT_Time const & bbt) const {

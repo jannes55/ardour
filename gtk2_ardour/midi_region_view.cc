@@ -2236,12 +2236,12 @@ MidiRegionView::select_all_notes ()
 }
 
 void
-MidiRegionView::select_range (samplepos_t start, samplepos_t end)
+MidiRegionView::select_range (timepos_t const & start, timepos_t const & end)
 {
 	clear_editor_note_selection ();
 
 	for (Events::iterator i = _events.begin(); i != _events.end(); ++i) {
-		samplepos_t t = source_beats_to_absolute_samples(i->first->time());
+		timepos_t t = source_beats_to_absolute_time (i->first->time());
 		if (t >= start && t <= end) {
 			add_to_selection (i->second);
 		}

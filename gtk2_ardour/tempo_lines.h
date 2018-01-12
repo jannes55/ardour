@@ -25,15 +25,15 @@
 
 class TempoLines {
 public:
-	TempoLines (ArdourCanvas::Container* group, double screen_height);
+	TempoLines (ArdourCanvas::Container* group);
 	~TempoLines ();
 
 	void tempo_map_changed ();
 
-	void draw (std::vector<Temporal::TempoMapPoint>& grid,
-		   unsigned                              divisions,
-	           ARDOUR::samplecnt_t                   leftmost_sample,
-	           ARDOUR::samplecnt_t                   sample_rate);
+	void draw (Temporal::TempoMapPoints & grid,
+		   unsigned                   divisions,
+	           ARDOUR::samplepos_t        leftmost_sample,
+	           ARDOUR::samplecnt_t        sample_rate);
 
 	void show();
 	void hide();

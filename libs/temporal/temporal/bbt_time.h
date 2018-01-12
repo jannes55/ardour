@@ -45,6 +45,9 @@ struct LIBTEMPORAL_API BBT_Time
 	int32_t beats;
 	int32_t ticks;
 
+	bool is_bar() const { return beats == 1 && ticks == 0; }
+	bool is_beat() const { return ticks == 0; }
+
 	struct IllegalBBTTimeException : public std::exception {
 		virtual const char* what() const throw() { return "illegal BBT time (bars or beats were zero)"; }
 	};

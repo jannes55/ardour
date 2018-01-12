@@ -138,7 +138,8 @@ EditorSummary::render_background_image ()
 
 	/* compute start and end points for the summary */
 
-	std::pair<samplepos_t, samplepos_t> ext = _editor->session_gui_extents();
+	std::pair<timepos_t, timepos_t> text = _editor->session_gui_extents();
+	std::pair<samplepos_t, samplepos_t> ext (text.first.sample(), text.second.sample());
 	double theoretical_start = ext.first;
 	double theoretical_end = ext.second;
 
@@ -311,13 +312,13 @@ EditorSummary::render_region (RegionView* r, cairo_t* cr, double y) const
 	cairo_set_source_rgb (cr, UINT_RGBA_R (c) / 255.0, UINT_RGBA_G (c) / 255.0, UINT_RGBA_B (c) / 255.0);
 
 	if (r->region()->position() > _start) {
-		cairo_move_to (cr, (r->region()->position() - _start) * _x_scale, y);
+		cairo_move_to (cr, (r->region()->position_sample() - _start) * _x_scale, y);
 	} else {
 		cairo_move_to (cr, 0, y);
 	}
 
-	if ((r->region()->position() + r->region()->length()) > _start) {
-		cairo_line_to (cr, ((r->region()->position() - _start + r->region()->length())) * _x_scale, y);
+	if ((r->region()->position() + r->region()->length_samples()) > _start) {
+		cairo_line_to (cr, ((r->region()->position_sample() - _start + r->region()->length_samples())) * _x_scale, y);
 	} else {
 		cairo_line_to (cr, 0, y);
 	}
@@ -890,10 +891,10 @@ EditorSummary::set_editor_x (pair<double, double> x)
 }
 
 void
-EditorSummary::playhead_position_changed (samplepos_t p)
+EditorSummary::playhead_position_changed (timepos_t p)
 {
 	int const o = int (_last_playhead);
-	int const n = int (playhead_sample_to_position (p));
+	int const n = int (playhead_sample_to_position (p.sample()));
 	if (_session && o != n) {
 		int a = max(2, min (o, n));
 		int b = max (o, n);

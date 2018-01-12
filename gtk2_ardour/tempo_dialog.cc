@@ -127,9 +127,9 @@ TempoDialog::init (const Temporal::BBT_Time& when, double bpm, double end_bpm, d
 
 	strings.clear();
 
-	tempo_types.insert (make_pair (_("ramped"), TempoSection::Ramp));
+	tempo_types.insert (make_pair (_("ramped"), Tempo::Ramp));
 	strings.push_back (_("ramped"));
-	tempo_types.insert (make_pair (_("constant"), TempoSection::Constant));
+	tempo_types.insert (make_pair (_("constant"), Tempo::Constant));
 	strings.push_back (_("constant"));
 	set_popdown_strings (tempo_type, strings);
 	TempoTypes::iterator tt;
@@ -361,14 +361,14 @@ TempoDialog::get_note_type ()
 	return x->second;
 }
 
-TempoSection::Type
+Tempo::Type
 TempoDialog::get_tempo_type ()
 {
 	TempoTypes::iterator x = tempo_types.find (tempo_type.get_active_text());
 
 	if (x == tempo_types.end()) {
 		error << string_compose(_("incomprehensible tempo type (%1)"), tempo_type.get_active_text()) << endmsg;
-		return TempoSection::Constant;
+		return Tempo::Constant;
 	}
 
 	return x->second;
@@ -477,22 +477,20 @@ TempoDialog::tap_tempo_focus_out (GdkEventFocus* )
 	return false;
 }
 
-MeterDialog::MeterDialog (TempoMap& map, samplepos_t sample, const string&)
+MeterDialog::MeterDialog (TempoMap& map, timepos_t const & position, const string&)
 	: ArdourDialog (_("New Meter"))
 {
-	sample = map.round_to_bar(sample, RoundNearest).sample;
-	Temporal::BBT_Time when (map.bbt_at_sample (sample));
-	Meter meter (map.meter_at_sample (sample));
+	Meter meter (map.meter_at (map.bbt_at (position).round_to_bar()));
 
 	init (when, meter.divisions_per_bar(), meter.note_divisor(), false, MusicTime);
 }
 
-MeterDialog::MeterDialog (TempoMap& map, MeterSection& section, const string&)
+MeterDialog::MeterDialog (TempoMap& map, TempoMapPoint const & point, const string&)
 	: ArdourDialog (_("Edit Meter"))
 {
-	Temporal::BBT_Time when (map.bbt_at_sample (section.sample()));
+	Temporal::BBT_Time when (point.bbt().round_to_bar ());
 
-	init (when, section.divisions_per_bar(), section.note_divisor(), section.initial(), section.position_lock_style());
+	init (when, point.metric().divisions_per_bar(), point.metric().note_divisor(), point.is_initial (point.metric()), point.map().time_domain());
 }
 
 void

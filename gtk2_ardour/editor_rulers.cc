@@ -1068,7 +1068,9 @@ Editor::compute_bbt_ruler_scale (samplepos_t lower, samplepos_t upper)
 
 	bbt_bars = _session->tempo_map().bbt_at (ceil_upper_beat).bars - _session->tempo_map().bbt_at (floor_lower_beat).bars;
 
-	beats = (ceil_upper_beat - floor_lower_beat);// - bbt_bars;  possible thinko; this fixes the problem (for me) where measure lines alternately appear&disappear while playing at certain zoom scales
+	/* upper and lower already quantized to integral beats */
+
+	beats = (ceil_upper_beat.get_beats() - floor_lower_beat.get_beats());// - bbt_bars;  possible thinko; this fixes the problem (for me) where measure lines alternately appear&disappear while playing at certain zoom scales
 	double beat_density = ((beats + 1) * ((double) (upper - lower) / (double) (1 + beat_after_upper_pos - beat_before_lower_pos))) / 5.0;
 
 	/* Only show the bar helper if there aren't many bars on the screen */
@@ -1111,11 +1113,13 @@ edit_last_mark_label (std::vector<ArdourCanvas::Ruler::Mark>& marks, const std::
 void
 Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble lower, gdouble upper, gint /*maxchars*/)
 {
+	using namespace Temporal;
+
 	if (_session == 0) {
 		return;
 	}
 
-	std::vector<TempoMap::BBTPoint>::const_iterator i;
+	TempoMapPoints::const_iterator i;
 
 	char buf[64];
 	gint  n = 0;
@@ -1130,7 +1134,7 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 	bool helper_active = false;
 	ArdourCanvas::Ruler::Mark mark;
 
-	std::vector<TempoMap::BBTPoint> grid;
+	Temporal::TempoMapPoints grid;
 
 	compute_current_bbt_points (grid, lower, upper);
 
@@ -1152,15 +1156,15 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 
 		for (n = 1, i = grid.begin(); n < bbt_nmarks && i != grid.end(); ++i) {
 
-			if ((*i).sample < lower && (bbt_bar_helper_on)) {
-				snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, (*i).bar, (*i).beat);
+			if (i->sample() < lower && (bbt_bar_helper_on)) {
+				snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, i->bbt().bars, i->bbt().beats);
 				edit_last_mark_label (marks, buf);
 			} else {
 
-				if ((*i).is_bar()) {
+				if (i->bbt().is_bar()) {
 					mark.style = ArdourCanvas::Ruler::Mark::Major;
-					snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
-				} else if (((*i).beat % 2 == 1)) {
+					snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
+				} else if ((i->bbt().beats % 2) == 1) {
 					mark.style = ArdourCanvas::Ruler::Mark::Minor;
 					buf[0] = '\0';
 				} else {
@@ -1168,7 +1172,7 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 					buf[0] = '\0';
 				}
 				mark.label = buf;
-				mark.position = (*i).sample;
+				mark.position = i->sample();
 				marks.push_back (mark);
 				n++;
 			}
@@ -1191,38 +1195,38 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 
 		for (n = 1, i = grid.begin(); n < bbt_nmarks && i != grid.end(); ++i) {
 
-			if ((*i).sample < lower && (bbt_bar_helper_on)) {
-				snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, (*i).bar, (*i).beat);
+			if (i->sample() < lower && (bbt_bar_helper_on)) {
+				snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, i->bbt().bars, i->bbt().beats);
 				edit_last_mark_label (marks, buf);
 				helper_active = true;
 			} else {
 
-				if ((*i).is_bar()) {
+				if (i->bbt().is_bar()) {
 					mark.style = ArdourCanvas::Ruler::Mark::Major;
-					snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
+					snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
 				} else {
 					mark.style = ArdourCanvas::Ruler::Mark::Minor;
-					snprintf (buf, sizeof(buf), "%" PRIu32, (*i).beat);
+					snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().beats);
 				}
-				if (((*i).sample < bbt_position_of_helper) && helper_active) {
+				if ((i->sample() < bbt_position_of_helper) && helper_active) {
 					buf[0] = '\0';
 				}
 				mark.label =  buf;
-				mark.position = (*i).sample;
+				mark.position = i->sample();
 				marks.push_back (mark);
 				n++;
 			}
 
 			/* Add the tick marks */
-			skip = Temporal::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
+			skip = Temporal::ticks_per_beat / bbt_beat_subdivision;
 			tick = skip; // the first non-beat tick
 			t = 0;
-			while (tick < Temporal::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
+			while (tick < Temporal::ticks_per_beat && (n < bbt_nmarks)) {
 
-				next_beat.beats = (*i).beat;
-				next_beat.bars = (*i).bar;
+				next_beat.beats = i->bbt().beats;
+				next_beat.bars = i->bbt().bars;
 				next_beat.ticks = tick;
-				pos = _session->tempo_map().sample_at_bbt (next_beat);
+				pos = _session->tempo_map().sample_at (next_beat);
 
 				if (t % bbt_accent_modulo == (bbt_accent_modulo - 1)) {
 					i_am_accented = true;
@@ -1260,39 +1264,39 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 
 		for (n = 1, i = grid.begin(); n < bbt_nmarks && i != grid.end(); ++i) {
 
-			if ((*i).sample < lower && (bbt_bar_helper_on)) {
-				snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, (*i).bar, (*i).beat);
+			if (i->sample() < lower && (bbt_bar_helper_on)) {
+				snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, i->bbt().bars, i->bbt().beats);
 				edit_last_mark_label (marks, buf);
 				helper_active = true;
 			} else {
 
-				if ((*i).is_bar()) {
+				if (i->bbt().is_bar()) {
 					mark.style = ArdourCanvas::Ruler::Mark::Major;
-					snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
+					snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
 				} else {
 					mark.style = ArdourCanvas::Ruler::Mark::Minor;
-					snprintf (buf, sizeof(buf), "%" PRIu32, (*i).beat);
+					snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().beats);
 				}
-				if (((*i).sample < bbt_position_of_helper) && helper_active) {
+				if ((i->sample() < bbt_position_of_helper) && helper_active) {
 					buf[0] = '\0';
 				}
 				mark.label =  buf;
-				mark.position = (*i).sample;
+				mark.position = i->sample();
 				marks.push_back (mark);
 				n++;
 			}
 
 			/* Add the tick marks */
-			skip = Temporal::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
+			skip = Temporal::ticks_per_beat / bbt_beat_subdivision;
 			tick = skip; // the first non-beat tick
 
 			t = 0;
-			while (tick < Temporal::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
+			while (tick < Temporal::ticks_per_beat && (n < bbt_nmarks)) {
 
-				next_beat.beats = (*i).beat;
-				next_beat.bars = (*i).bar;
+				next_beat.beats = i->bbt().beats;
+				next_beat.bars = i->bbt().bars;
 				next_beat.ticks = tick;
-				pos = _session->tempo_map().sample_at_bbt (next_beat);
+				pos = _session->tempo_map().sample_at (next_beat);
 
 				if (t % bbt_accent_modulo == (bbt_accent_modulo - 1)) {
 					i_am_accented = true;
@@ -1336,39 +1340,39 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 
 		for (n = 1, i = grid.begin(); n < bbt_nmarks && i != grid.end(); ++i) {
 
-			if ((*i).sample < lower && (bbt_bar_helper_on)) {
-				  snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, (*i).bar, (*i).beat);
+			if (i->sample() < lower && (bbt_bar_helper_on)) {
+				  snprintf (buf, sizeof(buf), "<%" PRIu32 "|%" PRIu32, i->bbt().bars, i->bbt().beats);
 				  edit_last_mark_label (marks, buf);
 				  helper_active = true;
 			} else {
 
-				  if ((*i).is_bar()) {
+				  if (i->bbt().is_bar()) {
 					  mark.style = ArdourCanvas::Ruler::Mark::Major;
-					  snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
+					  snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
 				  } else {
 					  mark.style = ArdourCanvas::Ruler::Mark::Minor;
-					  snprintf (buf, sizeof(buf), "%" PRIu32, (*i).beat);
+					  snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().beats);
 				  }
-				  if (((*i).sample < bbt_position_of_helper) && helper_active) {
+				  if ((i->sample() < bbt_position_of_helper) && helper_active) {
 					  buf[0] = '\0';
 				  }
 				  mark.label =  buf;
-				  mark.position = (*i).sample;
+				  mark.position = i->sample();
 				  marks.push_back (mark);
 				  n++;
 			}
 
 			/* Add the tick marks */
-			skip = Temporal::BBT_Time::ticks_per_beat / bbt_beat_subdivision;
+			skip = Temporal::ticks_per_beat / bbt_beat_subdivision;
 
-			next_beat.beats = (*i).beat;
-			next_beat.bars = (*i).bar;
+			next_beat.beats = i->bbt().beats;
+			next_beat.bars = i->bbt().bars;
 			tick = skip; // the first non-beat tick
 			t = 0;
-			while (tick < Temporal::BBT_Time::ticks_per_beat && (n < bbt_nmarks)) {
+			while (tick < Temporal::ticks_per_beat && (n < bbt_nmarks)) {
 
 				next_beat.ticks = tick;
-				pos = _session->tempo_map().sample_at_bbt (next_beat);
+				pos = _session->tempo_map().sample_at (next_beat);
 				if (t % bbt_accent_modulo == (bbt_accent_modulo - 1)) {
 					i_am_accented = true;
 				}
@@ -1410,21 +1414,21 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 	case bbt_show_64:
 			bbt_nmarks = (gint) (bbt_bars / 64) + 1;
 			for (n = 0, i = grid.begin(); i != grid.end() && n < bbt_nmarks; i++) {
-				if ((*i).is_bar()) {
-					if ((*i).bar % 64 == 1) {
-						if ((*i).bar % 256 == 1) {
-							snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
+				if (i->bbt().is_bar()) {
+					if (i->bbt().bars % 64 == 1) {
+						if (i->bbt().bars % 256 == 1) {
+							snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
 							mark.style = ArdourCanvas::Ruler::Mark::Major;
 						} else {
 							buf[0] = '\0';
-							if ((*i).bar % 256 == 129)  {
+							if (i->bbt().bars % 256 == 129)  {
 								mark.style = ArdourCanvas::Ruler::Mark::Minor;
 							} else {
 								mark.style = ArdourCanvas::Ruler::Mark::Micro;
 							}
 						}
 						mark.label = buf;
-						mark.position = (*i).sample;
+						mark.position = i->sample();
 						marks.push_back (mark);
 						++n;
 					}
@@ -1435,21 +1439,21 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 	case bbt_show_16:
 		bbt_nmarks = (bbt_bars / 16) + 1;
 		for (n = 0,  i = grid.begin(); i != grid.end() && n < bbt_nmarks; i++) {
-			if ((*i).is_bar()) {
-			  if ((*i).bar % 16 == 1) {
-				if ((*i).bar % 64 == 1) {
-					snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
+			if (i->bbt().is_bar()) {
+			  if (i->bbt().bars % 16 == 1) {
+				if (i->bbt().bars % 64 == 1) {
+					snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
 					mark.style = ArdourCanvas::Ruler::Mark::Major;
 				} else {
 					buf[0] = '\0';
-					if ((*i).bar % 64 == 33)  {
+					if (i->bbt().bars % 64 == 33)  {
 						mark.style = ArdourCanvas::Ruler::Mark::Minor;
 					} else {
 						mark.style = ArdourCanvas::Ruler::Mark::Micro;
 					}
 				}
 				mark.label = buf;
-				mark.position = (*i).sample;
+				mark.position = i->sample();
 				marks.push_back (mark);
 				++n;
 			  }
@@ -1460,21 +1464,21 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 	case bbt_show_4:
 		bbt_nmarks = (bbt_bars / 4) + 1;
 		for (n = 0, i = grid.begin(); i != grid.end() && n < bbt_nmarks; ++i) {
-			if ((*i).is_bar()) {
-				if ((*i).bar % 4 == 1) {
-					if ((*i).bar % 16 == 1) {
-						snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
+			if (i->bbt().is_bar()) {
+				if (i->bbt().bars % 4 == 1) {
+					if (i->bbt().bars % 16 == 1) {
+						snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
 						mark.style = ArdourCanvas::Ruler::Mark::Major;
 					} else {
 						buf[0] = '\0';
-						if ((*i).bar % 16 == 9)  {
+						if (i->bbt().bars % 16 == 9)  {
 							mark.style = ArdourCanvas::Ruler::Mark::Minor;
 						} else {
 							mark.style = ArdourCanvas::Ruler::Mark::Micro;
 						}
 					}
 					mark.label = buf;
-					mark.position = (*i).sample;
+					mark.position = i->sample();
 					marks.push_back (mark);
 					++n;
 				}
@@ -1486,20 +1490,20 @@ Editor::metric_get_bbt (std::vector<ArdourCanvas::Ruler::Mark>& marks, gdouble l
 //	default:
 		bbt_nmarks = bbt_bars + 2;
 		for (n = 0,  i = grid.begin(); i != grid.end() && n < bbt_nmarks; ++i) {
-			if ((*i).is_bar()) {
-			  if ((*i).bar % 4 == 1) {
-					snprintf (buf, sizeof(buf), "%" PRIu32, (*i).bar);
+			if (i->bbt().is_bar()) {
+			  if (i->bbt().bars % 4 == 1) {
+					snprintf (buf, sizeof(buf), "%" PRIu32, i->bbt().bars);
 					mark.style = ArdourCanvas::Ruler::Mark::Major;
 			  } else {
 				  buf[0] = '\0';
-				  if ((*i).bar % 4 == 3)  {
+				  if (i->bbt().bars % 4 == 3)  {
 					  mark.style = ArdourCanvas::Ruler::Mark::Minor;
 				  } else {
 					  mark.style = ArdourCanvas::Ruler::Mark::Micro;
 				  }
 			  }
 			  mark.label = buf;
-			  mark.position = (*i).sample;
+			  mark.position = i->sample();
 			  marks.push_back (mark);
 			  ++n;
 			}

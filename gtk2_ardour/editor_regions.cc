@@ -883,7 +883,8 @@ EditorRegions::populate_row_length (boost::shared_ptr<Region> region, TreeModel:
 
 	if (ARDOUR_UI::instance()->secondary_clock->mode () == AudioClock::BBT) {
 		Temporal::TempoMap& map (_session->tempo_map());
-		Temporal::BBT_Time bbt = map.bbt_at (region->last().beats() - region->position().beats());
+#warning we need TempoMap::full_duration() to work with BBT Time here
+		Temporal::BBT_Time bbt; /* uninitialized until full duration works */
 		snprintf (buf, sizeof (buf), "%03d|%02d|%04d" , bbt.bars, bbt.beats, bbt.ticks);
 	} else {
 		format_position (region->length_samples(), buf, sizeof (buf));

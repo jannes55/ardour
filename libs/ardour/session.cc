@@ -7112,7 +7112,7 @@ Session::reconnect_ltc_output ()
 }
 
 void
-Session::set_range_selection (samplepos_t start, samplepos_t end)
+Session::set_range_selection (timepos_t const & start, timepos_t const & end)
 {
 	_range_selection = Temporal::Range (start, end);
 #ifdef USE_TRACKS_CODE_FEATURES
@@ -7121,7 +7121,7 @@ Session::set_range_selection (samplepos_t start, samplepos_t end)
 }
 
 void
-Session::set_object_selection (samplepos_t start, samplepos_t end)
+Session::set_object_selection (timepos_t const & start, timepos_t const & end)
 {
 	_object_selection = Temporal::Range (start, end);
 #ifdef USE_TRACKS_CODE_FEATURES
@@ -7132,7 +7132,7 @@ Session::set_object_selection (samplepos_t start, samplepos_t end)
 void
 Session::clear_range_selection ()
 {
-	_range_selection = Temporal::Range (-1,-1);
+	_range_selection = Temporal::Range (std::numeric_limits<timepos_t>::min(), std::numeric_limits<timepos_t>::min());
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
@@ -7141,7 +7141,7 @@ Session::clear_range_selection ()
 void
 Session::clear_object_selection ()
 {
-	_object_selection = Temporal::Range (-1,-1);
+	_object_selection = Temporal::Range (std::numeric_limits<timepos_t>::min(), std::numeric_limits<timepos_t>::min());
 #ifdef USE_TRACKS_CODE_FEATURES
 	follow_playhead_priority ();
 #endif
