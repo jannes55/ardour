@@ -39,7 +39,7 @@ class TempoDialog : public ArdourDialog
 {
 public:
 	TempoDialog (Temporal::TempoMap&, samplepos_t, const std::string & action);
-	TempoDialog (Temporal::TempoMap&, Temporal::Tempo&, const std::string & action);
+	TempoDialog (Temporal::TempoMap&, Temporal::TempoMapPoint const &, const std::string & action);
 
 	double get_bpm ();
 	double get_end_bpm ();

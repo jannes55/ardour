@@ -482,8 +482,8 @@ public:
 
 	virtual void mouse_add_new_tempo_event (Temporal::timepos_t const & where) = 0;
 	virtual void mouse_add_new_meter_event (Temporal::timepos_t const & where) = 0;
-	virtual void edit_tempo_section (Temporal::Tempo const &) = 0;
-	virtual void edit_meter_section (Temporal::Meter const &) = 0;
+	virtual void edit_tempo_section (Temporal::TempoMapPoint const &) = 0;
+	virtual void edit_meter_section (Temporal::TempoMapPoint const &) = 0;
 
 	/// Singleton instance, set up by Editor::Editor()
 

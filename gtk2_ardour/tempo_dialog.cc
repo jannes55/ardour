@@ -54,7 +54,7 @@ TempoDialog::TempoDialog (TempoMap& map, samplepos_t sample, const string&)
 	init (when, tempo.note_types_per_minute(), tempo.end_note_types_per_minute(), tempo.note_type(), TempoSection::Constant, true, MusicTime);
 }
 
-TempoDialog::TempoDialog (TempoMap& map, TempoSection& section, const string&)
+TempoDialog::TempoDialog (TempoMap& map, Temporal::TempoMapPoint const & point, const string&)
 	: ArdourDialog (_("Edit Tempo"))
 	, _map (&map)
 	, _section (&section)
@@ -69,8 +69,8 @@ TempoDialog::TempoDialog (TempoMap& map, TempoSection& section, const string&)
 	, tap_tempo_button (_("Tap tempo"))
 {
 	Temporal::BBT_Time when (map.bbt_at_sample (section.sample()));
-	init (when, section.note_types_per_minute(), section.end_note_types_per_minute(), section.note_type(), section.type()
-	      , section.initial() || section.locked_to_meter(), section.position_lock_style());
+	init (when, point.metric().note_types_per_minute(), point.metric().end_note_types_per_minute(), point.metric().note_type(), point.metric().type(),
+	      (point.metric().is_initial() || (point.map().time_domain() == Temporal::BarTime)), point.map().time_domain());
 }
 
 void

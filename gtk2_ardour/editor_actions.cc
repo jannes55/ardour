@@ -981,15 +981,15 @@ Editor::toggle_measure_visibility ()
 void
 Editor::edit_current_meter ()
 {
-	Temporal::Meter const & ms = _session->tempo_map().const_point_at (ARDOUR_UI::instance()->primary_clock->absolute_time()).metric();
-	edit_meter_section (ms);
+	Temporal::TempoMapPoint const & p = _session->tempo_map().const_point_at (ARDOUR_UI::instance()->primary_clock->absolute_time());
+	edit_meter_section (p);
 }
 
 void
 Editor::edit_current_tempo ()
 {
-	Temporal::Tempo const & ts = _session->tempo_map().const_point_at (ARDOUR_UI::instance()->primary_clock->absolute_time()).metric();
-	edit_tempo_section (ts);
+	Temporal::TempoMapPoint const & p = _session->tempo_map().const_point_at (ARDOUR_UI::instance()->primary_clock->absolute_time());
+	edit_tempo_section (p);
 }
 
 RefPtr<RadioAction>

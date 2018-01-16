@@ -495,13 +495,11 @@ Editor::edit_meter_section (Temporal::TempoMapPoint const & point)
 
 	Temporal::BBT_Time when;
 	meter_dialog.get_bbt_time (when);
-	const samplepos_t sample = _session->tempo_map().sample_at_bbt (when);
-	const Temporal::LockStyle pls = (meter_dialog.get_lock_style() == AudioTime) ? AudioTime : MusicTime;
 
 	begin_reversible_command (_("replace meter mark"));
 	XMLNode &before = _session->tempo_map().get_state();
 
-	_session->tempo_map().replace_meter (*section, meter, when, sample, pls);
+	_session->tempo_map().set_meter (meter, when);
 
 	XMLNode &after = _session->tempo_map().get_state();
 	_session->add_command(new MementoCommand<TempoMap>(_session->tempo_map(), &before, &after));
@@ -524,7 +522,8 @@ Editor::edit_tempo_section (Temporal::TempoMapPoint const & point)
 	double end_bpm = tempo_dialog.get_end_bpm ();
 	double nt = tempo_dialog.get_note_type ();
 	bpm = max (0.01, bpm);
-	const Tempo tempo (bpm, nt, end_bpm);
+	Tempo tempo (bpm, nt);
+	tempo.set_end_note_types_per_minute (end_bpm);
 
 	Temporal::BBT_Time when;
 	tempo_dialog.get_bbt_time (when);
@@ -532,12 +531,10 @@ Editor::edit_tempo_section (Temporal::TempoMapPoint const & point)
 	begin_reversible_command (_("replace tempo mark"));
 	XMLNode &before = _session->tempo_map().get_state();
 
-	if (tempo_dialog.get_lock_style() == AudioTime) {
-		samplepos_t const f = _session->tempo_map().predict_tempo_position (section, when).second;
-		_session->tempo_map().replace_tempo (*section, tempo, 0.0, f, AudioTime);
+	if (point.map()->time_domain() == AudioTime) {
+		_session->tempo_map().set_tempo (tempo, point.map()->sample_at (when));
 	} else {
-		double const p = _session->tempo_map().predict_tempo_position (section, when).first;
-		_session->tempo_map().replace_tempo (*section, tempo, p, 0, MusicTime);
+		_session->tempo_map().set_tempo (tempo, when);
 	}
 
 	XMLNode &after = _session->tempo_map().get_state();
@@ -548,13 +545,13 @@ Editor::edit_tempo_section (Temporal::TempoMapPoint const & point)
 void
 Editor::edit_tempo_marker (TempoMarker& tm)
 {
-	edit_tempo_section (tm.tempo());
+	edit_tempo_section (tm.point());
 }
 
 void
 Editor::edit_meter_marker (MeterMarker& mm)
 {
-	edit_meter_section (mm.meter());
+	edit_meter_section (mm.point());
 }
 
 gint
@@ -587,7 +584,7 @@ Editor::remove_meter_marker (ArdourCanvas::Item* item)
 	}
 
 	if (!meter_marker->meter().initial()) {
-	  Glib::signal_idle().connect (sigc::bind (sigc::mem_fun(*this, &Editor::real_remove_meter_marker), &meter_marker->meter()));
+		Glib::signal_idle().connect (sigc::bind (sigc::mem_fun(*this, &Editor::real_remove_meter_marker), &meter_marker->meter()));
 	}
 }
 

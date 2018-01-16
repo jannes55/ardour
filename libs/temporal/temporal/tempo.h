@@ -106,6 +106,8 @@ class LIBTEMPORAL_API Tempo {
 	bool ramped () const { return _type != Constant; }
 	bool set_ramped (bool yn);
 
+	Type type() const { return _type; }
+
   protected:
 	superclock_t _superclocks_per_note_type;
 	superclock_t _end_superclocks_per_note_type;
@@ -371,9 +373,13 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	bool set_tempo (Tempo const &, samplepos_t, bool ramp = false);
 	bool set_tempo (Tempo const &, timepos_t const &, bool ramp = false);
 
+	void remove_tempo_at (TempoMapPoint const &);
+
 	bool set_meter (Meter const &, BBT_Time const &);
 	bool set_meter (Meter const &, samplepos_t);
 	bool set_meter (Meter const &, timepos_t const &);
+
+	void remove_meter_at (TempoMapPoint const &);
 
 	void remove_explicit_point (samplepos_t);
 	bool move_to (timepos_t const & current, timepos_t const & destination, bool push = false);

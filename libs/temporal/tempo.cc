@@ -737,6 +737,7 @@ TempoMap::set_tempo_and_meter (Tempo const & tempo, Meter const & meter, samplep
 		Temporal::BBT_Time bbt = _points.front().bbt_at (b).round_to_beat ();
 
 		_points.insert (_points.begin(), TempoMapPoint (this, TempoMapPoint::ExplicitTempo, tempo, meter, sc, b, bbt, ramp));
+		set_dirty (true);
 		return true;
 	}
 
@@ -749,6 +750,7 @@ TempoMap::set_tempo_and_meter (Tempo const & tempo, Meter const & meter, samplep
 		*((Tempo*) &_points.front().nonconst_metric()) = tempo;
 		*((Meter*) &_points.front().nonconst_metric()) = meter;
 		_points.front().make_explicit (TempoMapPoint::Flag (TempoMapPoint::ExplicitTempo|TempoMapPoint::ExplicitMeter));
+		set_dirty (true);
 		return true;
 	}
 
@@ -763,6 +765,7 @@ TempoMap::set_tempo_and_meter (Tempo const & tempo, Meter const & meter, samplep
 		*((Tempo*) &i->nonconst_metric()) = tempo;
 		*((Meter*) &i->nonconst_metric()) = meter;
 		i->make_explicit (TempoMapPoint::Flag (TempoMapPoint::ExplicitTempo|TempoMapPoint::ExplicitMeter));
+		set_dirty (true); /* XXX is this required? */
 		/* done */
 		return true;
 	}
@@ -804,6 +807,8 @@ TempoMap::set_tempo_and_meter (Tempo const & tempo, Meter const & meter, samplep
 	}
 
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, tempo, meter, sc, qn, bbt, ramp));
+	set_dirty (true);
+
 	return true;
 }
 
@@ -946,7 +951,7 @@ TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 	}
 
 	if (_points.size() == 1 && _points.front().bbt() == on_beat) {
-		/* change Meter */
+		/* change Tempo */
 		*((Tempo*) &_points.front().nonconst_metric()) = t;
 		_points.front().make_explicit (TempoMapPoint::ExplicitTempo);
 		return true;
@@ -966,6 +971,40 @@ TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, t, meter, 0, Temporal::Beats(), on_beat, ramp));
 
 	return true;
+}
+
+void
+TempoMap::remove_tempo_at (TempoMapPoint const & p)
+{
+	/* this doesn't remove the point @param p, but it does make it now
+	 * refer to the same tempo as the preceding point, and makes it
+	 * non-explicit tempo.
+	 */
+
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+
+	if (_points.empty()) {
+		return;
+	}
+
+	TempoMapPoints::iterator i;
+	TempoMapPoints::iterator prev = _points.end();
+
+	for (i = _points.begin(); i != _points.end(); ++i) {
+		if (&p == &(*i)) {
+			break;
+		}
+		prev = i;
+	}
+
+	if (i == _points.end()) {
+		return;
+	}
+
+	/* change tempo record here */
+	*((Tempo*) &(i->nonconst_metric())) = *((Tempo*) &prev->metric());
+	/* make it inexplicit */
+	i->set_flags (i->flags() & ~ExplicitTempo);
 }
 
 bool
@@ -1364,6 +1403,7 @@ TempoMap::remove_explicit_point (samplepos_t s)
 
 	if (p->sclock() == sc) {
 		_points.erase (p);
+		set_dirty (true);
 	}
 }
 
@@ -1446,6 +1486,7 @@ TempoMap::move_to (timepos_t const & cur, timepos_t const & dest, bool push)
 	}
 
 	_points.erase (p);
+	set_dirty (true);
 
 	return true;
 }
@@ -1738,9 +1779,7 @@ TempoMap::is_initial (Meter const & m) const
 bool
 TempoMap::can_remove (Meter const & m) const
 {
-	Glib::Threads::RWLock::ReaderLock lm (_lock);
-	assert (!_points.empty());
-	return &m != dynamic_cast<Meter const *> (&_points.front().metric());
+	return !is_initial (m);
 }
 
 /** returns the sample duration of the supplied BBT time at a specified sample position in the tempo map.
