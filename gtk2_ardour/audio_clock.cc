@@ -873,6 +873,12 @@ AudioClock::set (samplepos_t when, bool force, samplecnt_t offset)
 }
 
 void
+AudioClock::set_duration (Temporal::timecnt_t const & d, bool force, Temporal::timecnt_t const & offset)
+{
+	set_time (timepos_t (d), force, offset);
+}
+
+void
 AudioClock::set_time (Temporal::timepos_t const & w, bool force, Temporal::timecnt_t const & offset)
 {
 	Temporal::timepos_t when (w);

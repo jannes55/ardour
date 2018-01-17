@@ -68,6 +68,7 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 
 	void set (samplepos_t, bool force = false, ARDOUR::samplecnt_t offset = 0);
 	void set_time (Temporal::timepos_t const &, bool force = false, Temporal::timecnt_t const & offset = Temporal::timecnt_t());
+	void set_duration (Temporal::timecnt_t const &, bool force = false, Temporal::timecnt_t const & offset = Temporal::timecnt_t());
 
 	void set_from_playhead ();
 	void locate ();

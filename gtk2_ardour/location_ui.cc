@@ -245,7 +245,7 @@ LocationEditRow::set_location (Location *loc)
 	}
 	hide_check_button.set_active (location->is_hidden());
 	lock_check_button.set_active (location->locked());
-	glue_check_button.set_active (location->position_lock_style() == MusicTime);
+	glue_check_button.set_active (location->position_lock_style() != Temporal::AudioTime);
 
 	if (location->is_auto_loop() || location-> is_auto_punch()) {
 		// use label instead of entry
@@ -284,7 +284,7 @@ LocationEditRow::set_location (Location *loc)
 		cd_check_button.set_active (location->is_cd_marker());
 		cd_check_button.show();
 
-		if (location->start() == _session->current_start_sample()) {
+		if (location->start_time().sample() == _session->current_start_sample()) {
 			cd_check_button.set_sensitive (false);
 		} else {
 			cd_check_button.set_sensitive (true);
@@ -295,8 +295,7 @@ LocationEditRow::set_location (Location *loc)
 		glue_check_button.show();
 	}
 
-	start_clock.set (location->start(), true);
-
+	start_clock.set_time (location->start_time(), true);
 
 	if (!location->is_mark()) {
 		if (!end_hbox.get_parent()) {
@@ -306,8 +305,8 @@ LocationEditRow::set_location (Location *loc)
 			end_hbox.pack_start (length_clock, false, false, 4);
 		}
 
-		end_clock.set (location->end(), true);
-		length_clock.set (location->length(), true);
+		end_clock.set_time (location->end_time(), true);
+		length_clock.set_duration (location->length(), true);
 
 		end_clock.show();
 		length_clock.show();
@@ -347,7 +346,7 @@ LocationEditRow::set_location (Location *loc)
 	location->Changed.connect (connections, invalidator (*this), boost::bind (&LocationEditRow::location_changed, this), gui_context());
 	location->FlagsChanged.connect (connections, invalidator (*this), boost::bind (&LocationEditRow::flags_changed, this), gui_context());
 	location->LockChanged.connect (connections, invalidator (*this), boost::bind (&LocationEditRow::lock_changed, this), gui_context());
-	location->Temporal::LockStyleChanged.connect (connections, invalidator (*this), boost::bind (&LocationEditRow::position_lock_style_changed, this), gui_context());
+	location->LockStyleChanged.connect (connections, invalidator (*this), boost::bind (&LocationEditRow::position_lock_style_changed, this), gui_context());
 }
 
 void
@@ -414,14 +413,12 @@ LocationEditRow::to_playhead_button_pressed (LocationPart part)
 		return;
 	}
 
-	const int32_t divisions = PublicEditor::instance().get_grid_music_divisions (0);
-
 	switch (part) {
 		case LocStart:
-			location->set_start (_session->transport_sample (), false, true, divisions);
+			location->set_start_sample (_session->transport_sample (), false);
 			break;
 		case LocEnd:
-			location->set_end (_session->transport_sample (), false, true,divisions);
+			location->set_end_sample (_session->transport_sample (), false);
 			if (location->is_session_range()) {
 				_session->set_end_is_free (false);
 			}
@@ -463,20 +460,18 @@ LocationEditRow::clock_changed (LocationPart part)
 		return;
 	}
 
-	const int32_t divisions = PublicEditor::instance().get_grid_music_divisions (0);
-
 	switch (part) {
 		case LocStart:
-			location->set_start (start_clock.current_time(), false, true, divisions);
+			location->set_start (start_clock.current_time(), false);
 			break;
 		case LocEnd:
-			location->set_end (end_clock.current_time(), false, true, divisions);
+			location->set_end (end_clock.current_time(), false);
 			if (location->is_session_range()) {
 				_session->set_end_is_free (false);
 			}
 			break;
 		case LocLength:
-			location->set_end (location->start() + length_clock.current_duration(), false, true, divisions);
+			location->set_end (location->start_time() + length_clock.current_time_duration(), false);
 			if (location->is_session_range()) {
 				_session->set_end_is_free (false);
 			}
@@ -524,7 +519,7 @@ LocationEditRow::cd_toggled ()
 	//}
 
 	if (cd_check_button.get_active()) {
-		if (location->start() <= _session->current_start_sample()) {
+		if (location->start_time().sample() <= _session->current_start_sample()) {
 			error << _("You cannot put a CD marker at the start of the session") << endmsg;
 			cd_check_button.set_active (false);
 			return;
@@ -576,10 +571,10 @@ LocationEditRow::glue_toggled ()
 		return;
 	}
 
-	if (location->position_lock_style() == AudioTime) {
-		location->set_position_lock_style (MusicTime);
+	if (location->position_lock_style() == Temporal::AudioTime) {
+		location->set_position_lock_style (Temporal::BarTime);
 	} else {
-		location->set_position_lock_style (AudioTime);
+		location->set_position_lock_style (Temporal::AudioTime);
 	}
 }
 
@@ -630,8 +625,8 @@ LocationEditRow::end_changed ()
 	// update end and length
 	i_am_the_modifier++;
 
-	end_clock.set (location->end());
-	length_clock.set (location->length());
+	end_clock.set_time (location->end_time());
+	length_clock.set_duration (location->length());
 
 	i_am_the_modifier--;
 }
@@ -644,9 +639,9 @@ LocationEditRow::start_changed ()
 	// update end and length
 	i_am_the_modifier++;
 
-	start_clock.set (location->start());
+	start_clock.set_time (location->start_time());
 
-	if (location->start() == _session->current_start_sample()) {
+	if (location->start_time().sample() == _session->current_start_sample()) {
 		cd_check_button.set_sensitive (false);
 	} else {
 		cd_check_button.set_sensitive (true);
@@ -678,9 +673,9 @@ LocationEditRow::location_changed ()
 
 	i_am_the_modifier++;
 
-	start_clock.set (location->start());
-	end_clock.set (location->end());
-	length_clock.set (location->length());
+	start_clock.set_time (location->start_time());
+	end_clock.set_time (location->end_time());
+	length_clock.set_duration (location->length());
 
 	set_clock_editable_status ();
 
@@ -699,7 +694,7 @@ LocationEditRow::flags_changed ()
 
 	cd_check_button.set_active (location->is_cd_marker());
 	hide_check_button.set_active (location->is_hidden());
-	glue_check_button.set_active (location->position_lock_style() == MusicTime);
+	glue_check_button.set_active (location->position_lock_style() != Temporal::AudioTime);
 
 	i_am_the_modifier--;
 }
@@ -729,7 +724,7 @@ LocationEditRow::position_lock_style_changed ()
 
 	i_am_the_modifier++;
 
-	glue_check_button.set_active (location->position_lock_style() == MusicTime);
+	glue_check_button.set_active (location->position_lock_style() != Temporal::AudioTime);
 
 	i_am_the_modifier--;
 }
@@ -918,7 +913,7 @@ LocationUI::location_redraw_ranges ()
 
 struct LocationSortByStart {
 	bool operator() (Location *a, Location *b) {
-		return a->start() < b->start();
+		return a->start_time() < b->start_time();
 	}
 };
 
