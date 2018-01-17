@@ -471,7 +471,7 @@ Editor::remove_tempo_marker (ArdourCanvas::Item* item)
 	}
 
 	if (!tempo_marker->tempo().locked_to_meter() && tempo_marker->tempo().active()) {
-		Glib::signal_idle().connect (sigc::bind (sigc::mem_fun(*this, &Editor::real_remove_tempo_marker), &tempo_marker->tempo()));
+		real_remove_tempo_marker (tempo_marker->point());
 	}
 }
 
@@ -555,11 +555,11 @@ Editor::edit_meter_marker (MeterMarker& mm)
 }
 
 gint
-Editor::real_remove_tempo_marker (TempoSection *section)
+Editor::real_remove_tempo_marker (TempoMapPoint const & point)
 {
 	begin_reversible_command (_("remove tempo mark"));
 	XMLNode &before = _session->tempo_map().get_state();
-	_session->tempo_map().remove_tempo (*section, true);
+	_session->tempo_map().remove_tempo_at (point);
 	XMLNode &after = _session->tempo_map().get_state();
 	_session->add_command(new MementoCommand<TempoMap>(_session->tempo_map(), &before, &after));
 	commit_reversible_command ();
@@ -583,17 +583,17 @@ Editor::remove_meter_marker (ArdourCanvas::Item* item)
 		abort(); /*NOTREACHED*/
 	}
 
-	if (!meter_marker->meter().initial()) {
-		Glib::signal_idle().connect (sigc::bind (sigc::mem_fun(*this, &Editor::real_remove_meter_marker), &meter_marker->meter()));
+	if (!_session->tempo_map().is_initial (meter_marker->meter())) {
+		real_remove_meter_marker (meter_marker->point());
 	}
 }
 
 gint
-Editor::real_remove_meter_marker (MeterSection *section)
+Editor::real_remove_meter_marker (TempoMapPoint const & point)
 {
 	begin_reversible_command (_("remove tempo mark"));
 	XMLNode &before = _session->tempo_map().get_state();
-	_session->tempo_map().remove_meter (*section, true);
+	_session->tempo_map().remove_meter_at (point);
 	XMLNode &after = _session->tempo_map().get_state();
 	_session->add_command(new MementoCommand<TempoMap>(_session->tempo_map(), &before, &after));
 	commit_reversible_command ();

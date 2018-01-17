@@ -25,9 +25,6 @@ namespace ARDOUR
 
 ExportTimespan::ExportTimespan (ExportStatusPtr status, samplecnt_t sample_rate) :
 	status (status),
-	start_sample (0),
-	end_sample (0),
-	position (0),
 	sample_rate (sample_rate),
 	_realtime (false)
 {
@@ -39,11 +36,11 @@ ExportTimespan::~ExportTimespan ()
 }
 
 void
-ExportTimespan::set_range (samplepos_t start, samplepos_t end)
+ExportTimespan::set_range (timepos_t const & s, timepos_t const & e)
 {
-	start_sample = start;
-	position = start_sample;
-	end_sample = end;
+	start = s;
+	position = start;
+	end = e;
 }
 
 } // namespace ARDOUR

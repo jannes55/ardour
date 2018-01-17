@@ -906,7 +906,7 @@ ExportFormatDialog::update_time (AnyTime & time, AudioClock const & clock)
 		return;
 	}
 
-	samplecnt_t samples = clock.current_duration();
+	samplecnt_t samples = clock.current_sample_duration (0); /* XXX seems as if the argument should be more meaningful */
 
 	switch (clock.mode()) {
 	  case AudioClock::Timecode:

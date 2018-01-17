@@ -353,13 +353,12 @@ ExportProfileManager::find_file (std::string const & pattern)
 }
 
 void
-ExportProfileManager::set_selection_range (samplepos_t start, samplepos_t end)
+ExportProfileManager::set_selection_range (timepos_t start, timepos_t end)
 {
-
-	if (start || end) {
+	if (start != timepos_t() || end != timepos_t()) {
 		selection_range.reset (new Location (session));
 		selection_range->set_name (_("Selection"));
-		selection_range->set_sample (start, end);
+		selection_range->set (start, end);
 	} else {
 		selection_range.reset();
 	}
@@ -370,13 +369,13 @@ ExportProfileManager::set_selection_range (samplepos_t start, samplepos_t end)
 }
 
 std::string
-ExportProfileManager::set_single_range (samplepos_t start, samplepos_t end, string name)
+ExportProfileManager::set_single_range (timepos_t const & start, timepos_t const & end, string name)
 {
 	single_range_mode = true;
 
 	single_range.reset (new Location (session));
 	single_range->set_name (name);
-	single_range->set_sample (start, end);
+	single_range->set (start, end);
 
 	update_ranges ();
 

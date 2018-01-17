@@ -252,9 +252,26 @@ class LIBTEMPORAL_API TempoMapPoint
 	TempoMap* map() const { return _map; }
 	void set_map (TempoMap* m);
 
-	Flag flags() const       { return _flags; }
-	bool is_explicit() const { return _flags != Flag (0); }
-	bool is_implicit() const { return _flags == Flag (0); }
+	Flag flags() const             { return _flags; }
+	void set_flags (Flag f);
+
+	bool is_explicit_tempo() const { return _flags & ExplicitTempo; }
+	bool is_explicit_meter() const { return _flags & ExplicitMeter; }
+	bool is_explicit() const       { return _flags & (ExplicitMeter|ExplicitTempo); }
+	bool is_implicit() const       { return _flags == Flag (0); }
+
+	void make_explicit (Flag f) {
+		if (!(_flags & f)) {
+			_flags = Flag (_flags|f);
+			/* since _metric and _reference are part of an anonymous union,
+			   avoid possible compiler glitches by copying to a stack
+			   variable first, then assign.
+			*/
+			TempoMetric tm (metric());
+			_explicit = tm;
+			_dirty = true;
+		}
+	}
 
 	superclock_t superclocks_per_note_type (int8_t note_type) const {
 		if (is_explicit()) {
@@ -291,19 +308,6 @@ class LIBTEMPORAL_API TempoMapPoint
 	void set_quarters (Beats const & q) { if (is_explicit()) { _quarters = q; _dirty = true;  } }
 	void set_bbt (BBT_Time const & bbt) {  if (is_explicit()) { _bbt = bbt; _dirty = true;  } }
 	void set_dirty (bool yn);
-	void make_explicit (Flag f) {
-		if (!(_flags & f)) {
-			_flags = Flag (_flags|f);
-			/* since _metric and _reference are part of an anonymous union,
-			   avoid possible compiler glitches by copying to a stack
-			   variable first, then assign.
-			*/
-			TempoMetric tm (metric());
-			_explicit = tm;
-			_dirty = true;
-		}
-	}
-
 	void make_implicit (TempoMapPoint & tmp) { _flags = Flag (0); _reference = &tmp; }
 
 	Beats quarters_at (superclock_t sc) const;
@@ -469,6 +473,8 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	/* returns all points with ExplicitMeter and/or ExplicitTempo */
 	void get_points (TempoMapPoints& points) const;
+	void get_tempos (TempoMapPoints& points) const;
+	void get_meters (TempoMapPoints& points) const;
 
 	template<class T> void apply_with_points (T& obj, void (T::*method)(TempoMapPoints const &)) {
 		Glib::Threads::RWLock::ReaderLock lm (_lock);

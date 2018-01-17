@@ -221,8 +221,8 @@ ExportTimespanSelector::construct_label (ARDOUR::Location const * location) cons
 	std::string start;
 	std::string end;
 
-	samplepos_t start_sample = location->start();
-	samplepos_t end_sample = location->end();
+	samplepos_t start_sample = location->start_sample();
+	samplepos_t end_sample = location->end_sample();
 
 	switch (state->time_format) {
 	  case AudioClock::BBT:
@@ -272,23 +272,23 @@ ExportTimespanSelector::construct_length (ARDOUR::Location const * location) con
 
 	switch (state->time_format) {
 	case AudioClock::BBT:
-		s << bbt_str (location->length ());
+		s << bbt_str (location->length_samples ());
 		break;
 
 	case AudioClock::Timecode:
 	{
 		Temporal::Time tc;
-		_session->timecode_duration (location->length(), tc);
+		_session->timecode_duration (location->length_samples(), tc);
 		tc.print (s);
 		break;
 	}
 
 	case AudioClock::MinSec:
-		s << ms_str (location->length ());
+		s << ms_str (location->length_samples ());
 		break;
 
 	case AudioClock::Samples:
-		s << location->length ();
+		s << location->length_samples ();
 		break;
 	}
 
@@ -307,7 +307,7 @@ ExportTimespanSelector::bbt_str (samplepos_t samples) const
 	Temporal::BBT_Time time;
 	_session->bbt_time (samples, time);
 
-	print_padded (oss, time);
+	time.print_padded (oss);
 	return oss.str ();
 }
 

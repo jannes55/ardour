@@ -1004,7 +1004,7 @@ TempoMap::remove_tempo_at (TempoMapPoint const & p)
 	/* change tempo record here */
 	*((Tempo*) &(i->nonconst_metric())) = *((Tempo*) &prev->metric());
 	/* make it inexplicit */
-	i->set_flags (i->flags() & ~ExplicitTempo);
+	i->set_flags (TempoMapPoint::Flag (i->flags() & ~TempoMapPoint::ExplicitTempo));
 }
 
 bool
@@ -1145,6 +1145,40 @@ TempoMap::set_meter (Meter const & m, samplepos_t s)
 
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitMeter, tempo, m, sc, b, bbt, AudioTime));
 	return true;
+}
+
+void
+TempoMap::remove_meter_at (TempoMapPoint const & p)
+{
+	/* this doesn't remove the point @param p, but it does make it now
+	 * refer to the same tempo as the preceding point, and makes it
+	 * non-explicit tempo.
+	 */
+
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+
+	if (_points.empty()) {
+		return;
+	}
+
+	TempoMapPoints::iterator i;
+	TempoMapPoints::iterator prev = _points.end();
+
+	for (i = _points.begin(); i != _points.end(); ++i) {
+		if (&p == &(*i)) {
+			break;
+		}
+		prev = i;
+	}
+
+	if (i == _points.end()) {
+		return;
+	}
+
+	/* change meter record here */
+	*((Meter*) &(i->nonconst_metric())) = *((Meter*) &prev->metric());
+	/* make it inexplicit */
+	i->set_flags (TempoMapPoint::Flag (i->flags() & ~TempoMapPoint::ExplicitMeter));
 }
 
 TempoMapPoints::iterator
@@ -1504,6 +1538,30 @@ TempoMap::get_points (TempoMapPoints& ret) const
 }
 
 void
+TempoMap::get_tempos (TempoMapPoints& ret) const
+{
+	Glib::Threads::RWLock::ReaderLock lm (_lock);
+
+	for (TempoMapPoints::const_iterator p = _points.begin(); p != _points.end(); ++p) {
+		if (p->is_explicit_tempo()) {
+			ret.push_back (*p);
+		}
+	}
+}
+
+void
+TempoMap::get_meters (TempoMapPoints& ret) const
+{
+	Glib::Threads::RWLock::ReaderLock lm (_lock);
+
+	for (TempoMapPoints::const_iterator p = _points.begin(); p != _points.end(); ++p) {
+		if (p->is_explicit_meter()) {
+			ret.push_back (*p);
+		}
+	}
+}
+
+void
 TempoMap::get_grid (TempoMapPoints& ret, samplepos_t s, samplepos_t e, Temporal::Beats const & resolution)
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
@@ -1592,7 +1650,8 @@ std::ostream&
 std::operator<<(std::ostream& str, TempoMapPoint const & tmp)
 {
 	str << '@' << std::setw (12) << tmp.sclock() << ' ' << tmp.sclock() / (double) superclock_ticks_per_second
-	    << (tmp.is_explicit() ? " EXP" : " imp")
+	    << (tmp.is_explicit_tempo() ? " EXP-T" : " imp-t")
+	    << (tmp.is_explicit_meter() ? " EXP-M" : " imp-m")
 	    << " qn " << tmp.quarters ()
 	    << " bbt " << tmp.bbt()
 		;
@@ -1892,11 +1951,7 @@ TempoMap::n_meters () const
 	uint32_t n = 0;
 
 	for (TempoMapPoints::const_iterator p = _points.begin(); p != _points.end(); ++p) {
-		if (!p->is_explicit()) {
-			continue;
-		}
-
-		if (p->flags() & TempoMapPoint::ExplicitMeter) {
+		if (p->is_explicit_meter()) {
 			++n;
 		}
 	}
@@ -1911,11 +1966,7 @@ TempoMap::n_tempos () const
 	uint32_t n = 0;
 
 	for (TempoMapPoints::const_iterator p = _points.begin(); p != _points.end(); ++p) {
-		if (!p->is_explicit()) {
-			continue;
-		}
-
-		if (p->flags() & TempoMapPoint::ExplicitTempo) {
+		if (p->is_explicit_tempo()) {
 			++n;
 		}
 	}

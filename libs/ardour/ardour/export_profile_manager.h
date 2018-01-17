@@ -140,8 +140,8 @@ class LIBARDOUR_API ExportProfileManager
 	typedef boost::shared_ptr<TimespanState> TimespanStatePtr;
 	typedef std::list<TimespanStatePtr> TimespanStateList;
 
-	void set_selection_range (samplepos_t start = 0, samplepos_t end = 0);
-	std::string set_single_range (samplepos_t start, samplepos_t end, std::string name);
+	void set_selection_range (Temporal::timepos_t start = Temporal::timepos_t(), Temporal::timepos_t end = Temporal::timepos_t());
+	std::string set_single_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end, std::string name);
 	TimespanStateList const & get_timespans () { return check_list (timespans); }
 
   private:

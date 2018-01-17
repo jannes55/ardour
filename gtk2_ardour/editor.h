@@ -1690,8 +1690,8 @@ private:
 
 	void remove_tempo_marker (ArdourCanvas::Item*);
 	void remove_meter_marker (ArdourCanvas::Item*);
-	gint real_remove_tempo_marker (Temporal::Tempo const &);
-	gint real_remove_meter_marker (Temporal::Meter const &);
+	gint real_remove_tempo_marker (Temporal::TempoMapPoint const &);
+	gint real_remove_meter_marker (Temporal::TempoMapPoint const &);
 
 	void edit_tempo_marker (TempoMarker&);
 	void edit_meter_marker (MeterMarker&);

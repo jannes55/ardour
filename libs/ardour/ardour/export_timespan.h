@@ -56,26 +56,27 @@ class LIBARDOUR_API ExportTimespan
 	bool realtime () const { return _realtime; }
 	void set_realtime (bool rt) { _realtime = rt; }
 
-	void set_range (samplepos_t start, samplepos_t end);
-	samplecnt_t get_length () const { return end_sample - start_sample; }
-	samplepos_t get_start () const { return start_sample; }
-	samplepos_t get_end () const { return end_sample; }
+	void set_range (Temporal::timepos_t const & start, Temporal::timepos_t const & end);
+	samplecnt_t get_length () const { return end.sample() - start.sample(); }
+	samplepos_t get_start () const { return start.sample(); }
+	samplepos_t get_end () const { return end.sample(); }
 
 	/// Primarily compare start time, then end time
 	bool operator< (ExportTimespan const & other) {
-		if (start_sample < other.start_sample) { return true; }
-		if (start_sample > other.start_sample) { return false; }
-		return end_sample < other.end_sample;
+		if (start  < other.start) { return true; }
+		if (start > other.start) { return false; }
+		return end < other.end;
 	}
 
   private:
 
 	ExportStatusPtr status;
 
-	samplepos_t      start_sample;
-	samplepos_t      end_sample;
-	samplepos_t      position;
-	samplecnt_t      sample_rate;
+	Temporal::timepos_t start;
+	Temporal::timepos_t end;
+	Temporal::timepos_t position;
+
+	samplecnt_t         sample_rate;
 
 	std::string _name;
 	std::string _range_id;

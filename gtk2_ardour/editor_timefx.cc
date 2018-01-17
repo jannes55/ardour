@@ -150,9 +150,9 @@ Editor::time_fx (RegionList& regions, float val, bool pitching)
 		return 0;
 	}
 
-	const samplecnt_t oldlen = (samplecnt_t) (regions.front()->length());
-	const samplecnt_t newlen = (samplecnt_t) (regions.front()->length() * val);
-	const samplecnt_t pos = regions.front()->position ();
+	const samplecnt_t oldlen = (samplecnt_t) (regions.front()->length_samples());
+	const samplecnt_t newlen = (samplecnt_t) (regions.front()->length_samples() * val);
+	const samplecnt_t pos = regions.front()->position_sample ();
 
 	delete current_timefx;
 	current_timefx = new TimeFXDialog (*this, pitching, oldlen, newlen, pos);

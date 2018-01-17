@@ -21,6 +21,8 @@
 
 #include <gtkmm/cellrenderercombo.h>
 
+#include "temporal/types.h"
+
 #include "evoral/midi_util.h"
 #include "evoral/Note.hpp"
 
@@ -48,19 +50,19 @@ using namespace Glib;
 using namespace ARDOUR;
 using Temporal::BBT_Time;
 
-static map<int,std::string> note_length_map;
+static map<int32_t,std::string> note_length_map;
 
 static void
 fill_note_length_map ()
 {
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat, _("Whole")));
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat/2, _("Half")));
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat/3, _("Triplet")));
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat/4, _("Quarter")));
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat/8, _("Eighth")));
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat/16, _("Sixteenth")));
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat/32, _("Thirty-second")));
-	note_length_map.insert (make_pair<int,string> (BBT_Time::ticks_per_beat/64, _("Sixty-fourth")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat, _("Whole")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/2, _("Half")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/3, _("Triplet")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/4, _("Quarter")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/8, _("Eighth")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/16, _("Sixteenth")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/32, _("Thirty-second")));
+	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/64, _("Sixty-fourth")));
 }
 
 MidiListEditor::MidiListEditor (Session* s, boost::shared_ptr<MidiRegion> r, boost::shared_ptr<MidiTrack> tr)

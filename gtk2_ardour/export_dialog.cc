@@ -83,7 +83,7 @@ ExportDialog::set_session (ARDOUR::Session* s)
 
 	TimeSelection const & time (editor.get_selection().time);
 	if (!time.empty()) {
-		profile_manager->set_selection_range (time.front().start, time.front().end);
+		profile_manager->set_selection_range (time.front().start(), time.front().end());
 	} else {
 		profile_manager->set_selection_range ();
 	}
