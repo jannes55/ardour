@@ -144,7 +144,7 @@ private:
 class MetricMarker : public ArdourMarker
 {
   public:
-	MetricMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, Temporal::TempoMapPoint const &);
+	MetricMarker (PublicEditor& editor, ArdourCanvas::Container &, guint32 rgba, const std::string& text, ArdourMarker::Type, Temporal::TempoMapPoint const &);
 	~MetricMarker ();
 
 	Temporal::TempoMetric & metric() const;

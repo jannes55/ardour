@@ -1786,6 +1786,21 @@ TempoMap::bbt_walk (BBT_Time const & bbt, BBT_Offset const & offset) const
 }
 
 Temporal::Beats
+TempoMap::quarter_note_at (timepos_t const & pos) const
+{
+	switch (pos.lock_style()) {
+	case BeatTime:
+		return pos.beats();
+	case AudioTime:
+		return quarter_note_at (pos.sample());
+	default:
+		break;
+	}
+
+	return quarter_note_at (pos.bbt());
+}
+
+Temporal::Beats
 TempoMap::quarter_note_at (Temporal::BBT_Time const & bbt) const
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);

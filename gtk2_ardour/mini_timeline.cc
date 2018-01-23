@@ -280,7 +280,7 @@ MiniTimeline::format_time (samplepos_t when)
 		case AudioClock::BBT:
 			{
 				char buf[64];
-				Temporal::BBT_Time BBT = _session->tempo_map().bbt_at_sample (when);
+				Temporal::BBT_Time BBT = _session->tempo_map().bbt_at (when);
 				snprintf (buf, sizeof (buf), "%03" PRIu32 BBT_BAR_CHAR "%02" PRIu32 BBT_BAR_CHAR "%04" PRIu32,
 						BBT.bars, BBT.beats, BBT.ticks);
 				_layout->set_text (buf);
@@ -475,10 +475,10 @@ MiniTimeline::draw_edge (cairo_t* cr, int x0, int x1, bool left, const std::stri
 
 
 struct LocationMarker {
-	LocationMarker (const std::string& l, samplepos_t w)
+	LocationMarker (const std::string& l, Temporal::timepos_t const & w)
 		: label (l), when (w) {}
 	std::string label;
-	samplepos_t  when;
+	Temporal::timepos_t  when;
 };
 
 struct LocationMarkerSort {
@@ -561,8 +561,8 @@ MiniTimeline::render (Cairo::RefPtr<Cairo::Context> const& ctx, cairo_rectangle_
 	const Locations::LocationList& ll (_session->locations ()->list ());
 	for (Locations::LocationList::const_iterator l = ll.begin(); l != ll.end(); ++l) {
 		if ((*l)->is_session_range ()) {
-			lm.push_back (LocationMarker(_("start"), (*l)->start ()));
-			lm.push_back (LocationMarker(_("end"), (*l)->end ()));
+			lm.push_back (LocationMarker(_("start"), (*l)->start_time ()));
+			lm.push_back (LocationMarker(_("end"), (*l)->end_time ()));
 			continue;
 		}
 
@@ -570,7 +570,7 @@ MiniTimeline::render (Cairo::RefPtr<Cairo::Context> const& ctx, cairo_rectangle_
 			continue;
 		}
 
-		lm.push_back (LocationMarker((*l)->name(), (*l)->start ()));
+		lm.push_back (LocationMarker((*l)->name(), (*l)->start_time ()));
 	}
 
 	_jumplist.clear ();
@@ -585,11 +585,11 @@ MiniTimeline::render (Cairo::RefPtr<Cairo::Context> const& ctx, cairo_rectangle_
 	int id = 0;
 
 	for (std::vector<LocationMarker>::const_iterator l = lm.begin(); l != lm.end(); ++id) {
-		samplepos_t when = (*l).when;
+		samplepos_t when = (*l).when.sample();
 		if (when < lmin) {
 			outside_left = l;
 			if (++l != lm.end()) {
-				left_limit = floor (width * .5 + ((*l).when - p) * _px_per_sample) - 1 - mw;
+				left_limit = floor (width * .5 + ((*l).when.sample() - p) * _px_per_sample) - 1 - mw;
 			} else {
 				left_limit = width * .5 - mw;
 			}
@@ -603,7 +603,7 @@ MiniTimeline::render (Cairo::RefPtr<Cairo::Context> const& ctx, cairo_rectangle_
 		int x1 = width;
 		const std::string& label = (*l).label;
 		if (++l != lm.end()) {
-			x1 = floor (width * .5 + ((*l).when - p) * _px_per_sample) - 1 - mw;
+			x1 = floor (width * .5 + ((*l).when.sample() - p) * _px_per_sample) - 1 - mw;
 		}
 		bool prelight = false;
 		x1 = draw_mark (cr, x0, x1, label, prelight);
@@ -618,7 +618,7 @@ MiniTimeline::render (Cairo::RefPtr<Cairo::Context> const& ctx, cairo_rectangle_
 			bool prelight = false;
 			x1 = draw_edge (cr, x0, x1, true, (*outside_left).label, prelight);
 			if (x0 != x1) {
-				_jumplist.push_back (JumpRange (x0, x1, (*outside_left).when, prelight));
+				_jumplist.push_back (JumpRange (x0, x1, (*outside_left).when.sample(), prelight));
 				right_limit = std::max (x1, right_limit);
 			}
 		}
@@ -631,7 +631,7 @@ MiniTimeline::render (Cairo::RefPtr<Cairo::Context> const& ctx, cairo_rectangle_
 			bool prelight = false;
 			x0 = draw_edge (cr, x0, x1, false, (*outside_right).label, prelight);
 			if (x0 != x1) {
-				_jumplist.push_back (JumpRange (x0, x1, (*outside_right).when, prelight));
+				_jumplist.push_back (JumpRange (x0, x1, (*outside_right).when.sample(), prelight));
 			}
 		}
 	}

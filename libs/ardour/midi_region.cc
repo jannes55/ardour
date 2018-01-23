@@ -445,3 +445,16 @@ MidiRegion::model_automation_state_changed (Evoral::Parameter const & p)
 	}
 }
 
+
+/** This is called when a trim drag has resulted in a -ve _start time for this region.
+ *  Fix it up by adding some empty space to the source.
+ */
+void
+MidiRegion::fix_negative_start ()
+{
+	_ignore_shift = true;
+
+	model()->insert_silence_at_start (-_start.val().beats());
+
+	_start = 0;
+}

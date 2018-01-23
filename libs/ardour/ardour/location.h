@@ -71,7 +71,7 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 
 	timepos_t const & end_time() const { return _end; }
 	timepos_t const & start_time() const { return _start; }
-	timecnt_t length() const { return _end - _start; }
+	timecnt_t length() const { return timecnt_t (_end - _start, _start); }
 
 	samplepos_t start_sample() const  { return _start.sample(); }
 	samplepos_t end_sample() const { return _end.sample(); }

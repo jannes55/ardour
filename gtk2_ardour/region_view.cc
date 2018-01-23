@@ -934,17 +934,17 @@ RegionView::move_contents (sampleoffset_t distance)
 	region_changed (PropertyChange (ARDOUR::Properties::start));
 }
 
-/** Snap a sample offset within our region using the current snap settings.
- *  @param x Frame offset from this region's position.
+/** Snap a time offset within our region using the current snap settings.
+ *  @param x Time offset from this region's position.
  *  @param ensure_snap whether to ignore snap_mode (in the case of SnapOff) and magnetic snap.
  *  Used when inverting snap mode logic with key modifiers, or snap distance calculation.
- *  @return Snapped sample offset from this region's position.
+ *  @return Snapped time offset from this region's position.
  */
 timepos_t
-RegionView::snap_sample_to_sample (sampleoffset_t x, bool ensure_snap) const
+RegionView::snap_region_time_to_region_time (timepos_t const & x, bool ensure_snap) const
 {
 	PublicEditor& editor = trackview.editor();
-	/* x is region relative, convert it to global absolute samples */
+	/* x is region relative, convert it to global absolute time */
 	timepos_t const session_sample = _region->position() + x;
 
 	/* try a snap in either direction */

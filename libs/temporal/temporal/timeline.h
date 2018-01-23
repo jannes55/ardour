@@ -32,7 +32,7 @@
 
 namespace Temporal {
 
-class timepos_t;
+class timecnt_t;
 class TempoMap;
 
 struct TemporalStyleException : public std::exception {
@@ -66,13 +66,257 @@ struct LIBTEMPORAL_API TemporalTypeException : public std::exception {
 	std::string s;
 };
 
+class LIBTEMPORAL_API timepos_t {
+  public:
+	timepos_t ();
+	timepos_t (samplepos_t);
+	explicit timepos_t (timecnt_t const &); /* will throw() if val is negative */
+	explicit timepos_t (Temporal::Beats const &);
+	explicit timepos_t (Temporal::BBT_Time const &);
+
+	static timepos_t const & max() { return _max_timepos; }
+
+	samplepos_t            sample() const;
+	Temporal::Beats        beats() const;
+	Temporal::BBT_Time     bbt() const;
+
+	PositionLockStatus  lock_status() const { return _lock_status; }
+	Temporal::LockStyle lock_style() const { return _lock_status.style(); }
+	void set_lock_style (Temporal::LockStyle);
+
+	/* return a timepos_t that is the next (later) possible position given
+	 * this one
+	 */
+	timepos_t increment () const {
+		switch (_lock_status.style()) {
+		case Temporal::BeatTime:
+			return timepos_t (_beats + Beats (1));
+		case Temporal::AudioTime:
+			return timepos_t (_samplepos < max_samplepos ? _samplepos + 1 : _samplepos);
+		default:
+			/* can't do math on BBT time, see bbt_time.h for details */
+			break;
+		}
+
+		abort ();
+	}
+
+	timepos_t decrement () const {
+		switch (_lock_status.style()) {
+		case Temporal::BeatTime:
+			return timepos_t (_beats - Beats (1)); /* beats can go negative */
+		case Temporal::AudioTime:
+			return timepos_t (_samplepos > 0 ? _samplepos - 1 : _samplepos); /* samples cannot go negative */
+		default:
+			/* can't do math on BBT time, see bbt_time.h for details */
+			break;
+		}
+
+		abort ();
+	}
+
+	/* these are not thread-safe. in fact, almost nothing in this class is. */
+	timepos_t & operator= (timecnt_t const & t); /* will throw() if val is negative */
+	timepos_t & operator= (samplepos_t s) { _lock_status.set_style (Temporal::AudioTime);  _lock_status.set_dirty (Temporal::Dirty (Temporal::BeatsDirty|Temporal::BBTDirty)); _samplepos = s; return *this; }
+	timepos_t & operator= (Temporal::Beats const & b) { _lock_status.set_style (Temporal::BeatTime);  _lock_status.set_dirty (Temporal::Dirty (Temporal::SampleDirty|Temporal::BBTDirty)); _beats = b; return *this; }
+	timepos_t & operator= (Temporal::BBT_Time const & bbt) { _lock_status.set_style (Temporal::BarTime);  _lock_status.set_dirty (Temporal::Dirty (Temporal::BeatsDirty|Temporal::SampleDirty)); _bbt = bbt; return *this; }
+
+	bool operator==(timepos_t const & other) const {
+		if (_lock_status.style() != other.lock_status().style()) {
+			return false;
+		}
+		switch (_lock_status.style()) {
+		case Temporal::AudioTime:
+			return _samplepos == other._samplepos;
+		case Temporal::BeatTime:
+			return _beats == other._beats;
+		case Temporal::BarTime:
+			return _bbt == other._bbt;
+		}
+		return false;
+	}
+
+	bool operator!=(timepos_t const & other) const {
+		if (_lock_status.style() != other.lock_status().style()) {
+			return true;
+		}
+		switch (_lock_status.style()) {
+		case Temporal::AudioTime:
+			return _samplepos != other._samplepos;
+		case Temporal::BeatTime:
+			return _beats != other._beats;
+		case Temporal::BarTime:
+			return _bbt != other._bbt;
+		}
+		return false;
+	}
+
+	bool operator<  (timecnt_t const & other) const;
+	bool operator>  (timecnt_t const & other) const;
+	bool operator<= (timecnt_t const & other) const;
+	bool operator>= (timecnt_t const & other) const;
+
+	bool operator< (timepos_t const & other) const {
+		switch (_lock_status.style()) {
+		case Temporal::AudioTime:
+			return _samplepos < other.sample();
+		case Temporal::BeatTime:
+			return _beats < other.beats ();
+		case Temporal::BarTime:
+			return _bbt < other.bbt();
+		}
+		return false;
+	}
+
+	bool operator> (timepos_t const & other) const {
+		switch (_lock_status.style()) {
+		case Temporal::AudioTime:
+			return _samplepos > other.sample();
+		case Temporal::BeatTime:
+			return _beats > other.beats ();
+		case Temporal::BarTime:
+			return _bbt > other.bbt();
+		}
+		return false;
+	}
+
+	bool operator<= (timepos_t const & other) const {
+		switch (_lock_status.style()) {
+		case Temporal::AudioTime:
+			return _samplepos <= other.sample();
+		case Temporal::BeatTime:
+			return _beats <= other.beats ();
+		case Temporal::BarTime:
+			return _bbt <= other.bbt();
+		}
+		return false;
+	}
+
+	timepos_t operator+(timecnt_t const & d) const;
+	timepos_t operator+(timepos_t const & d) const;
+	timepos_t operator+(samplepos_t) const;
+	timepos_t operator+(Temporal::Beats const &) const;
+	timepos_t operator+(Temporal::BBT_Offset const &) const;
+
+	/* delta generates a timecnt_t, which may be negative
+
+	   inclusive delta:
+	   if the result is termed r, then this + r = d
+
+	   exclusive delta:
+	   if the result is termed r, then this + r = last position before d
+	*/
+
+	timecnt_t exclusive_delta (timecnt_t const & d) const;
+	timecnt_t exclusive_delta (timepos_t const & d) const;
+	timecnt_t exclusive_delta (samplepos_t) const;
+	timecnt_t exclusive_delta (Temporal::Beats const &) const;
+	timecnt_t exclusive_delta (Temporal::BBT_Offset const &) const;
+
+	timecnt_t inclusive_delta (timecnt_t const & d) const;
+	timecnt_t inclusive_delta (timepos_t const & d) const;
+	timecnt_t inclusive_delta (samplepos_t d) const;
+	timecnt_t inclusive_delta (Temporal::Beats const & d) const;
+	timecnt_t inclusive_delta (Temporal::BBT_Offset const & d) const;
+
+	/* operator- generates a timepos_t which is always zero or positive */
+
+	timepos_t operator-(timecnt_t const & d) const;
+	timepos_t operator-(timepos_t const & d) const;
+	timepos_t operator-(samplepos_t) const;
+	timepos_t operator-(Temporal::Beats const &) const;
+	timepos_t operator-(Temporal::BBT_Offset const &) const;
+
+	timepos_t operator/(double) const;
+	timepos_t operator*(double) const;
+
+	timepos_t & operator*=(double);
+	timepos_t & operator/=(double);
+
+	timepos_t & operator+=(timecnt_t const & d);
+	timepos_t & operator+=(samplepos_t);
+	timepos_t & operator+=(Temporal::Beats const &);
+	timepos_t & operator+=(Temporal::BBT_Offset const &);
+
+	timepos_t & operator-=(timecnt_t const & d);
+	timepos_t & operator-=(samplepos_t);
+	timepos_t & operator-=(Temporal::Beats const &);
+	timepos_t & operator-=(Temporal::BBT_Offset const &);
+
+	timepos_t   operator% (timecnt_t const &) const;
+	timepos_t & operator%=(timecnt_t const &);
+
+	bool operator<  (Temporal::samplepos_t s) { return sample() < s; }
+	bool operator<  (Temporal::Beats const & b) { return beats() < b; }
+	bool operator<  (Temporal::BBT_Time const & bb) { return bbt() < bb; }
+	bool operator<= (Temporal::samplepos_t s) { return sample() <= s; }
+	bool operator<= (Temporal::Beats const & b) { return beats() <= b; }
+	bool operator<= (Temporal::BBT_Time const & bb) { return bbt() <= bb; }
+	bool operator>  (Temporal::samplepos_t s) { return sample() > s; }
+	bool operator>  (Temporal::Beats const & b) { return beats() > b; }
+	bool operator>  (Temporal::BBT_Time const & bb) { return bbt() > bb; }
+	bool operator>= (Temporal::samplepos_t s) { return sample() >= s; }
+	bool operator>= (Temporal::Beats const & b) { return beats() >= b; }
+	bool operator>= (Temporal::BBT_Time const & bb) { return bbt() >= bb; }
+	bool operator== (Temporal::samplepos_t s) { return sample() == s; }
+	bool operator== (Temporal::Beats const & b) { return beats() == b; }
+	bool operator== (Temporal::BBT_Time const & bb) { return bbt() == bb; }
+	bool operator!= (Temporal::samplepos_t s) { return sample() != s; }
+	bool operator!= (Temporal::Beats const & b) { return beats() != b; }
+	bool operator!= (Temporal::BBT_Time const & bb) { return bbt() != bb; }
+
+	void set_sample (samplepos_t s);
+	void set_beat (Temporal::Beats const &);
+	void set_bbt (Temporal::BBT_Time const &);
+
+	bool string_to (std::string const & str);
+	std::string to_string () const;
+
+	/* these do not affect the canonical position value, and so we label
+	   them const for ease of use in const contexts.
+	*/
+	void update_audio_and_bbt_times () const;
+	void update_audio_and_beat_times () const;
+	void update_music_times () const;
+
+	static void set_tempo_map (TempoMap& tm) { _tempo_map = &tm; }
+
+  private:
+	mutable int         update_generation;
+	PositionLockStatus _lock_status;
+
+	/* these are mutable because we may need to update them at arbitrary
+	   times, even within contexts that are otherwise const. For example, an
+	   audio-locked position whose _beats value is out of date. The audio time
+	   is canonical and will not change, but beats() needs to be callable, and
+	   we'd prefer to claim const-ness for it than not.
+	*/
+
+	mutable samplepos_t        _samplepos;
+	mutable Temporal::Beats    _beats;
+	mutable Temporal::BBT_Time _bbt;
+
+	static TempoMap* _tempo_map;
+
+	void update_music_time ();
+	void update_audio_time ();
+
+	/* special constructor for max_timepos */
+	timepos_t (PositionLockStatus);
+	static timepos_t _max_timepos;
+
+};
+
 class LIBTEMPORAL_API timecnt_t {
   public:
-	timecnt_t() : _style (Temporal::AudioTime), _samples (0) {}
-	timecnt_t(timepos_t const &);
-	timecnt_t(samplepos_t s) : _style (Temporal::AudioTime), _samples (s) {}
-	explicit timecnt_t(Temporal::Beats const & b) : _style (Temporal::BeatTime), _beats (b) {}
-	explicit timecnt_t(Temporal::BBT_Time const & bbt) : _style (Temporal::BarTime), _bbt (bbt) {}
+	timecnt_t(timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (0), _pos (pos) {}
+	timecnt_t(timepos_t const &, timepos_t const & pos);
+	timecnt_t(timecnt_t const &, timepos_t const & pos);
+	timecnt_t(samplepos_t s, timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (s), _pos (pos) {}
+	explicit timecnt_t(Temporal::Beats const & b, timepos_t pos = 0) : _style (Temporal::BeatTime), _beats (b), _pos (pos) {}
+	explicit timecnt_t(Temporal::BBT_Time const & bbt, timepos_t pos = 0) : _style (Temporal::BarTime), _bbt (bbt), _pos (pos) {}
+
+	void set_position (timepos_t const &pos);
 
 	static timecnt_t const & max() { return _max_timecnt; }
 
@@ -80,9 +324,9 @@ class LIBTEMPORAL_API timecnt_t {
 
 	Temporal::LockStyle    style()   const { return _style; }
 
-	samplepos_t            samples() const { assert (_style == Temporal::AudioTime); return _samples; }
-	Temporal::Beats        beats()   const { assert (_style == Temporal::BeatTime); return _beats; }
-	Temporal::BBT_Offset   bbt()     const { assert (_style == Temporal::BarTime); return _bbt; }
+	samplepos_t            samples() const { switch (_style) { case Temporal::AudioTime: return _samples; default: break; } return compute_samples (); }
+	Temporal::Beats        beats  () const { switch (_style) { case Temporal::BeatTime: return _beats; default: break; } return compute_beats (); }
+	Temporal::BBT_Offset   bbt    () const { switch (_style) { case Temporal::BarTime: return _bbt; default: break; } return compute_bbt (); }
 
 	timecnt_t & operator= (samplepos_t s) { _style = Temporal::AudioTime; _samples = s; return *this; }
 	timecnt_t & operator= (Temporal::Beats const & b) { _style = Temporal::BeatTime; _beats = b; return *this; }
@@ -95,9 +339,9 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t increment () const {
 		switch (_style) {
 		case Temporal::BeatTime:
-			return timecnt_t (_beats + Beats (1));
+			return timecnt_t (_beats + Beats::beats (1), _pos);
 		case Temporal::AudioTime:
-			return timecnt_t (_samples < max_samplepos ? _samples + 1 : _samples);
+			return timecnt_t (_samples < max_samplepos ? _samples + 1 : _samples, _pos);
 		default:
 			/* can't do math on BBT time, see bbt_time.h for details */
 			break;
@@ -109,9 +353,9 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t decrement () const {
 		switch (_style) {
 		case Temporal::BeatTime:
-			return timecnt_t (_beats - Beats (1)); /* beats can go negative */
+			return timecnt_t (_beats - Beats::beats (1), _pos); /* beats can go negative */
 		case Temporal::AudioTime:
-			return timecnt_t (_samples > 0 ? _samples - 1 : _samples); /* samples cannot go negative */
+			return timecnt_t (_samples > 0 ? _samples - 1 : _samples, _pos); /* samples cannot go negative */
 		default:
 			/* can't do math on BBT time, see bbt_time.h for details */
 			break;
@@ -126,9 +370,9 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t operator-() const {
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (-_samples);
+			return timecnt_t (-_samples, _pos);
 		case Temporal::BeatTime:
-			return timecnt_t (-_beats);
+			return timecnt_t (-_beats, _pos);
 		default:
 			break;
 		}
@@ -139,9 +383,9 @@ class LIBTEMPORAL_API timecnt_t {
 		assert (_style == t.style());
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (_samples - t._samples);
+			return timecnt_t (_samples - t._samples, _pos);
 		case Temporal::BeatTime:
-			return timecnt_t (_beats - t._beats);
+			return timecnt_t (_beats - t._beats, _pos);
 		default:
 			break;
 		}
@@ -152,9 +396,9 @@ class LIBTEMPORAL_API timecnt_t {
 		assert (_style == t.style());
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (_samples + t._samples);
+			return timecnt_t (_samples + t._samples, _pos);
 		case Temporal::BeatTime:
-			return timecnt_t (_beats + t._beats);
+			return timecnt_t (_beats + t._beats, _pos);
 		default:
 			break;
 		}
@@ -323,6 +567,8 @@ class LIBTEMPORAL_API timecnt_t {
 	bool string_to (std::string const & str);
 	std::string to_string () const;
 
+	static void set_tempo_map (TempoMap& tm) { _tempo_map = &tm; }
+
   private:
 	Temporal::LockStyle _style;
 	union {
@@ -331,294 +577,103 @@ class LIBTEMPORAL_API timecnt_t {
 		Temporal::BBT_Offset _bbt;
 	};
 
+	timepos_t _pos;
+
 	static timecnt_t _max_timecnt;
-};
-
-class LIBTEMPORAL_API timepos_t {
-  public:
-	timepos_t ();
-	timepos_t (samplepos_t);
-	explicit timepos_t (timecnt_t const &); /* will throw() if val is negative */
-	explicit timepos_t (Temporal::Beats const &);
-	explicit timepos_t (Temporal::BBT_Time const &);
-
-	static timepos_t const & max() { return _max_timepos; }
-
-	samplepos_t            sample() const;
-	Temporal::Beats        beats() const;
-	Temporal::BBT_Time     bbt() const;
-
-	PositionLockStatus  lock_status() const { return _lock_status; }
-	Temporal::LockStyle lock_style() const { return _lock_status.style(); }
-	void set_lock_style (Temporal::LockStyle);
-
-	/* return a timepos_t that is the next (later) possible position given
-	 * this one
-	 */
-	timepos_t increment () const {
-		switch (_lock_status.style()) {
-		case Temporal::BeatTime:
-			return timepos_t (_beats + Beats (1));
-		case Temporal::AudioTime:
-			return timepos_t (_samplepos < max_samplepos ? _samplepos + 1 : _samplepos);
-		default:
-			/* can't do math on BBT time, see bbt_time.h for details */
-			break;
-		}
-
-		abort ();
-	}
-
-	timepos_t decrement () const {
-		switch (_lock_status.style()) {
-		case Temporal::BeatTime:
-			return timepos_t (_beats - Beats (1)); /* beats can go negative */
-		case Temporal::AudioTime:
-			return timepos_t (_samplepos > 0 ? _samplepos - 1 : _samplepos); /* samples cannot go negative */
-		default:
-			/* can't do math on BBT time, see bbt_time.h for details */
-			break;
-		}
-
-		abort ();
-	}
-
-	/* these are not thread-safe. in fact, almost nothing in this class is. */
-	timepos_t & operator= (timecnt_t const & t); /* will throw() if val is negative */
-	timepos_t & operator= (samplepos_t s) { _lock_status.set_style (Temporal::AudioTime);  _lock_status.set_dirty (Temporal::Dirty (Temporal::BeatsDirty|Temporal::BBTDirty)); _samplepos = s; return *this; }
-	timepos_t & operator= (Temporal::Beats const & b) { _lock_status.set_style (Temporal::BeatTime);  _lock_status.set_dirty (Temporal::Dirty (Temporal::SampleDirty|Temporal::BBTDirty)); _beats = b; return *this; }
-	timepos_t & operator= (Temporal::BBT_Time const & bbt) { _lock_status.set_style (Temporal::BarTime);  _lock_status.set_dirty (Temporal::Dirty (Temporal::BeatsDirty|Temporal::SampleDirty)); _bbt = bbt; return *this; }
-
-	bool operator==(timepos_t const & other) const {
-		if (_lock_status.style() != other.lock_status().style()) {
-			return false;
-		}
-		switch (_lock_status.style()) {
-		case Temporal::AudioTime:
-			return _samplepos == other._samplepos;
-		case Temporal::BeatTime:
-			return _beats == other._beats;
-		case Temporal::BarTime:
-			return _bbt == other._bbt;
-		}
-		return false;
-	}
-
-	bool operator!=(timepos_t const & other) const {
-		if (_lock_status.style() != other.lock_status().style()) {
-			return true;
-		}
-		switch (_lock_status.style()) {
-		case Temporal::AudioTime:
-			return _samplepos != other._samplepos;
-		case Temporal::BeatTime:
-			return _beats != other._beats;
-		case Temporal::BarTime:
-			return _bbt != other._bbt;
-		}
-		return false;
-	}
-
-	bool operator< (timecnt_t const & other) const {
-		switch (other.style()) {
-		case Temporal::AudioTime:
-			return _samplepos < other.samples();
-		case Temporal::BeatTime:
-			return _beats < other.beats ();
-		case Temporal::BarTime:
-			return _bbt < other.bbt();
-		}
-		return false;
-	}
-
-	bool operator> (timecnt_t const & other) const {
-		switch (other.style()) {
-		case Temporal::AudioTime:
-			return _samplepos > other.samples();
-		case Temporal::BeatTime:
-			return _beats > other.beats ();
-		case Temporal::BarTime:
-			return _bbt > other.bbt();
-		}
-		return false;
-	}
-
-	bool operator<= (timecnt_t const & other) const {
-		switch (other.style()) {
-		case Temporal::AudioTime:
-			return _samplepos <= other.samples();
-		case Temporal::BeatTime:
-			return _beats <= other.beats ();
-		case Temporal::BarTime:
-			return _bbt <= other.bbt();
-		}
-		return false;
-	}
-
-	bool operator>= (timecnt_t const & other) const {
-		switch (other.style()) {
-		case Temporal::AudioTime:
-			return _samplepos >= other.samples();
-		case Temporal::BeatTime:
-			return _beats >= other.beats ();
-		case Temporal::BarTime:
-			return _bbt >= other.bbt();
-		}
-		return false;
-	}
-
-	bool operator< (timepos_t const & other) const {
-		switch (_lock_status.style()) {
-		case Temporal::AudioTime:
-			return _samplepos < other.sample();
-		case Temporal::BeatTime:
-			return _beats < other.beats ();
-		case Temporal::BarTime:
-			return _bbt < other.bbt();
-		}
-		return false;
-	}
-
-	bool operator> (timepos_t const & other) const {
-		switch (_lock_status.style()) {
-		case Temporal::AudioTime:
-			return _samplepos > other.sample();
-		case Temporal::BeatTime:
-			return _beats > other.beats ();
-		case Temporal::BarTime:
-			return _bbt > other.bbt();
-		}
-		return false;
-	}
-
-	bool operator<= (timepos_t const & other) const {
-		switch (_lock_status.style()) {
-		case Temporal::AudioTime:
-			return _samplepos <= other.sample();
-		case Temporal::BeatTime:
-			return _beats <= other.beats ();
-		case Temporal::BarTime:
-			return _bbt <= other.bbt();
-		}
-		return false;
-	}
-
-	timepos_t operator+(timecnt_t const & d) const;
-	timepos_t operator+(timepos_t const & d) const;
-	timepos_t operator+(samplepos_t) const;
-	timepos_t operator+(Temporal::Beats const &) const;
-	timepos_t operator+(Temporal::BBT_Offset const &) const;
-
-	/* delta generates a timecnt_t, which may be negative
-
-	   inclusive delta:
-	   if the result is termed r, then this + r = d
-
-	   exclusive delta:
-	   if the result is termed r, then this + r = last position before d
-	*/
-
-	timecnt_t exclusive_delta (timecnt_t const & d) const;
-	timecnt_t exclusive_delta (timepos_t const & d) const;
-	timecnt_t exclusive_delta (samplepos_t) const;
-	timecnt_t exclusive_delta (Temporal::Beats const &) const;
-	timecnt_t exclusive_delta (Temporal::BBT_Offset const &) const;
-
-	timecnt_t inclusive_delta (timecnt_t const & d) const            { return exclusive_delta (d).increment(); }
-	timecnt_t inclusive_delta (timepos_t const & d) const            { return exclusive_delta (d).increment(); }
-	timecnt_t inclusive_delta (samplepos_t d) const                  { return exclusive_delta (d).increment(); }
-	timecnt_t inclusive_delta (Temporal::Beats const & d) const      { return exclusive_delta (d).increment(); }
-	timecnt_t inclusive_delta (Temporal::BBT_Offset const & d) const { return exclusive_delta (d).increment(); }
-
-	/* operator- generates a timepos_t which is always zero or positive */
-
-	timepos_t operator-(timecnt_t const & d) const;
-	timepos_t operator-(timepos_t const & d) const;
-	timepos_t operator-(samplepos_t) const;
-	timepos_t operator-(Temporal::Beats const &) const;
-	timepos_t operator-(Temporal::BBT_Offset const &) const;
-
-	timepos_t operator/(double) const;
-	timepos_t operator*(double) const;
-
-	timepos_t & operator*=(double);
-	timepos_t & operator/=(double);
-
-	timepos_t & operator+=(timecnt_t const & d);
-	timepos_t & operator+=(samplepos_t);
-	timepos_t & operator+=(Temporal::Beats const &);
-	timepos_t & operator+=(Temporal::BBT_Offset const &);
-
-	timepos_t & operator-=(timecnt_t const & d);
-	timepos_t & operator-=(samplepos_t);
-	timepos_t & operator-=(Temporal::Beats const &);
-	timepos_t & operator-=(Temporal::BBT_Offset const &);
-
-	timepos_t   operator% (timecnt_t const &) const;
-	timepos_t & operator%=(timecnt_t const &);
-
-	bool operator<  (Temporal::samplepos_t s) { return sample() < s; }
-	bool operator<  (Temporal::Beats const & b) { return beats() < b; }
-	bool operator<  (Temporal::BBT_Time const & bb) { return bbt() < bb; }
-	bool operator<= (Temporal::samplepos_t s) { return sample() <= s; }
-	bool operator<= (Temporal::Beats const & b) { return beats() <= b; }
-	bool operator<= (Temporal::BBT_Time const & bb) { return bbt() <= bb; }
-	bool operator>  (Temporal::samplepos_t s) { return sample() > s; }
-	bool operator>  (Temporal::Beats const & b) { return beats() > b; }
-	bool operator>  (Temporal::BBT_Time const & bb) { return bbt() > bb; }
-	bool operator>= (Temporal::samplepos_t s) { return sample() >= s; }
-	bool operator>= (Temporal::Beats const & b) { return beats() >= b; }
-	bool operator>= (Temporal::BBT_Time const & bb) { return bbt() >= bb; }
-	bool operator== (Temporal::samplepos_t s) { return sample() == s; }
-	bool operator== (Temporal::Beats const & b) { return beats() == b; }
-	bool operator== (Temporal::BBT_Time const & bb) { return bbt() == bb; }
-	bool operator!= (Temporal::samplepos_t s) { return sample() != s; }
-	bool operator!= (Temporal::Beats const & b) { return beats() != b; }
-	bool operator!= (Temporal::BBT_Time const & bb) { return bbt() != bb; }
-
-	void set_sample (samplepos_t s);
-	void set_beat (Temporal::Beats const &);
-	void set_bbt (Temporal::BBT_Time const &);
-
-	bool string_to (std::string const & str);
-	std::string to_string () const;
-
-	/* these do not affect the canonical position value, and so we label
-	   them const for ease of use in const contexts.
-	*/
-	void update_audio_and_bbt_times () const;
-	void update_audio_and_beat_times () const;
-	void update_music_times () const;
-
-	static void set_tempo_map (TempoMap& tm) { _tempo_map = &tm; }
-
-  private:
-	mutable int         update_generation;
-	PositionLockStatus _lock_status;
-
-	/* these are mutable because we may need to update them at arbitrary
-	   times, even within contexts that are otherwise const. For example, an
-	   audio-locked position whose _beats value is out of date. The audio time
-	   is canonical and will not change, but beats() needs to be callable, and
-	   we'd prefer to claim const-ness for it than not.
-	*/
-
-	mutable samplepos_t        _samplepos;
-	mutable Temporal::Beats    _beats;
-	mutable Temporal::BBT_Time _bbt;
-
 	static TempoMap* _tempo_map;
 
-	void update_music_time ();
-	void update_audio_time ();
-
-	/* special constructor for max_timepos */
-	timepos_t (PositionLockStatus);
-	static timepos_t _max_timepos;
-
+	samplepos_t compute_samples () const;
+	Beats compute_beats () const;
+	BBT_Offset compute_bbt () const;
 };
 
+inline timecnt_t
+timepos_t::inclusive_delta (timecnt_t const & d) const
+{
+	return exclusive_delta (d).increment();
 }
+
+inline timecnt_t
+timepos_t::inclusive_delta (timepos_t const & d) const
+{
+	return exclusive_delta (d).increment();
+}
+
+inline timecnt_t
+timepos_t::inclusive_delta (samplepos_t d) const
+{
+	return exclusive_delta (d).increment();
+}
+
+inline timecnt_t
+timepos_t::inclusive_delta (Temporal::Beats const & d) const
+{
+	return exclusive_delta (d).increment();
+}
+
+inline timecnt_t
+timepos_t::inclusive_delta (Temporal::BBT_Offset const & d) const
+{
+	return exclusive_delta (d).increment();
+}
+
+inline bool
+timepos_t::operator< (timecnt_t const & other) const
+{
+	switch (other.style()) {
+	case Temporal::AudioTime:
+		return _samplepos < other.samples();
+	case Temporal::BeatTime:
+		return _beats < other.beats ();
+	case Temporal::BarTime:
+		return _bbt < other.bbt();
+	}
+	return false;
+}
+
+inline bool
+timepos_t::operator> (timecnt_t const & other) const
+{
+	switch (other.style()) {
+	case Temporal::AudioTime:
+		return _samplepos > other.samples();
+	case Temporal::BeatTime:
+		return _beats > other.beats ();
+	case Temporal::BarTime:
+		return _bbt > other.bbt();
+	}
+	return false;
+}
+
+inline bool
+timepos_t::operator<= (timecnt_t const & other) const
+{
+	switch (other.style()) {
+	case Temporal::AudioTime:
+		return _samplepos <= other.samples();
+	case Temporal::BeatTime:
+		return _beats <= other.beats ();
+	case Temporal::BarTime:
+		return _bbt <= other.bbt();
+	}
+	return false;
+}
+
+inline bool
+timepos_t::operator>= (timecnt_t const & other) const
+{
+	switch (other.style()) {
+	case Temporal::AudioTime:
+		return _samplepos >= other.samples();
+	case Temporal::BeatTime:
+		return _beats >= other.beats ();
+	case Temporal::BarTime:
+		return _bbt >= other.bbt();
+	}
+	return false;
+}
+
+} /* end of namespace Temporal */
 
 namespace std {
 std::ostream & operator<< (std::ostream &, Temporal::timepos_t const &);
@@ -655,6 +710,8 @@ inline static bool operator> (Temporal::BBT_Time const & bbt, Temporal::timecnt_
 inline static bool operator>= (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::AudioTime); return s >= t.samples(); }
 inline static bool operator>= (Temporal::Beats const & b, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BeatTime); return b >= t.beats(); }
 inline static bool operator>= (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BarTime); return bbt >= t.bbt(); }
+
+
 
 
 namespace std {

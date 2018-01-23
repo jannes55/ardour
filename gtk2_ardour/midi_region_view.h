@@ -122,7 +122,7 @@ public:
 	void resolve_note(uint8_t note_num, Temporal::Beats end_time);
 
 	void cut_copy_clear (Editing::CutCopyOp);
-	bool paste (Temporal::timepos_t const & pos, const ::Selection& selection, PasteContext& ctx, const int32_t sub_num);
+	bool paste (Temporal::timepos_t const & pos, const ::Selection& selection, PasteContext& ctx);
 	void paste_internal (Temporal::timepos_t const & pos, unsigned paste_count, float times, const MidiCutBuffer&);
 
 	void add_canvas_patch_change (ARDOUR::MidiModel::PatchChangePtr patch, const std::string& displaytext, bool);
@@ -201,10 +201,10 @@ public:
 	void   invert_selection ();
 
 	Temporal::Beats earliest_in_selection ();
-	void move_selection(double dx, double dy, double cumulative_dy);
+	void move_selection(Temporal::Beats const & dx, double dy, double cumulative_dy);
 	void note_dropped (NoteBase* ev, double d_qn, int8_t d_note, bool copy);
 	NoteBase* copy_selection (NoteBase* primary);
-	void move_copies(double dx_qn, double dy, double cumulative_dy);
+ 	void move_copies(Temporal::Beats const & dx_qn, double dy, double cumulative_dy);
 
 	void select_notes (std::list<Evoral::event_id_t>);
 	void select_matching_notes (uint8_t notenum, uint16_t channel_mask, bool add, bool extend);
@@ -263,28 +263,10 @@ public:
 	 * @param x a pixel coordinate relative to region start
 	 * @param ensure_snap ignore SnapOff and magnetic snap.
 	 * Required for inverting snap logic with modifier keys and snap delta calculation.
-	 * @return the snapped samplepos_t coordinate relative to region start
+	 * @return the snapped timepos_t coordinate relative to region start
 	 */
-	samplepos_t snap_pixel_to_sample(double x, bool ensure_snap = false);
+	Temporal::timepos_t snap_pixel_to_time(double x, bool ensure_snap = false);
 
-	/** Convert a timestamp in beats into absolute time */
-	Temporal::timepos_t region_beats_to_absolute_time(Temporal::Beats beats) const;
-	/** Convert a timestamp in beats into timepos_t (both relative to region position) */
-	Temporal::timepos_t region_beats_to_region_time (Temporal::Beats beats) const {
-		return region_beats_to_absolute_time (beats) - _region->position();
-	}
-	/** Convert a timestamp as timepos_t to beats (both relative to region position) */
-	Temporal::Beats region_time_to_region_beats(Temporal::timepos_t const &) const;
-	/** Convert a timestamp in beats measured from source start into absolute samples */
-	Temporal::timepos_t source_beats_to_absolute_time(Temporal::Beats beats) const;
-	/** Convert a timestamp in beats measured from source start into region-relative samples */
-	Temporal::timepos_t source_beats_to_region_time(Temporal::Beats beats) const {
-		return source_beats_to_absolute_time (beats) - _region->position();
-	}
-	/** Convert a timestamp in absolute time to beats measured from source start*/
-	Temporal::Beats absolute_time_to_source_beats(Temporal::timepos_t const &) const;
-
-	double session_relative_qn (double qn) const;
 
 	void goto_previous_note (bool add_to_selection);
 	void goto_next_note (bool add_to_selection);
@@ -485,7 +467,7 @@ private:
 	void data_recorded (boost::weak_ptr<ARDOUR::MidiSource>);
 
 	/** Get grid type as beats, or default to 1 if not snapped to beats. */
-	Temporal::Beats get_grid_beats(samplepos_t pos) const;
+	Temporal::Beats get_grid_beats (Temporal::timepos_t const & pos) const;
 
 	void remove_ghost_note ();
 	void mouse_mode_changed ();
@@ -506,7 +488,7 @@ private:
 	Gtkmm2ext::Color _patch_change_outline;
 	Gtkmm2ext::Color _patch_change_fill;
 
-	Temporal::Beats snap_sample_to_grid_underneath (samplepos_t p, int32_t divisions, bool shift_snap) const;
+	Temporal::Beats snap_sample_to_grid_underneath (samplepos_t p, bool shift_snap) const;
 
 	PBD::ScopedConnection _mouse_mode_connection;
 

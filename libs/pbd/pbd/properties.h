@@ -96,6 +96,11 @@ public:
 		return _current;
 	}
 
+	/* allows calling non-const methods on _current */
+
+	T & call () {
+		return _current;
+	}
 
 	/* MANAGEMENT OF Stateful State */
 

@@ -81,7 +81,7 @@ MainClock::absolute_time () const
 {
 	if (get_is_duration ()) {
 		// delta to edit cursor
-		return current_time () + PublicEditor::instance().get_preferred_edit_position (Editing::EDIT_IGNORE_PHEAD);
+		return current_time () + (samplecnt_t) PublicEditor::instance().get_preferred_edit_position (Editing::EDIT_IGNORE_PHEAD).sample();
 	} else {
 		return current_time ();
 	}
@@ -101,16 +101,14 @@ void
 MainClock::edit_current_tempo ()
 {
 	if (!PublicEditor::instance().session()) return;
-	ARDOUR::TempoSection* ts = const_cast<ARDOUR::TempoSection*>(&PublicEditor::instance().session()->tempo_map().tempo_section_at_sample (absolute_time()));
-	PublicEditor::instance().edit_tempo_section (ts);
+	PublicEditor::instance().edit_current_tempo ();
 }
 
 void
 MainClock::edit_current_meter ()
 {
 	if (!PublicEditor::instance().session()) return;
-	ARDOUR::MeterSection* ms = const_cast<ARDOUR::MeterSection*>(&PublicEditor::instance().session()->tempo_map().meter_section_at_sample (absolute_time()));
-	PublicEditor::instance().edit_meter_section (ms);
+	PublicEditor::instance().edit_current_meter ();
 }
 
 void

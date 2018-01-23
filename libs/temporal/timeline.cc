@@ -32,6 +32,7 @@
 using namespace Temporal;
 
 timecnt_t timecnt_t::_max_timecnt (max_samplepos);
+TempoMap* timecnt_t::_tempo_map = 0;
 
 std::ostream&
 std::operator<< (std::ostream & o, timecnt_t const & tc)
@@ -39,8 +40,9 @@ std::operator<< (std::ostream & o, timecnt_t const & tc)
 	return o << tc.to_string();
 }
 
-timecnt_t::timecnt_t (timepos_t const & tp)
+timecnt_t::timecnt_t (timepos_t const & tp, timepos_t const & pos)
 	: _style (tp.lock_style())
+	, _pos (pos)
 {
 	switch (_style) {
 	case Temporal::AudioTime:
@@ -53,6 +55,29 @@ timecnt_t::timecnt_t (timepos_t const & tp)
 		_bbt = tp.bbt ();
 		break;
 	}
+}
+
+timecnt_t::timecnt_t (timecnt_t const & tc, timepos_t const & pos)
+	: _style (tc.style())
+	, _pos (pos)
+{
+	switch (_style) {
+	case Temporal::AudioTime:
+		_samples = tc._samples;
+		break;
+	case Temporal::BeatTime:
+		_beats = tc._beats;
+		break;
+	case Temporal::BarTime:
+		_bbt = tc._bbt;
+		break;
+	}
+}
+
+void
+timecnt_t::set_position (timepos_t const & pos)
+{
+	_pos = pos;
 }
 
 timecnt_t
@@ -69,6 +94,54 @@ timecnt_t::abs () const
 #warning fix timecnt_t::abs for bars
 		break;
 	}
+}
+
+samplepos_t
+timecnt_t::compute_samples() const
+{
+	switch (_style) {
+	case Temporal::AudioTime:
+		/* should not happen - caught in ::samples() */
+		return _samples;
+	case Temporal::BeatTime:
+		return _tempo_map->full_duration_at (_pos, *this, AudioTime)._samples;
+	default:
+		break;
+	}
+
+	return _tempo_map->full_duration_at (_pos, *this, AudioTime)._samples;
+}
+
+Beats
+timecnt_t::compute_beats() const
+{
+	switch (_style) {
+	case Temporal::BeatTime:
+		/* should not happen - caught in ::beats() */
+		return _beats;
+	case Temporal::AudioTime:
+		return _tempo_map->full_duration_at (_pos, *this, BeatTime)._beats;
+	default:
+		break;
+	}
+
+	return _tempo_map->full_duration_at (_pos, *this, BeatTime)._beats;
+}
+
+BBT_Offset
+timecnt_t::compute_bbt() const
+{
+	switch (_style) {
+	case Temporal::BarTime:
+		/* should not happen - caught in ::bbt() */
+		return _bbt;
+	case Temporal::AudioTime:
+		return _tempo_map->full_duration_at (_pos, *this, BarTime)._bbt;
+	default:
+		break;
+	}
+
+	return _tempo_map->full_duration_at (_pos, *this, BarTime)._bbt;
 }
 
 timecnt_t &

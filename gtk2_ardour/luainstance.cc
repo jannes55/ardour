@@ -725,18 +725,26 @@ LuaInstance::register_classes (lua_State* L)
 		.beginStdCPtrList <TimeAxisView> ("TrackViewStdList")
 		.endClass ()
 
-
 		.beginClass <RegionSelection> ("RegionSelection")
-		.addFunction ("start", &RegionSelection::start)
+		/* begin 5.x compatibility API */
+		.addFunction ("start", &RegionSelection::start_sample)
 		.addFunction ("end_sample", &RegionSelection::end_sample)
+		/* end 5.x compatibility API */
+		.addFunction ("start_time", &RegionSelection::start_time)
+		.addFunction ("end_time", &RegionSelection::end_time)
 		.addFunction ("n_midi_regions", &RegionSelection::n_midi_regions)
 		.addFunction ("regionlist", &RegionSelection::regionlist) // XXX check windows binding (libardour)
 		.endClass ()
 
-		.deriveClass <TimeSelection, std::list<ARDOUR::AudioRange> > ("TimeSelection")
-		.addFunction ("start", &TimeSelection::start)
+		.deriveClass <TimeSelection, std::list<ARDOUR::TimelineRange> > ("TimeSelection")
+		/* begin 5.x compatibility API */
+		.addFunction ("start", &TimeSelection::start_sample)
 		.addFunction ("end_sample", &TimeSelection::end_sample)
-		.addFunction ("length", &TimeSelection::length)
+		.addFunction ("length", &TimeSelection::length_samples)
+		/* end 5.x compatibility API */
+		.addFunction ("start_time", &TimeSelection::start_time)
+		.addFunction ("end_time", &TimeSelection::end_time)
+		.addFunction ("length_time", &TimeSelection::length)
 		.endClass ()
 
 		.deriveClass <MarkerSelection, std::list<ArdourMarker*> > ("MarkerSelection")

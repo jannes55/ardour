@@ -35,9 +35,8 @@ MidiAutomationLine::MidiAutomationLine (
 	ArdourCanvas::Item&                                     parent,
 	boost::shared_ptr<ARDOUR::AutomationList>               list,
 	boost::shared_ptr<ARDOUR::MidiRegion>                   region,
-	Evoral::Parameter                                       parameter,
-	Temporal::TimeConverter<double, ARDOUR::samplepos_t>*   converter)
-	: AutomationLine (name, tav, parent, list, parameter, converter)
+	Evoral::Parameter                                       parameter)
+	: AutomationLine (name, tav, parent, list, parameter, Temporal::DistanceMeasure (tav.session()->tempo_map(), Temporal::timepos_t()))
 	, _region (region)
 	, _parameter (parameter)
 {

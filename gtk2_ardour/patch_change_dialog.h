@@ -41,13 +41,13 @@ class PatchChangeDialog : public ArdourDialog
 {
 public:
 	PatchChangeDialog (
-		const ARDOUR::BeatsSamplesConverter *,
 		ARDOUR::Session *,
 		Evoral::PatchChange<Temporal::Beats> const &,
 		ARDOUR::InstrumentInfo&,
 		const Gtk::BuiltinStockID &,
 		bool allow_delete = false,
-		bool modal = true
+		bool modal = true,
+		boost::shared_ptr<ARDOUR::Region> region = boost::shared_ptr<ARDOUR::Region>()
 		);
 
 	Evoral::PatchChange<Temporal::Beats> patch () const;
@@ -68,7 +68,7 @@ private:
 
 	int get_14bit_bank () const;
 
-	const ARDOUR::BeatsSamplesConverter* _time_converter;
+	const boost::shared_ptr<ARDOUR::Region> _region;
 	ARDOUR::InstrumentInfo& _info;
 	AudioClock _time;
 	Gtk::SpinButton _channel;

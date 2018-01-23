@@ -54,6 +54,8 @@ public:
 
 	Temporal::timepos_t start_time () const;
 	Temporal::timepos_t end_time () const;
+	samplepos_t start_sample () const;
+	samplepos_t end_sample () const;
 
 	const std::list<RegionView *>& by_layer() const { return _bylayer; }
 	void  by_position (std::list<RegionView*>&) const;

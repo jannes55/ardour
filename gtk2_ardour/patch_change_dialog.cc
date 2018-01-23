@@ -29,6 +29,7 @@
 
 #include "ardour/beats_samples_converter.h"
 #include "ardour/instrument_info.h"
+#include "ardour/region.h"
 
 #include "patch_change_dialog.h"
 #include "gui_thread.h"
@@ -41,15 +42,15 @@ using namespace Gtkmm2ext;
 
 /** @param tc If non-0, a time converter for this patch change.  If 0, time control will be desensitized */
 PatchChangeDialog::PatchChangeDialog (
-	const ARDOUR::BeatsSamplesConverter*        tc,
 	ARDOUR::Session*                           session,
 	Evoral::PatchChange<Temporal::Beats> const & patch,
 	ARDOUR::InstrumentInfo&                    info,
 	const Gtk::BuiltinStockID&                 ok,
 	bool                                       allow_delete,
-	bool                                       modal)
+	bool                                       modal,
+	boost::shared_ptr<ARDOUR::Region>          region)
 	: ArdourDialog (_("Patch Change"), modal)
-	, _time_converter (tc)
+	, _region (region)
 	, _info (info)
 	, _time (X_("patchchangetime"), true, "", true, false)
 	, _channel (*manage (new Adjustment (1, 1, 16, 1, 4)))
@@ -64,7 +65,7 @@ PatchChangeDialog::PatchChangeDialog (
 	t->set_spacings (6);
 	int r = 0;
 
-	if (_time_converter) {
+	if (_region) {
 
 		l = manage (left_aligned_label (_("Time")));
 		t->attach (*l, 0, 1, r, r + 1);
@@ -73,7 +74,7 @@ PatchChangeDialog::PatchChangeDialog (
 
 		_time.set_session (session);
 		_time.set_mode (AudioClock::BBT);
-		_time.set (_time_converter->to (patch.time ()), true);
+		_time.set_time (_region->source_beats_to_absolute_time (patch.time()), true);
 	}
 
 	l = manage (left_aligned_label (_("Patch Bank")));
@@ -173,8 +174,8 @@ PatchChangeDialog::patch () const
 {
 	Temporal::Beats t = Temporal::Beats();
 
-	if (_time_converter) {
-		t = _time_converter->from (_time.current_time ());
+	if (_region) {
+		t = _region->region_beats_to_source_beats (_time.current_position ().beats());
 	}
 
 	return Evoral::PatchChange<Temporal::Beats> (

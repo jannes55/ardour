@@ -55,14 +55,14 @@ static map<int32_t,std::string> note_length_map;
 static void
 fill_note_length_map ()
 {
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat, _("Whole")));
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/2, _("Half")));
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/3, _("Triplet")));
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/4, _("Quarter")));
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/8, _("Eighth")));
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/16, _("Sixteenth")));
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/32, _("Thirty-second")));
-	note_length_map.insert (make_pair<int32_t,string> (Temporal::ticks_per_beat/64, _("Sixty-fourth")));
+	note_length_map[Temporal::ticks_per_beat] = _("Whole");
+	note_length_map[Temporal::ticks_per_beat/2] = _("Half");
+	note_length_map[Temporal::ticks_per_beat/3] = _("Triplet");
+	note_length_map[Temporal::ticks_per_beat/4] = _("Quarter");
+	note_length_map[Temporal::ticks_per_beat/8] = _("Eighth");
+	note_length_map[Temporal::ticks_per_beat/16] = _("Sixteenth");
+	note_length_map[Temporal::ticks_per_beat/32] = _("Thirty-second");
+	note_length_map[Temporal::ticks_per_beat/64] = _("Sixty-fourth");
 }
 
 MidiListEditor::MidiListEditor (Session* s, boost::shared_ptr<MidiRegion> r, boost::shared_ptr<MidiTrack> tr)
@@ -638,7 +638,7 @@ MidiListEditor::edited (const std::string& path, const std::string& text)
 
 			if (text.find ('.') == string::npos && text.find (',') == string::npos) {
 				/* integral => units are ticks */
-				fval = fval / BBT_Time::ticks_per_beat;
+				fval = fval / Temporal::ticks_per_beat;
 			} else {
 				/* non-integral => beats, so use as-is */
 			}
@@ -666,7 +666,7 @@ MidiListEditor::edited (const std::string& path, const std::string& text)
 				}
 
 				if (x != note_length_map.end()) {
-					fval = x->first / BBT_Time::ticks_per_beat;
+					fval = x->first / Temporal::ticks_per_beat;
 				}
 
 			} else {
@@ -687,7 +687,7 @@ MidiListEditor::edited (const std::string& path, const std::string& text)
 
 					if (x != note_length_map.end()) {
 						/* convert to beats */
-						fval = (double) x->first / BBT_Time::ticks_per_beat;
+						fval = (double) x->first / Temporal::ticks_per_beat;
 					}
 				}
 			}
@@ -761,10 +761,10 @@ MidiListEditor::redisplay_model ()
 
 	if (_session) {
 
-		BeatsSamplesConverter conv (_session->tempo_map(), region->position());
 		MidiModel::Notes notes = region->midi_source(0)->model()->notes();
 		TreeModel::Row row;
 		stringstream ss;
+		const timepos_t start = region->start();
 
 		for (MidiModel::Notes::iterator i = notes.begin(); i != notes.end(); ++i) {
 			row = *(model->append());
@@ -773,7 +773,7 @@ MidiListEditor::redisplay_model ()
 			row[columns.note] = (*i)->note();
 			row[columns.velocity] = (*i)->velocity();
 
-			Temporal::BBT_Time bbt (_session->tempo_map().bbt_at_sample (region->position() + conv.to ((*i)->time())));
+			Temporal::BBT_Time bbt ((region->position() + (*i)->time() - start).bbt());
 
 			ss.str ("");
 			ss << bbt;

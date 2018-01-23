@@ -566,7 +566,7 @@ private:
 
 	MidiRegionView* _region;
 	NoteBase* _primary;
-	double _cumulative_dx;
+	Temporal::Beats _cumulative_dx;
 	double _cumulative_dy;
 	double _earliest; // earliest quarter note in note selection
 	bool   _was_selected;

@@ -120,7 +120,7 @@ public:
 		}
 	};
 
-	Temporal::timepos_t snap_sample_to_sample (ARDOUR::sampleoffset_t, bool ensure_snap = false) const;
+	Temporal::timepos_t snap_region_time_to_region_time (Temporal::timepos_t const &, bool ensure_snap = false) const;
 
 protected:
 

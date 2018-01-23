@@ -1,4 +1,4 @@
-T#include <sigc++/bind.h>
+#include <sigc++/bind.h>
 #include "ardour/tempo.h"
 
 #include "canvas/rectangle.h"

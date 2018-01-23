@@ -168,7 +168,7 @@ Region::register_properties ()
 	, _right_of_split (Properties::right_of_split, false) \
 	, _valid_transients (Properties::valid_transients, false) \
 	, _start (Properties::start, (s))	\
-	, _length (Properties::length, (l))	\
+	, _length (Properties::length, timecnt_t (l,s)) \
 	, _position (Properties::position, 0) \
 	, _sync_position (Properties::sync_position, (s)) \
 	, _transient_user_start (0) \
@@ -215,7 +215,7 @@ Region::register_properties ()
 	, _hidden (Properties::hidden, other->_hidden)		\
 	, _position_locked (Properties::position_locked, other->_position_locked) \
 	, _ancestral_start (Properties::ancestral_start, other->_ancestral_start) \
-	, _ancestral_length (Properties::ancestral_length, other->_ancestral_length) \
+        , _ancestral_length (Properties::ancestral_length, timecnt_t (other->_ancestral_length, other->_start)) \
 	, _stretch (Properties::stretch, other->_stretch)	\
 	, _shift (Properties::shift, other->_shift)		\
 	, _layering_index (Properties::layering_index, other->_layering_index)
@@ -261,7 +261,7 @@ Region::Region (boost::shared_ptr<const Region> other)
 	, _type (other->data_type())
 	, REGION_COPY_STATE (other)
 	, _last_length (other->_last_length)
-	, _last_position(other->_last_position) \
+	, _last_position(other->_last_position)
 	, _first_edit (EditChangesNothing)
 	, _layer (other->_layer)
 {
@@ -319,7 +319,7 @@ Region::Region (boost::shared_ptr<const Region> other, timecnt_t const & offset)
 	: SessionObject(other->session(), other->name())
 	, _type (other->data_type())
 	, REGION_COPY_STATE (other)
-	, _last_length (other->_last_length)
+	, _last_length (other->_last_length, other->_last_position)
 	, _last_position(other->_last_position) \
 	, _first_edit (EditChangesNothing)
 	, _layer (other->_layer)
@@ -364,7 +364,7 @@ Region::Region (boost::shared_ptr<const Region> other, const SourceList& srcs)
 	: SessionObject (other->session(), other->name())
 	, _type (srcs.front()->type())
 	, REGION_COPY_STATE (other)
-	, _last_length (other->_last_length)
+	, _last_length (other->_last_length, other->_last_position)
 	, _last_position (other->_last_position)
 	, _first_edit (EditChangesID)
 	, _layer (other->_layer)
@@ -532,8 +532,7 @@ Region::set_position_lock_style (Temporal::LockStyle ps)
 
 		boost::shared_ptr<Playlist> pl (playlist());
 
-#warning paul you need to fix this for locking regions to time to work
-		//_position->set_lock_style (ps);
+		_position.call().set_lock_style (ps);
 
 		send_change (Properties::position_lock_style);
 	}
@@ -602,10 +601,14 @@ Region::set_position_internal (timepos_t const & pos)
 	   (see Region::set_position), so we must always set this up so that
 	   e.g. Playlist::notify_region_moved doesn't use an out-of-date last_position.
 	*/
+
 	_last_position = _position;
+	_last_length.set_position (_position);
+
 
 	if (_position != pos) {
 		_position = pos;
+		_length.call().set_position (pos);
 
 		/* check that the new _position wouldn't make the current
 		   length impossible - if so, change the length.
@@ -633,6 +636,7 @@ Region::set_initial_position (timepos_t const & pos)
 
 	if (_position != pos) {
 		_position = pos;
+		_length.call().set_position (pos);
 
 		/* check that the new _position wouldn't make the current
 		   length impossible - if so, change the length.
@@ -647,6 +651,7 @@ Region::set_initial_position (timepos_t const & pos)
 
 		/* ensure that this move doesn't cause a range move */
 		_last_position = _position;
+		_last_length.set_position (_position);
 	}
 
 
@@ -1855,3 +1860,23 @@ Region::end() const
 {
 	return _position.val() + _length.val();
 }
+
+Temporal::timepos_t
+Region::source_beats_to_absolute_time (Temporal::Beats beats) const
+{
+	/* return the time corresponding to `beats' relative to the start of
+	   the source. The start of the source is an implied position given by
+	   region->position - region->start
+	*/
+	const timepos_t source_start = position() - start();
+	return source_start + beats;
+}
+
+Temporal::Beats
+Region::absolute_time_to_source_beats(timepos_t const & time) const
+{
+	const timepos_t source_start = position() - start();
+	const timepos_t result = time - source_start;
+	return result.beats();
+}
+

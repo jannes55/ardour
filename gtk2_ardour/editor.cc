@@ -4061,7 +4061,7 @@ Editor::get_paste_offset (Temporal::timepos_t const & pos, unsigned paste_count,
 }
 
 unsigned
-Editor::get_grid_beat_divisions(samplepos_t position)
+Editor::get_grid_beat_divisions () const
 {
 	switch (_snap_type) {
 	case SnapToBeatDiv128: return 128;
@@ -4128,20 +4128,22 @@ Editor::get_grid_music_divisions (uint32_t event_state)
 }
 
 Temporal::Beats
-Editor::get_grid_type_as_beats (bool& success, samplepos_t position)
+Editor::get_grid_type_as_beats (bool& success, timepos_t const & position) const
 {
 	using namespace Temporal;
 
 	success = true;
 
-	const unsigned divisions = get_grid_beat_divisions(position);
+	const unsigned divisions = get_grid_beat_divisions ();
+
 	if (divisions) {
-		return Beats(1.0 / (double)get_grid_beat_divisions(position));
+		return Beats::ticks (Temporal::ticks_per_beat / divisions);
 	}
 
 	switch (_snap_type) {
 	case SnapToBeat:
-		return Beats(4.0 / _session->tempo_map().meter_at (position).note_value());
+		return Beats::ticks ((4 * Temporal::ticks_per_beat) / _session->tempo_map().meter_at (position).note_value());
+
 	case SnapToBar:
 		if (_session) {
 			const Meter& m = _session->tempo_map().meter_at (position);
@@ -4162,7 +4164,10 @@ Editor::get_nudge_distance (timepos_t const & pos, timecnt_t& next)
 	timecnt_t ret;
 
 	ret = nudge_clock->current_time_duration ();
-	next = ret + samplepos_t (1); /* XXXX fix me */
+	ret.set_position (pos);
+
+	next = ret.increment ();
+	next.set_position (pos);
 
 	return ret;
 }

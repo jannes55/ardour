@@ -387,7 +387,7 @@ Editor::draw_measures (TempoMapPoints& grid)
 		tempo_lines = new TempoLines (time_line_group);
 	}
 
-	const unsigned divisions = get_grid_beat_divisions(_leftmost_sample);
+	const unsigned divisions = get_grid_beat_divisions ();
 	tempo_lines->draw (grid, divisions, _leftmost_sample, _session->sample_rate());
 }
 

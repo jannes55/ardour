@@ -5573,7 +5573,7 @@ Editor::insert_patch_change (bool from_context)
 	MidiRegionView* first = dynamic_cast<MidiRegionView*> (rs.front ());
 
 	Evoral::PatchChange<Temporal::Beats> empty (Temporal::Beats(), 0, 0, 0);
-	PatchChangeDialog d (0, _session, empty, first->instrument_info(), Gtk::Stock::ADD);
+	PatchChangeDialog d (_session, empty, first->instrument_info(), Gtk::Stock::ADD);
 
 	if (d.run() == RESPONSE_CANCEL) {
 		return;

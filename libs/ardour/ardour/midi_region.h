@@ -102,6 +102,8 @@ class LIBARDOUR_API MidiRegion : public Region
 	boost::shared_ptr<MidiModel> model();
 	boost::shared_ptr<const MidiModel> model() const;
 
+	void fix_negative_start ();
+
 	void clobber_sources (boost::shared_ptr<MidiSource> source);
 
   protected:

@@ -6024,23 +6024,23 @@ NoteDrag::total_dx (GdkEvent * event) const
 	/* dx in samples */
 	sampleoffset_t const dx = _editor->pixel_to_sample (_drags->current_pointer_x() - grab_x());
 
-	/* primary note time */
-	sampleoffset_t const n = map.sample_at_quarter_note (_region->session_relative_qn (_primary->note()->time().to_double()));
-
 	/* primary note time in quarter notes */
-	double const n_qn = _region->session_relative_qn (_primary->note()->time().to_double());
+	Temporal::Beats const n_qn = _region->source_beats_to_absolute_beats (_primary->note()->time());
 
-	/* new time of the primary note in session samples */
-	sampleoffset_t st = n + dx + snap_delta (event->button.state);
+	/* primary note time */
+	samplepos_t const n = map.sample_at (n_qn);
+
+	/* new session relative time of the primary note */
+	timepos_t snap = n + dx + snap_delta (event->button.state);
 
 	/* possibly snap and return corresponding delta in quarter notes */
-	MusicSample snap (st, 0);
 	_editor->snap_to_with_modifier (snap, event);
-	double ret = map.exact_qn_at_sample (snap.sample, snap.division) - n_qn - snap_delta_music (event->button.state);
+
+	Temporal::Beats ret = map.quarters_at (snap) - n_qn - snap_delta_music (event->button.state);
 
 	/* prevent the earliest note being dragged earlier than the region's start position */
-	if (_earliest + ret < _region->midi_region()->start_beats()) {
-		ret -= (_earliest + ret) - _region->midi_region()->start_beats();
+	if (_earliest + ret < _region->region()->start()) {
+		ret -= (_earliest + ret) - _region->region()->start();
 	}
 
 	return ret;
@@ -6077,11 +6077,11 @@ NoteDrag::motion (GdkEvent * event, bool first_move)
 	}
 
 	/* Total change in x and y since the start of the drag */
-	double const dx_qn = total_dx (event);
+	Temporal::Beats const dx_qn = total_dx (event);
 	int8_t const dy = total_dy ();
 
 	/* Now work out what we have to do to the note canvas items to set this new drag delta */
-	double const tdx = _x_constrained ? 0 : dx_qn - _cumulative_dx;
+	Temporal::Beats const tdx = _x_constrained ? 0 : dx_qn - _cumulative_dx;
 	double const tdy = _y_constrained ? 0 : -dy * _note_height - _cumulative_dy;
 
 	if (tdx || tdy) {

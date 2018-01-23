@@ -337,10 +337,11 @@ class LIBTEMPORAL_API TempoMapPoint
 	superclock_t  walk_to_superclock (superclock_t start, Beats const & distance) const;
 	Beats walk_to_quarters (superclock_t start, superclock_t distance) const;
 
+	TempoMetric & nonconst_metric() const { return is_explicit() ? *(const_cast<TempoMetric*>(&_explicit)) : *(const_cast<TempoMetric*>(&_reference->metric())); }
+
   protected:
 	friend class TempoMap;
 	void map_reset_set_sclock_for_sr_change (superclock_t sc) { _sclock = sc; }
-	TempoMetric & nonconst_metric() { return is_explicit() ? *(const_cast<TempoMetric*>(&_explicit)) : *(const_cast<TempoMetric*>(&_reference->metric())); }
 
   private:
 	Flag                  _flags;
@@ -417,8 +418,11 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	BBT_Time bbt_at (samplepos_t sc) const;
 	BBT_Time bbt_at (Beats const &) const;
+
 	Beats quarter_note_at (samplepos_t sc) const;
 	Beats quarter_note_at (BBT_Time const &) const;
+	Beats quarter_note_at (timepos_t const &) const;
+
 	samplepos_t sample_at (Beats const &) const;
 	samplepos_t sample_at (BBT_Time const &) const;
 

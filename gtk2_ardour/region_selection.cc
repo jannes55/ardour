@@ -261,6 +261,18 @@ RegionSelection::involves (const TimeAxisView& tv) const
 	return false;
 }
 
+samplepos_t
+RegionSelection::start_sample() const
+{
+	return start_time().sample ();
+}
+
+samplepos_t
+RegionSelection::end_sample() const
+{
+	return start_time().sample ();
+}
+
 timepos_t
 RegionSelection::start_time () const
 {

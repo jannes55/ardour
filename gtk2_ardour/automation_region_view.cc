@@ -162,8 +162,10 @@ AutomationRegionView::canvas_group_event (GdkEvent* ev)
  *  @param y y position, relative to our TimeAxisView.
  */
 void
-AutomationRegionView::add_automation_event (GdkEvent *, samplepos_t when, double y, bool with_guard_points)
+AutomationRegionView::add_automation_event (GdkEvent *, timepos_t const & w, double y, bool with_guard_points)
 {
+	timepos_t when (w);
+
 	if (!_line) {
 		boost::shared_ptr<Evoral::Control> c = _region->control(_parameter, true);
 		boost::shared_ptr<ARDOUR::AutomationControl> ac
@@ -180,18 +182,17 @@ AutomationRegionView::add_automation_event (GdkEvent *, samplepos_t when, double
 	const double h = trackview.current_height() - TimeAxisViewItem::NAME_HIGHLIGHT_SIZE - 2;
 	y = 1.0 - (y / h);
 
-	/* snap sample */
+	/* snap time */
 
-	when = snap_sample_to_sample (when - _region->start_sample ()).sample() + _region->start_sample ();
+	when = snap_region_time_to_region_time (when - _region->start(), false) + _region->start ();
 
 	/* map using line */
 
-	double when_d = when;
-	_line->view_to_model_coord (when_d, y);
+	_line->view_to_model_coord_y (y);
 
 	XMLNode& before = _line->the_list()->get_state();
 
-	if (_line->the_list()->editor_add (when_d, y, with_guard_points)) {
+	if (_line->the_list()->editor_add (when, y, with_guard_points)) {
 		view->editor().begin_reversible_command (_("add automation event"));
 
 		XMLNode& after = _line->the_list()->get_state();

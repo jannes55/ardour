@@ -335,8 +335,8 @@ public:
 
 	Temporal::timecnt_t get_nudge_distance (Temporal::timepos_t const & pos, Temporal::timecnt_t& next);
 	Temporal::timecnt_t get_paste_offset (Temporal::timepos_t const & pos, unsigned paste_count, Temporal::timecnt_t const & duration);
-	unsigned get_grid_beat_divisions(samplepos_t position);
-	Temporal::Beats get_grid_type_as_beats (bool& success, samplepos_t position);
+	unsigned get_grid_beat_divisions () const;
+	Temporal::Beats get_grid_type_as_beats (bool& success, Temporal::timepos_t const & position) const;
 
 	int32_t get_grid_music_divisions (uint32_t event_state);
 
