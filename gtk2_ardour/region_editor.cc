@@ -309,7 +309,7 @@ RegionEditor::end_clock_changed ()
 		PublicEditor::instance().commit_reversible_command ();
 	}
 
-	end_clock.set (_region->position() + _region->length() - 1, true);
+	end_clock.set_time (_region->last(), true);
 }
 
 void
@@ -332,7 +332,7 @@ RegionEditor::length_clock_changed ()
 		PublicEditor::instance().commit_reversible_command ();
 	}
 
-	length_clock.set (_region->length());
+	length_clock.set_duration (_region->length());
 }
 
 void
@@ -357,33 +357,33 @@ void
 RegionEditor::bounds_changed (const PropertyChange& what_changed)
 {
 	if (what_changed.contains (ARDOUR::Properties::position) && what_changed.contains (ARDOUR::Properties::length)) {
-		position_clock.set (_region->position(), true);
-		end_clock.set (_region->position() + _region->length() - 1, true);
-		length_clock.set (_region->length(), true);
+		position_clock.set_time (_region->position(), true);
+		end_clock.set_time (_region->last(), true);
+		length_clock.set_duration (_region->length(), true);
 	} else if (what_changed.contains (ARDOUR::Properties::position)) {
-		position_clock.set (_region->position(), true);
-		end_clock.set (_region->position() + _region->length() - 1, true);
+		position_clock.set_time (_region->position(), true);
+		end_clock.set_time (_region->last(), true);
 	} else if (what_changed.contains (ARDOUR::Properties::length)) {
-		end_clock.set (_region->position() + _region->length() - 1, true);
-		length_clock.set (_region->length(), true);
+		end_clock.set_time (_region->last(), true);
+		length_clock.set_duration (_region->length(), true);
 	}
 
 	if (what_changed.contains (ARDOUR::Properties::sync_position) || what_changed.contains (ARDOUR::Properties::position)) {
 		int dir;
-		sampleoffset_t off = _region->sync_offset (dir);
+		timecnt_t off = _region->sync_offset (dir);
 		if (dir == -1) {
 			off = -off;
 		}
 
 		if (what_changed.contains (ARDOUR::Properties::sync_position)) {
-			sync_offset_relative_clock.set (off, true);
+			sync_offset_relative_clock.set_duration (off, true);
 		}
 
-		sync_offset_absolute_clock.set (off + _region->position (), true);
+		sync_offset_absolute_clock.set_time (_region->position () + off, true);
 	}
 
 	if (what_changed.contains (ARDOUR::Properties::start)) {
-		start_clock.set (_region->start(), true);
+		start_clock.set_time (_region->start(), true);
 	}
 }
 
@@ -429,7 +429,7 @@ RegionEditor::sync_offset_relative_clock_changed ()
 	PublicEditor::instance().begin_reversible_command (_("change region sync point"));
 
 	_region->clear_changes ();
-	_region->set_sync_position (sync_offset_relative_clock.current_time() + _region->position ());
+	_region->set_sync_position (_region->position () + sync_offset_relative_clock.current_time_duration());
 	_session->add_command (new StatefulDiffCommand (_region));
 
 	PublicEditor::instance().commit_reversible_command ();
