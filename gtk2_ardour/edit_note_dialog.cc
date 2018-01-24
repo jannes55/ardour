@@ -93,7 +93,11 @@ EditNoteDialog::EditNoteDialog (MidiRegionView* rv, set<NoteBase*> n)
 
 	_time_clock.set_session (_region_view->get_time_axis_view().session ());
 	_time_clock.set_mode (AudioClock::BBT);
-	_time_clock.set_time (_region_view->source_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time()), Temporal::AudioTime) + (_region_view->region()->position() - _region_view->region()->start()), true);
+
+	Temporal::timecnt_t dur = _region_view->source_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time()), Temporal::AudioTime);
+	Temporal::timepos_t pos = _region_view->region()->position() - _region_view->region()->start() + dur;
+
+	_time_clock.set_time (pos, true);
 
 	l = manage (left_aligned_label (_("Length")));
 	table->attach (*l, 0, 1, r, r + 1);
@@ -103,9 +107,14 @@ EditNoteDialog::EditNoteDialog (MidiRegionView* rv, set<NoteBase*> n)
 
 	_length_clock.set_session (_region_view->get_time_axis_view().session ());
 	_length_clock.set_mode (AudioClock::BBT);
-	_length_clock.set_time (_region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->end_time ()), Temporal::AudioTime) + _region_view->region()->position(),
-	                        true,
-	                        _region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time ()), Temporal::AudioTime) + _region_view->region()->position());
+
+	dur = _region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->end_time ()), Temporal::AudioTime);
+	pos = _region_view->region()->position() + dur;
+	Temporal::timecnt_t offset;
+	dur = _region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time ()), Temporal::AudioTime);
+	offset = dur + _region_view->region()->position();
+
+	_length_clock.set_time (pos, true, offset);
 
 	/* Set up `set all notes...' buttons' sensitivity */
 

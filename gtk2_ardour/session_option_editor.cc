@@ -26,7 +26,7 @@
 
 using namespace std;
 using namespace ARDOUR;
-using namespace Timecode;
+using namespace Temporal;
 
 SessionOptionEditor::SessionOptionEditor (Session* s)
 	: OptionEditorWindow (&(s->config), _("Session Properties"))

@@ -24,6 +24,8 @@
 
 #include <gtkmm2ext/gtk_ui.h>
 
+#include "temporal/tempo.h"
+
 #include "ardour/playlist.h"
 #include "ardour/profile.h"
 #include "ardour/session.h"
@@ -240,8 +242,8 @@ RegionView::set_silent_samples (const AudioIntervalResult& silences, double /*th
 
 		/* coordinates for the rect are relative to the regionview origin */
 
-		cr->set_x0 (trackview.editor().sample_to_pixel (i->first - _region->start()));
-		cr->set_x1 (trackview.editor().sample_to_pixel (i->second - _region->start()));
+		cr->set_x0 (trackview.editor().sample_to_pixel (i->first - _region->start_sample()));
+		cr->set_x1 (trackview.editor().sample_to_pixel (i->second - _region->start_sample()));
 		cr->set_y0 (1);
 		cr->set_y1 (_height - 2);
 		cr->set_outline (false);
@@ -253,7 +255,7 @@ RegionView::set_silent_samples (const AudioIntervalResult& silences, double /*th
 	/* Find shortest audible segment */
 	samplecnt_t shortest_audible = max_samplecnt;
 
-	samplecnt_t s = _region->start();
+	samplecnt_t s = _region->start_sample();
 	for (AudioIntervalResult::const_iterator i = silences.begin(); i != silences.end(); ++i) {
 		samplecnt_t const dur = i->first - s;
 		if (dur > 0) {
@@ -263,7 +265,7 @@ RegionView::set_silent_samples (const AudioIntervalResult& silences, double /*th
 		s = i->second;
 	}
 
-	samplecnt_t const dur = _region->start() + _region->length() - 1 - s;
+	samplecnt_t const dur = _region->start_sample() + _region->length_samples() - 1 - s;
 	if (dur > 0) {
 		shortest_audible = min (shortest_audible, dur);
 	}
@@ -275,7 +277,7 @@ RegionView::set_silent_samples (const AudioIntervalResult& silences, double /*th
 
 	/* both positions are relative to the region start offset in source */
 
-	_silence_text->set_x_position (trackview.editor().sample_to_pixel (silences.front().first - _region->start()) + 10.0);
+	_silence_text->set_x_position (trackview.editor().sample_to_pixel (silences.front().first - _region->start_sample()) + 10.0);
 	_silence_text->set_y_position (20.0);
 
 	double ms = (float) shortest/_region->session().sample_rate();
@@ -413,7 +415,7 @@ RegionView::region_resized (const PropertyChange& what_changed)
 
 		set_duration (_region->length(), 0);
 
-		unit_length = _region->length() / samples_per_pixel;
+		unit_length = _region->length_samples() / samples_per_pixel;
 
  		for (vector<GhostRegion*>::iterator i = ghosts.begin(); i != ghosts.end(); ++i) {
 
@@ -479,13 +481,13 @@ RegionView::set_position (timepos_t pos, void* /*src*/, double* ignored)
 }
 
 void
-RegionView::set_samples_per_pixel (double fpp)
+RegionView::set_samples_per_pixel (double spp)
 {
-	TimeAxisViewItem::set_samples_per_pixel (fpp);
+	TimeAxisViewItem::set_samples_per_pixel (spp);
 
 	for (vector<GhostRegion*>::iterator i = ghosts.begin(); i != ghosts.end(); ++i) {
-		(*i)->set_samples_per_pixel (fpp);
-		(*i)->set_duration (_region->length() / fpp);
+		(*i)->set_samples_per_pixel (spp);
+		(*i)->set_duration (_region->length_samples() / spp);
 	}
 
 	region_sync_changed ();
@@ -499,7 +501,7 @@ RegionView::set_duration (timecnt_t duration, void *src)
 	}
 
 	for (vector<GhostRegion*>::iterator i = ghosts.begin(); i != ghosts.end(); ++i) {
-		(*i)->set_duration (_region->length() / samples_per_pixel);
+		(*i)->set_duration (_region->length_samples() / samples_per_pixel);
 	}
 
 	return true;
@@ -563,7 +565,7 @@ RegionView::make_name () const
 	std::string str;
 
 	// XXX nice to have some good icons for this
-	if (_region->position_lock_style() == MusicTime) {
+	if (_region->position_lock_style() != Temporal::AudioTime) {
 		str += "\u266B"; // BEAMED EIGHTH NOTES
 	}
 
@@ -601,7 +603,7 @@ void
 RegionView::region_sync_changed ()
 {
 	int sync_dir;
-	samplecnt_t sync_offset;
+	timecnt_t sync_offset;
 
 	sync_offset = _region->sync_offset (sync_dir);
 
@@ -654,7 +656,7 @@ RegionView::region_sync_changed ()
 
 			//points = sync_mark->property_points().get_value();
 
-			double offset = sync_offset / samples_per_pixel;
+			double offset = sync_offset.samples() / samples_per_pixel;
 			points.push_back (ArdourCanvas::Duple (offset - ((sync_mark_width-1)/2), 1));
 			points.push_back (ArdourCanvas::Duple (offset + ((sync_mark_width-1)/2), 1));
 			points.push_back (ArdourCanvas::Duple (offset, sync_mark_width - 1));
@@ -729,9 +731,8 @@ RegionView::set_height (double h)
 	if (sync_line) {
 		Points points;
 		int sync_dir;
-		samplecnt_t sync_offset;
-		sync_offset = _region->sync_offset (sync_dir);
-		double offset = sync_offset / samples_per_pixel;
+		timecnt_t sync_offset = _region->sync_offset (sync_dir);
+		double offset = sync_offset.samples() / samples_per_pixel;
 
 		sync_line->set (
 			ArdourCanvas::Duple (offset, 0),
@@ -771,9 +772,9 @@ RegionView::update_coverage_samples (LayerDisplay d)
 		return;
 	}
 
-	samplepos_t const position = _region->first_sample ();
-	samplepos_t t = position;
-	samplepos_t const end = _region->last_sample ();
+	timepos_t const position = _region->position();
+	timepos_t t = position;
+	timepos_t const end = _region->last();
 
 	ArdourCanvas::Rectangle* cr = 0;
 	bool me = false;
@@ -781,23 +782,22 @@ RegionView::update_coverage_samples (LayerDisplay d)
 	/* the color that will be used to show parts of regions that will not be heard */
 	uint32_t const non_playing_color = UIConfiguration::instance().color_mod ("covered region", "covered region base");
 
-
 	while (t < end) {
 
-		t++;
+		t.increment();
 
 		/* is this region is on top at time t? */
 		bool const new_me = (pl->top_unmuted_region_at (t) == _region);
 		/* finish off any old rect, if required */
 		if (cr && me != new_me) {
-			cr->set_x1 (trackview.editor().sample_to_pixel (t - position));
+			cr->set_x1 (trackview.editor().time_to_pixel (t - position));
 		}
 
 		/* start off any new rect, if required */
 		if (cr == 0 || me != new_me) {
 			cr = new ArdourCanvas::Rectangle (group);
 			_coverage_samples.push_back (cr);
-			cr->set_x0 (trackview.editor().sample_to_pixel (t - position));
+			cr->set_x0 (trackview.editor().time_to_pixel (t - position));
 			cr->set_y0 (1);
 			cr->set_y1 (_height + 1);
 			cr->set_outline (false);
@@ -808,10 +808,13 @@ RegionView::update_coverage_samples (LayerDisplay d)
 				cr->set_fill_color (non_playing_color);
 			}
 		}
+
 		t = pl->find_next_region_boundary (t, 1);
+
 		if (t < 0) {
 			break;
 		}
+
 		me = new_me;
 	}
 
@@ -819,7 +822,7 @@ RegionView::update_coverage_samples (LayerDisplay d)
 
 	if (cr) {
 		/* finish off the last rectangle */
-		cr->set_x1 (trackview.editor().sample_to_pixel (end - position));
+		cr->set_x1 (trackview.editor().time_to_pixel (end - position));
 	}
 
 	if (sample_handle_start) {
@@ -840,67 +843,67 @@ RegionView::update_coverage_samples (LayerDisplay d)
 }
 
 bool
-RegionView::trim_front (samplepos_t new_bound, bool no_overlap, const int32_t sub_num)
+RegionView::trim_front (timepos_t const & new_bound, bool no_overlap)
 {
 	if (_region->locked()) {
 		return false;
 	}
-
-	samplepos_t const pre_trim_first_sample = _region->first_sample();
 
 	if (_region->position() == new_bound) {
 		return false;
 	}
 
-	_region->trim_front (new_bound, sub_num);
+	timepos_t const pre_trim_first = _region->position();
+
+	_region->trim_front (new_bound);
 
 	if (no_overlap) {
 		// Get the next region on the left of this region and shrink/expand it.
 		boost::shared_ptr<Playlist> playlist (_region->playlist());
-		boost::shared_ptr<Region> region_left = playlist->find_next_region (pre_trim_first_sample, End, 0);
+		boost::shared_ptr<Region> region_left = playlist->find_next_region (pre_trim_first, End, 0);
 
 		bool regions_touching = false;
 
-		if (region_left != 0 && (pre_trim_first_sample == region_left->last_sample() + 1)) {
+		if (region_left != 0 && (pre_trim_first == region_left->last().increment())) {
 			regions_touching = true;
 		}
 
 		// Only trim region on the left if the first sample has gone beyond the left region's last sample.
-		if (region_left != 0 &&	(region_left->last_sample() > _region->first_sample() || regions_touching)) {
-			region_left->trim_end (_region->first_sample() - 1);
+		if (region_left != 0 &&	(region_left->last() > _region->position() || regions_touching)) {
+			region_left->trim_end (_region->position().decrement());
 		}
 	}
 
 	region_changed (ARDOUR::bounds_change);
 
-	return (pre_trim_first_sample != _region->first_sample());  //return true if we actually changed something
+	return (pre_trim_first != _region->position());  //return true if we actually changed something
 }
 
 bool
-RegionView::trim_end (samplepos_t new_bound, bool no_overlap, const int32_t sub_num)
+RegionView::trim_end (timepos_t const & new_bound, bool no_overlap)
 {
 	if (_region->locked()) {
 		return false;
 	}
 
-	samplepos_t const pre_trim_last_sample = _region->last_sample();
+	timepos_t const pre_trim_last = _region->last();
 
-	_region->trim_end (new_bound, sub_num);
+	_region->trim_end (new_bound);
 
 	if (no_overlap) {
 		// Get the next region on the right of this region and shrink/expand it.
 		boost::shared_ptr<Playlist> playlist (_region->playlist());
-		boost::shared_ptr<Region> region_right = playlist->find_next_region (pre_trim_last_sample, Start, 1);
+		boost::shared_ptr<Region> region_right = playlist->find_next_region (pre_trim_last, Start, 1);
 
 		bool regions_touching = false;
 
-		if (region_right != 0 && (pre_trim_last_sample == region_right->first_sample() - 1)) {
+		if (region_right != 0 && (pre_trim_last == region_right->position().decrement())) {
 			regions_touching = true;
 		}
 
 		// Only trim region on the right if the last sample has gone beyond the right region's first sample.
-		if (region_right != 0 && (region_right->first_sample() < _region->last_sample() || regions_touching)) {
-			region_right->trim_front (_region->last_sample() + 1, sub_num);
+		if (region_right != 0 && (region_right->first() < _region->last() || regions_touching)) {
+			region_right->trim_front (_region->last().increment());
 		}
 
 		region_changed (ARDOUR::bounds_change);
@@ -909,7 +912,7 @@ RegionView::trim_end (samplepos_t new_bound, bool no_overlap, const int32_t sub_
 		region_changed (PropertyChange (ARDOUR::Properties::length));
 	}
 
-	return (pre_trim_last_sample != _region->last_sample());  //return true if we actually changed something
+	return (pre_trim_last != _region->last());  //return true if we actually changed something
 }
 
 
@@ -925,7 +928,7 @@ RegionView::thaw_after_trim ()
 
 
 void
-RegionView::move_contents (sampleoffset_t distance)
+RegionView::move_contents (timecnt_t const & distance)
 {
 	if (_region->locked()) {
 		return;
@@ -961,14 +964,14 @@ RegionView::snap_region_time_to_region_time (timepos_t const & x, bool ensure_sn
 	return snapped - _region->position();
 }
 
-timepos_t
+timecnt_t
 RegionView::region_relative_distance (timecnt_t const & duration, Temporal::LockStyle domain)
 {
-	return _region->session().tempo_map().full_duration_at (position(), duration, domain);
+	return _region->session().tempo_map().full_duration_at (_region->position(), duration, domain);
 }
 
-timepos_t
-RegionView::source_relative_distance (timepos_t const & duration, Temporal::LockStyle domain)
+timecnt_t
+RegionView::source_relative_distance (timecnt_t const & duration, Temporal::LockStyle domain)
 {
-	return _region->session().tempo_map().full_duration_at (position() - start(), duration, domain);
+	return _region->session().tempo_map().full_duration_at (_region->position() - _region->start(), duration, domain);
 }

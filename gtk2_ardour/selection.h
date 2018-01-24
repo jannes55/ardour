@@ -159,7 +159,7 @@ public:
 	void add (MidiRegionView*);
 	void add (MidiCutBuffer*);
 	void add (std::vector<RegionView*>&);
-	long add (samplepos_t, samplepos_t);
+	long add (Temporal::timepos_t const &, Temporal::timepos_t const &);
 	void add (boost::shared_ptr<Evoral::ControlList>);
 	void add (boost::shared_ptr<ARDOUR::Playlist>);
 	void add (const std::list<boost::shared_ptr<ARDOUR::Playlist> >&);

@@ -227,7 +227,7 @@ AutomationRegionView::paste (Temporal::timepos_t const &                     pos
 	p += view->editor ().get_paste_offset (pos, paste_count > 0 ? 1 : 0, len);
 
 	/* convert sample-position to model's unit and position */
-	Temporal::timepos_t model_pos = source_relative_distance (p, slist->time_style());
+	Temporal::timepos_t model_pos = timepos_t (source_relative_distance (p, slist->time_style()));
 
 	XMLNode& before = my_list->get_state();
 	my_list->paste (*slist, model_pos, _region->session().tempo_map());

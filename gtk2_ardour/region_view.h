@@ -101,13 +101,13 @@ public:
 	/** Called when a front trim is about to begin */
 	virtual void trim_front_starting () {}
 
-	bool trim_front (samplepos_t, bool, const int32_t sub_num);
+	bool trim_front (Temporal::timepos_t const &, bool);
 
 	/** Called when a start trim has finished */
 	virtual void trim_front_ending () {}
 
-	bool trim_end (samplepos_t, bool, const int32_t sub_num);
-	void move_contents (ARDOUR::sampleoffset_t);
+	bool trim_end (Temporal::timepos_t const &, bool);
+	void move_contents (Temporal::timecnt_t const &);
 	virtual void thaw_after_trim ();
 
 	void set_silent_samples (const ARDOUR::AudioIntervalResult&, double threshold);
@@ -155,8 +155,8 @@ protected:
 
 	virtual void color_handler () {}
 
-	Temporal::timepos_t region_relative_distance (Temporal::timepos_t const &, Temporal::LockStyle desired_time_domain);
-	Temporal::timepos_t source_relative_distance (Temporal::timepos_t const &, Temporal::LockStyle desired_time_domain);
+	Temporal::timecnt_t region_relative_distance (Temporal::timecnt_t const &, Temporal::LockStyle desired_time_domain);
+	Temporal::timecnt_t source_relative_distance (Temporal::timecnt_t const &, Temporal::LockStyle desired_time_domain);
 
 	boost::shared_ptr<ARDOUR::Region> _region;
 

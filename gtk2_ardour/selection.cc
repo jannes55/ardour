@@ -51,9 +51,9 @@ using namespace std;
 using namespace ARDOUR;
 using namespace PBD;
 
-struct AudioRangeComparator {
-	bool operator()(AudioRange a, AudioRange b) {
-		return a.start < b.start;
+struct TimelineRangeComparator {
+	bool operator()(TimelineRange a, TimelineRange b) {
+		return a.start() < b.start();
 	}
 };
 
@@ -342,11 +342,11 @@ Selection::toggle (samplepos_t start, samplepos_t end)
 {
 	clear_objects();  //enforce object/range exclusivity
 
-	AudioRangeComparator cmp;
+	TimelineRangeComparator cmp;
 
 	/* XXX this implementation is incorrect */
 
-	time.push_back (AudioRange (start, end, ++next_time_id));
+	time.push_back (TimelineRange (start, end, ++next_time_id));
 	time.consolidate ();
 	time.sort (cmp);
 
@@ -484,15 +484,15 @@ Selection::add (MidiRegionView* mrv)
 }
 
 long
-Selection::add (samplepos_t start, samplepos_t end)
+Selection::add (timepos_t const & start, timepos_t const & end)
 {
 	clear_objects();  //enforce object/range exclusivity
 
-	AudioRangeComparator cmp;
+	TimelineRangeComparator cmp;
 
 	/* XXX this implementation is incorrect */
 
-	time.push_back (AudioRange (start, end, ++next_time_id));
+	time.push_back (TimelineRange (start, end, ++next_time_id));
 	time.consolidate ();
 	time.sort (cmp);
 
@@ -521,15 +521,15 @@ Selection::replace (uint32_t sid, samplepos_t start, samplepos_t end)
 {
 	clear_objects();  //enforce object/range exclusivity
 
-	for (list<AudioRange>::iterator i = time.begin(); i != time.end(); ++i) {
+	for (list<TimelineRange>::iterator i = time.begin(); i != time.end(); ++i) {
 		if ((*i).id == sid) {
 			time.erase (i);
-			time.push_back (AudioRange(start,end, sid));
+			time.push_back (TimelineRange(start,end, sid));
 
 			/* don't consolidate here */
 
 
-			AudioRangeComparator cmp;
+			TimelineRangeComparator cmp;
 			time.sort (cmp);
 
 			TimeChanged ();
@@ -662,7 +662,7 @@ Selection::remove (uint32_t selection_id)
 		return;
 	}
 
-	for (list<AudioRange>::iterator i = time.begin(); i != time.end(); ++i) {
+	for (list<TimelineRange>::iterator i = time.begin(); i != time.end(); ++i) {
 		if ((*i).id == selection_id) {
 			time.erase (i);
 
@@ -787,8 +787,8 @@ Selection::set (Temporal::timepos_t const & start, Temporal::timepos_t const & e
 		while (time.size() > 1) {
 			time.pop_front();
 		}
-		time.front().start = start;
-		time.front().end = end;
+		time.front().set_start (start);
+		time.front().set_end (end);
 	}
 
 	time.consolidate ();
@@ -816,11 +816,11 @@ Selection::set_preserving_all_ranges (timepos_t const & start, timepos_t const &
 	}
 
 	if (time.empty ()) {
-		time.push_back (AudioRange (start, end, ++next_time_id));
+		time.push_back (TimelineRange (start, end, ++next_time_id));
 	} else {
-		time.sort (AudioRangeComparator ());
-		time.front().start = start;
-		time.back().end = end;
+		time.sort (TimelineRangeComparator ());
+		time.front().set_start (start);
+		time.back().set_end (end);
 	}
 
 	time.consolidate ();
@@ -1108,7 +1108,7 @@ Selection::add (const list<ArdourMarker*>& m)
 }
 
 void
-MarkerSelection::range (samplepos_t& s, samplepos_t& e)
+MarkerSelection::range (timepos_t& s, timepos_t& e)
 {
 	s = max_samplepos;
 	e = 0;
@@ -1197,9 +1197,9 @@ Selection::get_state () const
 	}
 
 	for (TimeSelection::const_iterator i = time.begin(); i != time.end(); ++i) {
-		XMLNode* t = node->add_child (X_("AudioRange"));
-		t->set_property (X_("start"), (*i).start);
-		t->set_property (X_("end"), (*i).end);
+		XMLNode* t = node->add_child (X_("TimelineRange"));
+		t->set_property (X_("start"), (*i).start());
+		t->set_property (X_("end"), (*i).end());
 	}
 
 	for (MarkerSelection::const_iterator i = markers.begin(); i != markers.end(); ++i) {
@@ -1372,6 +1372,16 @@ Selection::set_state (XMLNode const & node, int)
 		} else if  ((*i)->name() == X_("AudioRange")) {
 			samplepos_t start;
 			samplepos_t end;
+
+			if (!(*i)->get_property (X_("start"), start) || !(*i)->get_property (X_("end"), end)) {
+				assert(false);
+			}
+
+			add (timepos_t (start), timepos_t (end));
+
+		} else if  ((*i)->name() == X_("TimelineRange")) {
+			timepos_t start;
+			timepos_t end;
 
 			if (!(*i)->get_property (X_("start"), start) || !(*i)->get_property (X_("end"), end)) {
 				assert(false);

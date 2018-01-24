@@ -242,10 +242,10 @@ RhythmFerret::run_analysis ()
 
 		switch (get_analysis_mode()) {
 		case PercussionOnset:
-			run_percussion_onset_analysis (rd, (*i)->region()->position(), current_results);
+			run_percussion_onset_analysis (rd, (*i)->region()->position_sample(), current_results);
 			break;
 		case NoteOnset:
-			run_note_onset_analysis (rd, (*i)->region()->position(), current_results);
+			run_note_onset_analysis (rd, (*i)->region()->position_sample(), current_results);
 			break;
 		default:
 			break;

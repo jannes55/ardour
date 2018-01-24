@@ -140,6 +140,9 @@ struct LIBTEMPORAL_API Range {
 	samplepos_t end_sample () const;
 	samplecnt_t length_samples() const;
 
+	void set_start (timepos_t s) { from = s; }
+	void set_end (timepos_t e) { to = e; }
+
 	timepos_t start() const { return from; }
 	timepos_t end() const   { return to.increment(); }
 	timepos_t last() const  { return to; }
