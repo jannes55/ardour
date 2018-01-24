@@ -38,4 +38,10 @@ DistanceMeasure::operator() (Temporal::timecnt_t const & duration, Temporal::Loc
 	return timepos_t (_tempo_map.full_duration_at (_origin, duration, canonical_domain));
 }
 
+void
+DistanceMeasure::set_origin (timepos_t const & pos)
+{
+	_origin = pos;
+}
+
 } // namespace Temporal

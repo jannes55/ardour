@@ -1390,3 +1390,9 @@ AutomationLine::set_offset (timecnt_t const & off)
 	_offset = off;
 	reset ();
 }
+
+void
+AutomationLine::set_distance_measure_origin (timepos_t const & pos)
+{
+	_distance_measure.set_origin (pos);
+}

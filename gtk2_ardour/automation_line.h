@@ -158,6 +158,7 @@ public:
 	samplepos_t session_sample_position (Evoral::ControlEvent const &) const;
 
 	Temporal::DistanceMeasure const & distance_measure () const { return _distance_measure; }
+	void set_distance_measure_origin (Temporal::timepos_t const &);
 
 protected:
 
