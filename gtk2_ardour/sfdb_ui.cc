@@ -338,7 +338,7 @@ SoundFileBox::setup_labels (const string& filename)
 					channels_value.set_text (to_string(ms->num_tracks()));
 				}
 			}
-			length_clock.set (ms->length(ms->timeline_position()));
+			length_clock.set_duration (ms->length());
 			switch (ms->num_tempos()) {
 			case 0:
 				tempomap_value.set_text (_("No tempo data"));
@@ -493,7 +493,7 @@ SoundFileBox::audition ()
 		PropertyList plist;
 
 		plist.add (ARDOUR::Properties::start, 0);
-		plist.add (ARDOUR::Properties::length, ms->length(ms->timeline_position()));
+		plist.add (ARDOUR::Properties::length, ms->length());
 		plist.add (ARDOUR::Properties::name, rname);
 		plist.add (ARDOUR::Properties::layer, 0);
 
@@ -542,14 +542,14 @@ SoundFileBox::audition ()
 		PropertyList plist;
 
 		plist.add (ARDOUR::Properties::start, 0);
-		plist.add (ARDOUR::Properties::length, srclist[0]->length(srclist[0]->timeline_position()));
+		plist.add (ARDOUR::Properties::length, srclist[0]->length());
 		plist.add (ARDOUR::Properties::name, rname);
 		plist.add (ARDOUR::Properties::layer, 0);
 
 		r = boost::dynamic_pointer_cast<AudioRegion> (RegionFactory::create (srclist, plist, false));
 	}
 
-	sampleoffset_t audition_position = 0;
+	timepos_t audition_position;
 	switch(_import_position) {
 		case ImportAtTimestamp:
 			audition_position = 0;
@@ -2066,7 +2066,7 @@ SoundFileOmega::do_something (int action)
 	ImportMode mode = get_mode ();
 	ImportDisposition chns = get_channel_disposition ();
 	PluginInfoPtr instrument = instrument_combo.selected_instrument();
-	samplepos_t where;
+	timepos_t where;
 	MidiTrackNameSource mts = get_midi_track_name_source ();
 	MidiTempoMapDisposition mtd = (get_use_smf_tempo_map () ? SMFTempoUse : SMFTempoIgnore);
 

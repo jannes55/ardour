@@ -269,6 +269,7 @@ void
 Source::set_timeline_position (timepos_t const & pos)
 {
 	_timeline_position = pos;
+	_length.set_position (pos);
 }
 
 void

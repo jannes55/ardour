@@ -698,7 +698,7 @@ StreamView::check_record_layers (boost::shared_ptr<Region> region, samplepos_t t
 		*/
 
 		/* Stop this happening again */
-		_new_rec_layer_time = max_samplepos;
+		_new_rec_layer_time = std::numeric_limits<timepos_t>::max();
 
 		/* Make space in the view for the new layer */
 		++_layers;

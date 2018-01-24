@@ -179,9 +179,9 @@ protected:
 	samplepos_t                last_rec_data_sample;
 
 	/* When recording, the session time at which a new layer must be created for the region
-	   being recorded, or max_samplepos if not applicable.
+	   being recorded, or std::numeric_limits<timepos_t>::max() if not applicable.
 	*/
-	samplepos_t _new_rec_layer_time;
+	Temporal::timepos_t _new_rec_layer_time;
 	void setup_new_rec_layer_time (boost::shared_ptr<ARDOUR::Region>);
 
 private:
