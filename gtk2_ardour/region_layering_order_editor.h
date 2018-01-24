@@ -50,7 +50,7 @@ protected:
 	virtual bool on_key_press_event (GdkEventKey* event);
 
 private:
-	samplepos_t position;
+	Temporal::timepos_t position;
 	bool in_row_change;
 	uint32_t regions_at_position;
 

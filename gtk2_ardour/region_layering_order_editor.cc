@@ -186,12 +186,12 @@ RegionLayeringOrderEditor::refill ()
 }
 
 void
-RegionLayeringOrderEditor::set_context (const string& a_name, Session* s, TimeAxisView* tav, boost::shared_ptr<Playlist> pl, samplepos_t pos)
+RegionLayeringOrderEditor::set_context (const string& a_name, Session* s, TimeAxisView* tav, boost::shared_ptr<Playlist> pl, timepos_t const & pos)
 {
 	track_name_label.set_text (a_name);
 
 	clock.set_session (s);
-	clock.set (pos, true);
+	clock.set_time (pos, true);
 
 	playlist_modified_connection.disconnect ();
 	pl->ContentsChanged.connect (playlist_modified_connection, invalidator (*this), boost::bind
