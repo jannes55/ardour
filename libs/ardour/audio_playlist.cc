@@ -115,7 +115,7 @@ AudioPlaylist::AudioPlaylist (boost::shared_ptr<const AudioPlaylist> other, time
 				fade_out = region->fade_out()->back()->when;
 
 			if (start < region->position() + region->fade_in()->back()->when)
-				fade_in = region->fade_in()->back()->when - (start - region->position()).sample();  //end is inside the fade-in, preserve the fade-in endpoint
+				fade_in = region->fade_in()->back()->when -  region->position().distance (start).samples(); //end is inside the fade-in, preserve the fade-in endpoint
 			break;
 		}
 
@@ -247,8 +247,8 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 	for (list<Segment>::reverse_iterator i = to_do.rbegin(); i != to_do.rend(); ++i) {
 		DEBUG_TRACE (DEBUG::AudioPlayback, string_compose ("\tPlaylist %1 read %2 @ %3 for %4, channel %5, buf @ %6 offset %7\n",
 								   name(), i->region->name(), i->range.from,
-								   i->range.to - i->range.from + 1, (int) chan_n,
-		                                                   buf, i->range.from - start));
+		                                                   i->range.from.distance (i->range.to).increment(), (int) chan_n,
+		                                                   buf, i->range.from.sample() - start));
 		i->region->read_at (buf + i->range.from.sample() - start, mixdown_buffer, gain_buffer, i->range.from.sample(), i->range.to.sample() - i->range.from.sample() + 1, chan_n);
 	}
 

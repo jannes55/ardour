@@ -1990,7 +1990,7 @@ ControlList::move_ranges (const list< Temporal::RangeMove> & movements)
 			iterator j = old_events.begin ();
 
 			const Temporal::timepos_t limit = i->from + i->length;
-			const Temporal::timecnt_t dx = i->to - i->from;
+			const Temporal::timecnt_t dx = i->from.distance (i->to);
 
 			while (j != old_events.end ()) {
 

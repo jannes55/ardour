@@ -158,12 +158,14 @@ public:
 	/* first_sample() is an alias; last_sample() just hides some math */
 
 	samplepos_t first_sample () const { return _position.val().sample(); }
-	samplepos_t last_sample ()  const { samplepos_t r = _position.val().sample(); r += _length.val().samples(); r -= 1; return r; }
+	samplepos_t last_sample ()  const { return (_position.val() + _length.val()).sample() - 1; }
 
 	/* first() is an alias; last() just hides some math */
 
 	timepos_t first() const { return _position.val(); }
-	timepos_t last() const { return _position.val() + _length.val() - 1; }
+
+	/* XXX this should be removed and not used */
+	timepos_t last() const { return (_position.val() + _length.val()).decrement(); }
 
 	/** Return the earliest possible value of _position given the
 	 *  value of _start within the region's sources
@@ -175,7 +177,7 @@ public:
 	samplepos_t latest_possible_sample () const;
 
 	Temporal::TimeRange last_range () const {
-		return Temporal::TimeRange (_last_position, _last_position + _last_length - 1);
+		return Temporal::TimeRange (_last_position, _last_position + _last_length);
 	}
 
 	Temporal::TimeRange range () const {
@@ -274,11 +276,11 @@ public:
 	Temporal::timepos_t region_beats_to_absolute_time(Temporal::Beats beats) const;
 	/** Convert a timestamp in beats into timepos_t (both relative to region position) */
 	Temporal::timepos_t region_beats_to_region_time (Temporal::Beats beats) const {
-		return region_beats_to_absolute_time (beats) - position();
+		return timepos_t (position().distance (region_beats_to_absolute_time (beats)));
 	}
 	/** Convert a timestamp in beats relative to region position into beats relative to source start */
 	Temporal::Beats region_beats_to_source_beats (Temporal::Beats beats) const {
-		return (region_beats_to_absolute_time (beats) - position()).beats ();
+		return position().distance (region_beats_to_absolute_time (beats)).beats ();
 	}
 	/** Convert a timestamp as timepos_t to beats (both relative to region position) */
 	Temporal::Beats region_time_to_region_beats(Temporal::timepos_t const &) const;
@@ -289,7 +291,7 @@ public:
 	Temporal::timepos_t source_beats_to_absolute_time(Temporal::Beats beats) const;
 	/** Convert a timestamp in beats measured from source start into region-relative samples */
 	Temporal::timepos_t source_beats_to_region_time(Temporal::Beats beats) const {
-		return source_beats_to_absolute_time (beats) - position();
+		return timepos_t (position().distance (source_beats_to_absolute_time (beats)));
 	}
 	/** Convert a timestamp in absolute time to beats measured from source start*/
 	Temporal::Beats absolute_time_to_source_beats(Temporal::timepos_t const &) const;

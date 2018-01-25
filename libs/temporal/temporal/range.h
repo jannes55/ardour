@@ -133,7 +133,7 @@ struct LIBTEMPORAL_API Range {
 	timepos_t from; ///< start of the range
 	timepos_t to;   ///< end of the range (inclusive; lies after end of range)
 	bool empty() const { return from == to; }
-	timecnt_t length() const { return to - from; }
+	timecnt_t length() const { return from.distance (to); }
 
 	/* helper APIs during the transition to timepos_t */
 	samplepos_t start_sample () const;
@@ -157,7 +157,7 @@ struct LIBTEMPORAL_API Range {
 	 */
 	timepos_t squish (timepos_t t) const {
 		if (t > to) {
-			t = (from + ((t - from) % length()));
+			t = from + (from.distance (t) % length());
 		}
 		return t;
 	}

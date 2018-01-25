@@ -53,8 +53,8 @@ public:
 
 		// Work with positive beats and ticks to normalize
 		const int32_t sign  = _beats < 0 ? -1 : 1;
-		int32_t       beats = abs(_beats);
-		int32_t       ticks = abs(_ticks);
+		int32_t       beats = ::abs(_beats);
+		int32_t       ticks = ::abs(_ticks);
 
 		// Fix ticks greater than 1 beat
 		while (ticks >= PPQN) {
@@ -234,6 +234,10 @@ public:
 	Beats snap_to(const Temporal::Beats& snap) const {
 		const double snap_time = snap.to_double();
 		return Beats(ceil(to_double() / snap_time) * snap_time);
+	}
+
+	Beats abs () const {
+		return Beats (::abs (_beats), ::abs (_ticks));
 	}
 
 	inline bool operator==(const Beats& b) const {

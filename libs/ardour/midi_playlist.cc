@@ -132,7 +132,7 @@ MidiPlaylist::read (Evoral::EventSink<samplepos_t>& dst,
 	}
 
 	/* Find relevant regions that overlap [start..end] */
-	const timepos_t                         end = start + dur - 1;
+	const timepos_t                          end = (start + dur).decrement();
 	std::vector< boost::shared_ptr<Region> > regs;
 	std::vector< boost::shared_ptr<Region> > ended;
 	for (RegionList::iterator i = regions.begin(); i != regions.end(); ++i) {
@@ -264,7 +264,7 @@ MidiPlaylist::region_edited(boost::shared_ptr<Region>         region,
 
 	/* Queue any necessary edit compensation events. */
 	t->second->fixer.prepare(
-		_session.tempo_map(), cmd, (mr->position() - mr->start()).sample(),
+		_session.tempo_map(), cmd, mr->position().earlier (mr->start()).sample(),
 		_read_end.sample(), t->second->cursor.active_notes);
 }
 

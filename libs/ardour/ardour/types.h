@@ -298,7 +298,7 @@ namespace ARDOUR {
 
 		TimelineRange (Temporal::timepos_t const & s, Temporal::timepos_t e, uint32_t i) : Temporal::TimeRange (s, e), id (i) {}
 
-		samplecnt_t length_samples() const { return (to - from).sample() + 1; }
+		samplecnt_t length_samples() const { return from.distance (to).samples() + 1; }
 
 	        bool operator== (const TimelineRange& other) const {
 		        return id == other.id && Temporal::TimeRange::operator== (other);

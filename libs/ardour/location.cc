@@ -212,7 +212,7 @@ Location::set_start (Temporal::timepos_t const & s, bool force)
 		return 0;
 	} else if (!force) {
 		/* range locations must exceed a minimum duration */
-		if (_end - s < Config->get_range_location_minimum()) {
+		if (s.distance (_end) < Config->get_range_location_minimum()) {
 			return -1;
 		}
 	}
@@ -280,7 +280,7 @@ Location::set_end (Temporal::timepos_t const & e, bool force)
 		return 0;
 	} else if (!force) {
 		/* range locations must exceed a minimum duration */
-		if (e - _start < Config->get_range_location_minimum()) {
+		if (_start.distance (e) < Config->get_range_location_minimum()) {
 			return -1;
 		}
 	}
@@ -339,7 +339,7 @@ Location::set (Temporal::timepos_t const & s, Temporal::timepos_t const & e)
 	} else {
 
 		/* range locations must exceed a minimum duration */
-		if (e - s < Config->get_range_location_minimum()) {
+		if (s.distance (e) < Config->get_range_location_minimum()) {
 			return -1;
 		}
 
@@ -402,7 +402,7 @@ Location::move_to (Temporal::timepos_t const & pos)
 	}
 
 	if (_start != pos) {
-		const timecnt_t len = _end - _start;
+		const timecnt_t len = _start.distance (_end);
 		_start = pos;
 		_end = pos + len;
 

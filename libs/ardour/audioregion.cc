@@ -1949,7 +1949,7 @@ AudioRegion::find_silence (Sample threshold, samplecnt_t min_length, samplecnt_t
 Temporal::Range
 AudioRegion::body_range () const
 {
-	return Temporal::Range (position() + _fade_in->back()->when_as_sample() + 1, last() - _fade_out->back()->when_as_sample());
+	return Temporal::Range (position() + _fade_in->back()->when_as_sample() + 1, last_sample() - _fade_out->back()->when_as_sample().sample());
 }
 
 boost::shared_ptr<Region>

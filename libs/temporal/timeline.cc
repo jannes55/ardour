@@ -42,7 +42,7 @@ std::operator<< (std::ostream & o, timecnt_t const & tc)
 
 timecnt_t::timecnt_t (timepos_t const & tp, timepos_t const & pos)
 	: _style (tp.lock_style())
-	, _pos (pos)
+	, _position (pos)
 {
 	switch (_style) {
 	case Temporal::AudioTime:
@@ -59,7 +59,7 @@ timecnt_t::timecnt_t (timepos_t const & tp, timepos_t const & pos)
 
 timecnt_t::timecnt_t (timecnt_t const & tc, timepos_t const & pos)
 	: _style (tc.style())
-	, _pos (pos)
+	, _position (pos)
 {
 	switch (_style) {
 	case Temporal::AudioTime:
@@ -77,7 +77,7 @@ timecnt_t::timecnt_t (timecnt_t const & tc, timepos_t const & pos)
 void
 timecnt_t::set_position (timepos_t const & pos)
 {
-	_pos = pos;
+	_position = pos;
 }
 
 timecnt_t
@@ -85,10 +85,10 @@ timecnt_t::abs () const
 {
 	switch (_style) {
 	case Temporal::AudioTime:
-		return timecnt_t (::abs (_samples));
+		return timecnt_t (::abs (_samples), _position);
 		break;
 	case Temporal::BeatTime:
-#warning fix timecnt_t::abs for beats
+		return timecnt_t (_beats.abs(), _position);
 	        break;
 	case Temporal::BarTime:
 #warning fix timecnt_t::abs for bars
@@ -104,12 +104,12 @@ timecnt_t::compute_samples() const
 		/* should not happen - caught in ::samples() */
 		return _samples;
 	case Temporal::BeatTime:
-		return _tempo_map->full_duration_at (_pos, *this, AudioTime)._samples;
+		return _tempo_map->full_duration_at (_position, *this, AudioTime)._samples;
 	default:
 		break;
 	}
 
-	return _tempo_map->full_duration_at (_pos, *this, AudioTime)._samples;
+	return _tempo_map->full_duration_at (_position, *this, AudioTime)._samples;
 }
 
 Beats
@@ -120,12 +120,12 @@ timecnt_t::compute_beats() const
 		/* should not happen - caught in ::beats() */
 		return _beats;
 	case Temporal::AudioTime:
-		return _tempo_map->full_duration_at (_pos, *this, BeatTime)._beats;
+		return _tempo_map->full_duration_at (_position, *this, BeatTime)._beats;
 	default:
 		break;
 	}
 
-	return _tempo_map->full_duration_at (_pos, *this, BeatTime)._beats;
+	return _tempo_map->full_duration_at (_position, *this, BeatTime)._beats;
 }
 
 BBT_Offset
@@ -136,12 +136,12 @@ timecnt_t::compute_bbt() const
 		/* should not happen - caught in ::bbt() */
 		return _bbt;
 	case Temporal::AudioTime:
-		return _tempo_map->full_duration_at (_pos, *this, BarTime)._bbt;
+		return _tempo_map->full_duration_at (_position, *this, BarTime)._bbt;
 	default:
 		break;
 	}
 
-	return _tempo_map->full_duration_at (_pos, *this, BarTime)._bbt;
+	return _tempo_map->full_duration_at (_position, *this, BarTime)._bbt;
 }
 
 timecnt_t &
@@ -169,9 +169,9 @@ timecnt_t::operator*(double d) const
 {
 	switch (_style) {
 	case Temporal::AudioTime:
-		return timecnt_t (samplepos_t (llrint (_samples * d)));
+		return timecnt_t (samplepos_t (llrint (_samples * d)), _position);
 	case Temporal::BeatTime:
-		return timecnt_t (_beats * d);
+		return timecnt_t (_beats * d, _position);
 	default:
 		break;
 	}
@@ -184,14 +184,45 @@ timecnt_t::operator/(double d) const
 {
 	switch (_style) {
 	case Temporal::AudioTime:
-		return timecnt_t (samplepos_t (llrint (_samples / d)));
+		return timecnt_t (samplepos_t (llrint (_samples / d)), _position);
 	case Temporal::BeatTime:
-		return timecnt_t (_beats / d);
+		return timecnt_t (_beats / d, _position);
 	default:
 		break;
 	}
 
 	throw TemporalStyleException ("cannot multiply BBT time");
+}
+
+timecnt_t
+timecnt_t::operator% (timecnt_t const & d) const
+{
+	switch (_style) {
+	case Temporal::AudioTime:
+		return timecnt_t (_samples % d.samples(), _position);
+	case Temporal::BeatTime:
+#warning should operator% support timecnt_t
+	default:
+		break;
+	}
+
+	throw TemporalStyleException ("cannot take modulo of BBT time");
+}
+
+timecnt_t &
+timecnt_t::operator%= (timecnt_t const & d)
+{
+	switch (_style) {
+	case Temporal::AudioTime:
+		_samples %= d.samples();
+		return *this;
+	case Temporal::BeatTime:
+#warning should operator% support timecnt_t
+	default:
+		break;
+	}
+
+	throw TemporalStyleException ("cannot take modulo of BBT time");
 }
 
 bool
@@ -577,51 +608,55 @@ timepos_t::operator+ (Temporal::BBT_Offset const & bbt) const
 /* */
 
 timecnt_t
-timepos_t::exclusive_delta (timepos_t const & d) const
+timepos_t::distance (timepos_t const & d) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
 		switch (d.lock_style()) {
 		case AudioTime:
-			return timecnt_t (_samplepos - d.sample());
+			return timecnt_t (d.sample() - _samplepos, *this);
 		case BeatTime:
 			update_music_times ();
-			return timecnt_t (_beats - d.beats());
+			return timecnt_t (d.beats() - _beats, *this);
 		case BarTime:
-			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+#warning timepos_t::distance() for BBT time is wrong
+			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())), *this);
 		}
 		break;
 	case BeatTime:
 		switch (d.lock_style()) {
 		case AudioTime:
 			update_audio_and_bbt_times ();
-			return timecnt_t (_samplepos - d.sample());
+			return timecnt_t (d.sample() - _samplepos, *this);
 		case BeatTime:
-			return timecnt_t (_beats - d.beats());
+			return timecnt_t (d.beats() - _beats, *this);
 		case BarTime:
 			update_music_times ();
-			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
+#warning timepos_t::distance() for BBT time is wrong here as well
+			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())), *this);
 		}
 		break;
 	case BarTime:
-		switch (d.lock_style()) {
-		case AudioTime:
-			update_audio_and_beat_times ();
-			return timecnt_t (_samplepos - d.sample());
-		case BeatTime:
-			update_music_times ();
-			return timecnt_t (_beats - d.beats());
-		case BarTime:
-			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
-		}
 		break;
 	}
-	/*NOTREACHED*/
-	return timepos_t (*this);
+
+	switch (d.lock_style()) {
+	case AudioTime:
+		update_audio_and_beat_times ();
+		return timecnt_t (d.sample() - _samplepos, *this);
+	case BeatTime:
+		update_music_times ();
+		return timecnt_t (d.beats() - _beats, *this);
+	case BarTime:
+		break;
+	}
+
+#warning timepos_t::distance() for BBT time is wrong here too
+	return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())), *this);
 }
 
 timecnt_t
-timepos_t::exclusive_delta (samplepos_t s) const
+timepos_t::distance (samplepos_t s) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
@@ -638,11 +673,11 @@ timepos_t::exclusive_delta (samplepos_t s) const
 		PBD::warning << string_compose (_("programming warning: sample arithmetic will generate negative sample time (%1 - %2)"), _samplepos, s) << endmsg;
 	}
 
-	return timecnt_t (_samplepos - s);
+	return timecnt_t (s - _samplepos, *this);
 }
 
 timecnt_t
-timepos_t::exclusive_delta (Temporal::Beats const & b) const
+timepos_t::distance (Temporal::Beats const & b) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
@@ -655,13 +690,13 @@ timepos_t::exclusive_delta (Temporal::Beats const & b) const
 		break;
 	}
 
-	return timecnt_t (_beats - b);
+	return timecnt_t (b - _beats, *this);
 }
 
 timecnt_t
-timepos_t::exclusive_delta (Temporal::BBT_Offset const & bbt) const
+timepos_t::distance (Temporal::BBT_Offset const & bbt) const
 {
-	switch (_lock_status.style()) {
+switch (_lock_status.style()) {
 	case AudioTime:
 		update_music_times ();
 		break;
@@ -672,57 +707,14 @@ timepos_t::exclusive_delta (Temporal::BBT_Offset const & bbt) const
 		break;
 	}
 
-	return timecnt_t (_tempo_map->bbt_walk (_bbt, -bbt));
+#warning timepos_t::distance() for BBT time is wrong in this context too
+	return timecnt_t (_tempo_map->bbt_walk (_bbt, -bbt), *this);
 }
 
 /* */
 
 timepos_t
-timepos_t::operator- (timepos_t const & d) const
-{
-	switch (_lock_status.style()) {
-	case AudioTime:
-		switch (d.lock_style()) {
-		case AudioTime:
-			return timepos_t (_samplepos - d.sample());
-		case BeatTime:
-			update_music_times ();
-			return timepos_t (_beats - d.beats());
-		case BarTime:
-			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
-		}
-		break;
-	case BeatTime:
-		switch (d.lock_style()) {
-		case AudioTime:
-			update_audio_and_bbt_times ();
-			return timepos_t (_samplepos - d.sample());
-		case BeatTime:
-			return timepos_t (_beats - d.beats());
-		case BarTime:
-			update_music_times ();
-			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
-		}
-		break;
-	case BarTime:
-		switch (d.lock_style()) {
-		case AudioTime:
-			update_audio_and_beat_times ();
-			return timepos_t (_samplepos - d.sample());
-		case BeatTime:
-			update_music_times ();
-			return timepos_t (_beats - d.beats());
-		case BarTime:
-			return timepos_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())));
-		}
-		break;
-	}
-	/*NOTREACHED*/
-	return timepos_t (*this);
-}
-
-timepos_t
-timepos_t:: operator- (samplepos_t s) const
+timepos_t:: earlier (samplepos_t s) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
@@ -743,7 +735,7 @@ timepos_t:: operator- (samplepos_t s) const
 }
 
 timepos_t
-timepos_t::operator- (Temporal::Beats const & b) const
+timepos_t::earlier (Temporal::Beats const & b) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
@@ -760,7 +752,7 @@ timepos_t::operator- (Temporal::Beats const & b) const
 }
 
 timepos_t
-timepos_t:: operator- (Temporal::BBT_Offset const & bbt) const
+timepos_t::earlier (Temporal::BBT_Offset const & bbt) const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
@@ -774,6 +766,83 @@ timepos_t:: operator- (Temporal::BBT_Offset const & bbt) const
 	}
 
 	return timepos_t (_tempo_map->bbt_walk (_bbt, -bbt));
+}
+
+/* */
+
+timepos_t &
+timepos_t::shift_earlier (timecnt_t const & d)
+{
+	switch (d.style()) {
+	case Temporal::AudioTime:
+		return shift_earlier (d.samples());
+	case Temporal::BeatTime:
+		return shift_earlier (d.beats());
+	case Temporal::BarTime:
+		break;
+	}
+
+	return shift_earlier (d.bbt());
+}
+
+timepos_t &
+timepos_t:: shift_earlier (samplepos_t s)
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		break;
+	case BeatTime:
+		update_audio_and_bbt_times ();
+		break;
+	case BarTime:
+		update_audio_and_beat_times ();
+		break;
+	}
+
+	_samplepos -= s;
+	_lock_status.set_dirty (Dirty (BBTDirty|BeatsDirty));
+
+	return *this;
+}
+
+timepos_t &
+timepos_t::shift_earlier (Temporal::Beats const & b)
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		update_music_times ();
+		break;
+	case BeatTime:
+		break;
+	case BarTime:
+		update_audio_and_beat_times ();
+		break;
+	}
+
+	_beats -= b;
+	_lock_status.set_dirty (Dirty (BBTDirty|SampleDirty));
+
+	return *this;
+}
+
+timepos_t &
+timepos_t::shift_earlier (Temporal::BBT_Offset const & bbt)
+{
+	switch (_lock_status.style()) {
+	case AudioTime:
+		update_music_times ();
+		break;
+	case BeatTime:
+		update_audio_and_bbt_times ();
+		break;
+	case BarTime:
+		break;
+	}
+
+	_bbt = _tempo_map->bbt_walk (_bbt, -bbt);
+	_lock_status.set_dirty (Dirty (SampleDirty|BeatsDirty));
+
+	return *this;
 }
 
 /* */
@@ -838,66 +907,6 @@ timepos_t:: operator+=(Temporal::BBT_Offset const & bbt)
 	return *this;
 }
 
-timepos_t &
-timepos_t:: operator-= (samplepos_t s)
-{
-	switch (_lock_status.style()) {
-	case AudioTime:
-		break;
-	case BeatTime:
-		update_audio_and_bbt_times ();
-		break;
-	case BarTime:
-		update_audio_and_beat_times ();
-		break;
-	}
-
-	_samplepos -= s;
-	_lock_status.set_dirty (Dirty (BBTDirty|BeatsDirty));
-
-	return *this;
-}
-
-timepos_t &
-timepos_t::operator-=(Temporal::Beats const & b)
-{
-	switch (_lock_status.style()) {
-	case AudioTime:
-		update_music_times ();
-		break;
-	case BeatTime:
-		break;
-	case BarTime:
-		update_audio_and_beat_times ();
-		break;
-	}
-
-	_beats -= b;
-	_lock_status.set_dirty (Dirty (BBTDirty|SampleDirty));
-
-	return *this;
-}
-
-timepos_t &
-timepos_t:: operator-=(Temporal::BBT_Offset const & bbt)
-{
-	switch (_lock_status.style()) {
-	case AudioTime:
-		update_music_times ();
-		break;
-	case BeatTime:
-		update_audio_and_bbt_times ();
-		break;
-	case BarTime:
-		break;
-	}
-
-	_bbt = _tempo_map->bbt_walk (_bbt, -bbt);
-	_lock_status.set_dirty (Dirty (SampleDirty|BeatsDirty));
-
-	return *this;
-}
-
 /* */
 
 timepos_t
@@ -910,21 +919,6 @@ timepos_t::operator+(timecnt_t const & d) const
 		return operator+ (d.beats());
 	case Temporal::BarTime:
 		return operator+ (d.bbt());
-	}
-	/*NOTREACHED*/
-	return timepos_t (0);
-}
-
-timepos_t
-timepos_t::operator-(timecnt_t const & d) const
-{
-	switch (d.style()) {
-	case Temporal::AudioTime:
-		return operator- (d.samples());
-	case Temporal::BeatTime:
-		return operator- (d.beats());
-	case Temporal::BarTime:
-		return operator- (d.bbt());
 	}
 	/*NOTREACHED*/
 	return timepos_t (0);
@@ -945,20 +939,6 @@ timepos_t::operator+=(timecnt_t const & d)
 	return *this;
 }
 
-timepos_t &
-timepos_t::operator-=(timecnt_t const & d)
-{
-	switch (d.style()) {
-	case Temporal::AudioTime:
-		return operator-= (d.samples());
-	case Temporal::BeatTime:
-		return operator-= (d.beats());
-	case Temporal::BarTime:
-		return operator-= (d.bbt());
-	}
-	/*NOTREACHED*/
-	return *this;
-}
 
 std::ostream&
 std::operator<< (std::ostream & o, timepos_t const & tp)

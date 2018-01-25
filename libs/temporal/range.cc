@@ -64,7 +64,7 @@ subtract (Range range, RangeList sub)
 				*/
 				assert (j->from < i->from);
 				assert (j->to > i->to);
-				new_result.add (Range (j->from, i->from - 1));
+				new_result.add (Range (j->from, i->from.decrement()));
 				new_result.add (Range (i->to + 1, j->to));
 				break;
 			case OverlapStart:
@@ -79,7 +79,7 @@ subtract (Range range, RangeList sub)
 				 * so we keep only the part of of (*j) from before the start of (*i)
 				 */
 				assert (j->from < i->from);
-				new_result.add (Range (j->from, i->from - 1));
+				new_result.add (Range (j->from, i->from.decrement ()));
 				break;
 			case OverlapExternal:
 				/* total overlap of the bit we're subtracting with the result bit, so the

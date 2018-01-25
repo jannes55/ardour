@@ -296,7 +296,7 @@ Region::Region (boost::shared_ptr<const Region> other)
 	if (other->sync_marked()) {
 		if (other->start() < other->sync_position()) {
 			/* sync pos was after the start point of the other region */
-			_sync_position = other->sync_position() - other->start();
+			_sync_position = other->sync_position().earlier (other->start());
 		} else {
 			/* sync pos was before the start point of the other region. not possible here. */
 			_sync_marked = false;
@@ -425,7 +425,7 @@ Region::set_length (timecnt_t const & len)
 		   length impossible.
 		*/
 
-		if (timepos_t::max() - len < position()) {
+		if (timepos_t::max().earlier (len) < position()) {
 			return;
 		}
 
@@ -615,9 +615,9 @@ Region::set_position_internal (timepos_t const & pos)
 
 		   XXX is this the right thing to do?
 		*/
-		if (timepos_t::max() - _length < _position) {
+		if (timepos_t::max().earlier (_length) < _position) {
 			_last_length = _length;
-			_length = timepos_t::max() - _position;
+			_length = _position.call().distance (timepos_t::max());
 		}
 	}
 }
@@ -644,9 +644,9 @@ Region::set_initial_position (timepos_t const & pos)
 		   XXX is this the right thing to do?
 		*/
 
-		if (timepos_t::max() - _length < _position) {
+		if (timepos_t::max().earlier (_length) < _position) {
 			_last_length = _length;
-			_length = timepos_t::max() - _position;
+			_length = _position.call().distance (timepos_t::max());
 		}
 
 		/* ensure that this move doesn't cause a range move */
@@ -675,7 +675,7 @@ Region::nudge_position (timecnt_t const & n)
 	timepos_t new_position = _position;
 
 	if (n > 0) {
-		if (position() > timepos_t::max() - n) {
+		if (position() > timepos_t::max().earlier (n)) {
 			new_position = timepos_t::max();
 		} else {
 			new_position += n;
@@ -741,7 +741,7 @@ Region::move_start (timecnt_t const & distance)
 
 	if (distance > 0) {
 
-		if (start() > timepos_t::max() - distance) {
+		if (start() > timepos_t::max().earlier (distance)) {
 			new_start = timepos_t::max(); // makes no sense
 		} else {
 			new_start = start() + distance;
@@ -804,7 +804,7 @@ Region::modify_front (timepos_t const & new_position, bool reset_fade)
 	timepos_t source_zero;
 
 	if (position() > start()) {
-		source_zero = position() - start();
+		source_zero = start().distance (position());
 	} else {
 		source_zero = 0; // its actually negative, but this will work for us
 	}
@@ -820,9 +820,9 @@ Region::modify_front (timepos_t const & new_position, bool reset_fade)
 		}
 
 		if (np > position()) {
-			newlen = length() - (np - position());
+			newlen = length() - (position().distance (np));
 		} else {
-			newlen = length() + (position() - np);
+			newlen = length() + (np.distance (position()));
 		}
 
 		trim_to_internal (np, newlen);
@@ -847,7 +847,7 @@ Region::modify_end (timepos_t const & new_endpoint, bool reset_fade)
 	}
 
 	if (new_endpoint > _position) {
-		trim_to_internal (_position, new_endpoint - position());
+		trim_to_internal (_position, position().distance (new_endpoint));
 		if (reset_fade) {
 			_left_of_split = true;
 		}
@@ -891,11 +891,11 @@ Region::trim_to_internal (timepos_t const & pos, timecnt_t const & len)
 		return;
 	}
 
-	timecnt_t const start_shift = pos - position();
+	timecnt_t const start_shift = position().distance (pos);
 
 	if (start_shift > 0) {
 
-		if (start() > timepos_t::max() - start_shift) {
+		if (start() > timepos_t::max().earlier (start_shift)) {
 			new_start = timepos_t::max();
 		} else {
 			new_start = start() + start_shift;
@@ -1042,7 +1042,7 @@ void
 Region::set_sync_position (timepos_t const & absolute_pos)
 {
 	/* position within our file */
-	timepos_t const file_pos = start() + (absolute_pos - position());
+	timepos_t const file_pos = start() + position().distance (absolute_pos);
 
 	if (file_pos != _sync_position) {
 		_sync_marked = true;
@@ -1075,10 +1075,10 @@ Region::sync_offset (int& dir) const
 	if (sync_marked()) {
 		if (sync_position() > start()) {
 			dir = 1;
-			return sync_position() - start();
+			return start().distance (sync_position());
 		} else {
 			dir = -1;
-			return start() - sync_position();
+			return sync_position().distance (start());
 		}
 	} else {
 		dir = 0;
@@ -1097,12 +1097,12 @@ Region::adjust_to_sync (timepos_t const & pos) const
 
 	if (sync_dir > 0) {
 		if (pos > offset) {
-			p -= offset;
+			p.shift_earlier (offset);
 		} else {
 			p = 0;
 		}
 	} else {
-		if (timepos_t::max() - p > offset) {
+		if (timepos_t::max().earlier (p) > offset) {
 			p += offset;
 		}
 	}
@@ -1115,7 +1115,7 @@ timepos_t
 Region::sync_position() const
 {
 	if (sync_marked()) {
-		return position() - start() + sync_position();
+		return sync_position() + start().distance (position());
 	} else {
 		/* if sync has not been marked, use the start of the region */
 		return position();
@@ -1818,7 +1818,7 @@ Region::earliest_possible_position () const
 	if (start() > position()) {
 		return 0;
 	} else {
-		return position() - start();
+		return position().earlier (start());
 	}
 }
 
@@ -1868,15 +1868,15 @@ Region::source_beats_to_absolute_time (Temporal::Beats beats) const
 	   the source. The start of the source is an implied position given by
 	   region->position - region->start
 	*/
-	const timepos_t source_start = position() - start();
+	const timepos_t source_start = position().earlier (start());
 	return source_start + beats;
 }
 
 Temporal::Beats
 Region::absolute_time_to_source_beats(timepos_t const & time) const
 {
-	const timepos_t source_start = position() - start();
-	const timepos_t result = time - source_start;
+	const timepos_t source_start = position().earlier (start());
+	const timepos_t result = time.earlier (source_start);
 	return result.beats();
 }
 

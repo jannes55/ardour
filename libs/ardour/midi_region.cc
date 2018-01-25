@@ -233,10 +233,10 @@ MidiRegion::_read_at (const SourceList&              /*srcs*/,
 	if (start < position()) {
 		/* we are starting the read from before the start of the region */
 		internal_offset = 0;
-		dur -= position() - start;
+		dur -= start.distance (position());
 	} else {
 		/* we are starting the read from after the start of the region */
-		internal_offset = start - position();
+		internal_offset = position().distance (start);
 	}
 
 	if (internal_offset >= length()) {
@@ -271,7 +271,7 @@ MidiRegion::_read_at (const SourceList&              /*srcs*/,
 	if (src->midi_read (
 		    lm, // source lock
 		    dst, // destination buffer
-		    this->position() - this->start(), // start position of the source in session
+		    this->position().earlier (this->start()), // start position of the source in session
 		    this->start() + internal_offset, // where to start reading in the source
 		    to_read, // read duration
 		    loop_range,

@@ -101,6 +101,9 @@ class LIBTEMPORAL_API timepos_t {
 		abort ();
 	}
 
+	/* return a timepos_t that is the previous (earlier) possible position given
+	 * this one
+	 */
 	timepos_t decrement () const {
 		switch (_lock_status.style()) {
 		case Temporal::BeatTime:
@@ -198,6 +201,36 @@ class LIBTEMPORAL_API timepos_t {
 	timepos_t operator+(Temporal::Beats const &) const;
 	timepos_t operator+(Temporal::BBT_Offset const &) const;
 
+
+	/* operator-() poses severe and thorny problems for a class that represents position on a timeline.
+
+	   If the value of the class is a simple scalar, then subtraction can be used for both:
+
+	     1) movement backwards along the timeline
+	     2) computing the distance between two positions
+
+	   But timepos_t is not a simple scalar, and neither is timecnt_t, and these two operations are quite different.
+
+	     1) movement backwards along the timeline should result in another timepos_t
+             2) the distance between two positions is a timecnt_t
+
+           so already we have a hint that we would need at least:
+
+              timepos_t operator- (timecnt_t const &); ... compute new position
+              timecnt_t operator- (timepos_t const &); ... compute distance
+
+            But what happens we try to use more explicit types. What does this expression mean:
+
+              timepos_t pos;
+              pos - Beats (3);
+
+            is this computing a new position 3 beats earlier than pos? or is it computing the distance between
+            pos and the 3rd beat?
+
+            For this reason, we do not provide any operator-() methods, but instead require the use of
+            explicit methods with clear semantics.
+	*/
+
 	/* delta generates a timecnt_t, which may be negative
 
 	   inclusive delta:
@@ -207,11 +240,27 @@ class LIBTEMPORAL_API timepos_t {
 	   if the result is termed r, then this + r = last position before d
 	*/
 
-	timecnt_t exclusive_delta (timecnt_t const & d) const;
-	timecnt_t exclusive_delta (timepos_t const & d) const;
-	timecnt_t exclusive_delta (samplepos_t) const;
-	timecnt_t exclusive_delta (Temporal::Beats const &) const;
-	timecnt_t exclusive_delta (Temporal::BBT_Offset const &) const;
+	/* computes the distance between this timepos_t and @param p
+	   such that: this + distance = p
+
+	   This means that if @param p is later than this, distance is positive;
+	   if @param p is earlier than this, distance is negative.
+
+	   Note that the return value is a timecnt_t whose position member
+	   is equal to the value of this. That means if the distance uses
+	   musical time value, the distance may not have constant value
+	   at other positions on the timeline.
+	*/
+
+	timecnt_t distance (timecnt_t const & p) const;
+	timecnt_t distance (timepos_t const & p) const;
+	timecnt_t distance (samplepos_t) const;
+	timecnt_t distance (Temporal::Beats const &) const;
+	timecnt_t distance (Temporal::BBT_Offset const &) const;
+
+	/* this is a godawful hack to cover some cases where an endpoint is inclusive.
+	   Plan is to remove this, once Range uses an exclusive end.
+	*/
 
 	timecnt_t inclusive_delta (timecnt_t const & d) const;
 	timecnt_t inclusive_delta (timepos_t const & d) const;
@@ -219,13 +268,19 @@ class LIBTEMPORAL_API timepos_t {
 	timecnt_t inclusive_delta (Temporal::Beats const & d) const;
 	timecnt_t inclusive_delta (Temporal::BBT_Offset const & d) const;
 
-	/* operator- generates a timepos_t which is always zero or positive */
+	/* computes a new position value that is @param d earlier than this */
 
-	timepos_t operator-(timecnt_t const & d) const;
-	timepos_t operator-(timepos_t const & d) const;
-	timepos_t operator-(samplepos_t) const;
-	timepos_t operator-(Temporal::Beats const &) const;
-	timepos_t operator-(Temporal::BBT_Offset const &) const;
+	timepos_t earlier (timecnt_t const & d) const;
+	timepos_t earlier (samplepos_t d) const;
+	timepos_t earlier (Beats const & d) const;
+	timepos_t earlier (BBT_Offset const & d) const;
+
+	/* like ::earlier() but changes this. loosely equivalent to operator-= */
+
+	timepos_t & shift_earlier (timecnt_t const & d);
+	timepos_t & shift_earlier (samplepos_t);
+	timepos_t & shift_earlier (Temporal::Beats const &);
+	timepos_t & shift_earlier (Temporal::BBT_Offset const &);
 
 	timepos_t operator/(double) const;
 	timepos_t operator*(double) const;
@@ -237,11 +292,6 @@ class LIBTEMPORAL_API timepos_t {
 	timepos_t & operator+=(samplepos_t);
 	timepos_t & operator+=(Temporal::Beats const &);
 	timepos_t & operator+=(Temporal::BBT_Offset const &);
-
-	timepos_t & operator-=(timecnt_t const & d);
-	timepos_t & operator-=(samplepos_t);
-	timepos_t & operator-=(Temporal::Beats const &);
-	timepos_t & operator-=(Temporal::BBT_Offset const &);
 
 	timepos_t   operator% (timecnt_t const &) const;
 	timepos_t & operator%=(timecnt_t const &);
@@ -309,12 +359,12 @@ class LIBTEMPORAL_API timepos_t {
 
 class LIBTEMPORAL_API timecnt_t {
   public:
-	timecnt_t(timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (0), _pos (pos) {}
+	timecnt_t(timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (0), _position (pos) {}
 	timecnt_t(timepos_t const &, timepos_t const & pos);
 	timecnt_t(timecnt_t const &, timepos_t const & pos);
-	timecnt_t(samplepos_t s, timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (s), _pos (pos) {}
-	explicit timecnt_t(Temporal::Beats const & b, timepos_t pos = 0) : _style (Temporal::BeatTime), _beats (b), _pos (pos) {}
-	explicit timecnt_t(Temporal::BBT_Time const & bbt, timepos_t pos = 0) : _style (Temporal::BarTime), _bbt (bbt), _pos (pos) {}
+	timecnt_t(samplepos_t s, timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (s), _position (pos) {}
+	explicit timecnt_t(Temporal::Beats const & b, timepos_t pos = 0) : _style (Temporal::BeatTime), _beats (b), _position (pos) {}
+	explicit timecnt_t(Temporal::BBT_Time const & bbt, timepos_t pos = 0) : _style (Temporal::BarTime), _bbt (bbt), _position (pos) {}
 
 	void set_position (timepos_t const &pos);
 
@@ -339,9 +389,9 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t increment () const {
 		switch (_style) {
 		case Temporal::BeatTime:
-			return timecnt_t (_beats + Beats::beats (1), _pos);
+			return timecnt_t (_beats + Beats::beats (1), _position);
 		case Temporal::AudioTime:
-			return timecnt_t (_samples < max_samplepos ? _samples + 1 : _samples, _pos);
+			return timecnt_t (_samples < max_samplepos ? _samples + 1 : _samples, _position);
 		default:
 			/* can't do math on BBT time, see bbt_time.h for details */
 			break;
@@ -353,9 +403,9 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t decrement () const {
 		switch (_style) {
 		case Temporal::BeatTime:
-			return timecnt_t (_beats - Beats::beats (1), _pos); /* beats can go negative */
+			return timecnt_t (_beats - Beats::beats (1), _position); /* beats can go negative */
 		case Temporal::AudioTime:
-			return timecnt_t (_samples > 0 ? _samples - 1 : _samples, _pos); /* samples cannot go negative */
+			return timecnt_t (_samples > 0 ? _samples - 1 : _samples, _position); /* samples cannot go negative */
 		default:
 			/* can't do math on BBT time, see bbt_time.h for details */
 			break;
@@ -370,9 +420,9 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t operator-() const {
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (-_samples, _pos);
+			return timecnt_t (-_samples, _position);
 		case Temporal::BeatTime:
-			return timecnt_t (-_beats, _pos);
+			return timecnt_t (-_beats, _position);
 		default:
 			break;
 		}
@@ -383,9 +433,9 @@ class LIBTEMPORAL_API timecnt_t {
 		assert (_style == t.style());
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (_samples - t._samples, _pos);
+			return timecnt_t (_samples - t._samples, _position);
 		case Temporal::BeatTime:
-			return timecnt_t (_beats - t._beats, _pos);
+			return timecnt_t (_beats - t._beats, _position);
 		default:
 			break;
 		}
@@ -396,9 +446,9 @@ class LIBTEMPORAL_API timecnt_t {
 		assert (_style == t.style());
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (_samples + t._samples, _pos);
+			return timecnt_t (_samples + t._samples, _position);
 		case Temporal::BeatTime:
-			return timecnt_t (_beats + t._beats, _pos);
+			return timecnt_t (_beats + t._beats, _position);
 		default:
 			break;
 		}
@@ -564,6 +614,9 @@ class LIBTEMPORAL_API timecnt_t {
 	bool operator!= (Temporal::Beats const & b) { return beats() != b; }
 	bool operator!= (Temporal::BBT_Time const & bb) { return bbt() != bb; }
 
+	timecnt_t   operator% (timecnt_t const &) const;
+	timecnt_t & operator%=(timecnt_t const &);
+
 	bool string_to (std::string const & str);
 	std::string to_string () const;
 
@@ -577,7 +630,7 @@ class LIBTEMPORAL_API timecnt_t {
 		Temporal::BBT_Offset _bbt;
 	};
 
-	timepos_t _pos;
+	timepos_t _position;
 
 	static timecnt_t _max_timecnt;
 	static TempoMap* _tempo_map;
@@ -590,31 +643,31 @@ class LIBTEMPORAL_API timecnt_t {
 inline timecnt_t
 timepos_t::inclusive_delta (timecnt_t const & d) const
 {
-	return exclusive_delta (d).increment();
+	return distance (d).increment();
 }
 
 inline timecnt_t
 timepos_t::inclusive_delta (timepos_t const & d) const
 {
-	return exclusive_delta (d).increment();
+	return distance (d).increment();
 }
 
 inline timecnt_t
 timepos_t::inclusive_delta (samplepos_t d) const
 {
-	return exclusive_delta (d).increment();
+	return distance (d).increment();
 }
 
 inline timecnt_t
 timepos_t::inclusive_delta (Temporal::Beats const & d) const
 {
-	return exclusive_delta (d).increment();
+	return distance (d).increment();
 }
 
 inline timecnt_t
 timepos_t::inclusive_delta (Temporal::BBT_Offset const & d) const
 {
-	return exclusive_delta (d).increment();
+	return distance (d).increment();
 }
 
 inline bool
