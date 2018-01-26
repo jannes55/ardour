@@ -347,8 +347,8 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 	for (vector<boost::shared_ptr<Region> >::iterator x = results.begin(); x != results.end(); ++x) {
 
 		(*x)->set_ancestral_data (read_start,
-					  read_duration,
-					  stretch,
+		                          timecnt_t (read_duration, read_start),
+		                          stretch,
 					  shift);
 		(*x)->set_master_sources (region->master_sources());
 		/* multiply the old (possibly previously stretched) region length by the extra

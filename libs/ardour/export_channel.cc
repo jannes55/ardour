@@ -220,7 +220,7 @@ RegionExportChannelFactory::update_buffers (samplecnt_t samples)
 		}
 		break;
 	case Processed:
-		track.export_stuff (buffers, position, samples, track.main_outs(), true, true, false);
+		track.export_stuff (buffers, position, timecnt_t (samples, timepos_t()), track.main_outs(), true, true, false);
 		break;
 	default:
 		throw ExportFailed ("Unhandled type in ExportChannelFactory::update_buffers");

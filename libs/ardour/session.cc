@@ -6191,7 +6191,7 @@ Session::write_one_track (Track& track, Temporal::timepos_t const & tstart, Temp
 
 		this_chunk = min (to_do, bounce_chunk_size);
 
-		if (track.export_stuff (buffers, pstart, this_chunk, endpoint, include_endpoint, for_export, for_freeze)) {
+		if (track.export_stuff (buffers, pstart, timecnt_t (this_chunk, pstart), endpoint, include_endpoint, for_export, for_freeze)) {
 			goto out;
 		}
 

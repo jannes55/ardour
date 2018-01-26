@@ -69,7 +69,7 @@ public:
 	int set_state (const XMLNode&, int version);
 
 	bool can_truncate_peaks() const { return !destructive(); }
-	bool can_be_analysed() const    { return _length > 0; }
+	bool can_be_analysed() const    { return _length.positive(); }
 
 	static bool safe_audio_file_extension (const std::string& path);
 

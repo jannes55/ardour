@@ -115,7 +115,7 @@ MidiStretch::run (boost::shared_ptr<Region> r, Progress*)
 
 	const int ret = finish (region, nsrcs, new_name);
 	/* non-musical */
-	results[0]->set_length ((samplecnt_t) floor (r->length_samples() * _request.time_fraction));
+	results[0]->set_length (timecnt_t (r->length() * _request.time_fraction, r->position()));
 
 	return ret;
 }

@@ -240,7 +240,6 @@ Region::Region (const SourceList& srcs)
 	: SessionObject(srcs.front()->session(), "toBeRenamed")
 	, _type (srcs.front()->type())
 	, REGION_DEFAULT_STATE(timepos_t(), timecnt_t())
-	, _last_length (0)
 	, _last_position (0)
 	, _first_edit (EditChangesNothing)
 	, _layer (0)
@@ -296,7 +295,7 @@ Region::Region (boost::shared_ptr<const Region> other)
 	if (other->sync_marked()) {
 		if (other->start() < other->sync_position()) {
 			/* sync pos was after the start point of the other region */
-			_sync_position = other->sync_position().earlier (other->start());
+			_sync_position = other->sync_position().earlier (timecnt_t (other->start(), other->start()));
 		} else {
 			/* sync pos was before the start point of the other region. not possible here. */
 			_sync_marked = false;
@@ -419,7 +418,7 @@ Region::set_length (timecnt_t const & len)
 		return;
 	}
 
-	if (_length != len && len != 0) {
+	if (_length != len && !len.zero()) {
 
 		/* check that the current _position wouldn't make the new
 		   length impossible.
@@ -668,13 +667,13 @@ Region::nudge_position (timecnt_t const & n)
 		return;
 	}
 
-	if (n == 0) {
+	if (n.zero()) {
 		return;
 	}
 
 	timepos_t new_position = _position;
 
-	if (n > 0) {
+	if (n.positive()) {
 		if (position() > timepos_t::max().earlier (n)) {
 			new_position = timepos_t::max();
 		} else {
@@ -733,13 +732,13 @@ Region::set_start (timepos_t const & pos)
 void
 Region::move_start (timecnt_t const & distance)
 {
-	if (locked() || position_locked() || video_locked()) {
+	if (locked() || position_locked() || video_locked() || distance.zero()) {
 		return;
 	}
 
 	timepos_t new_start;
 
-	if (distance > 0) {
+	if (distance.positive()) {
 
 		if (start() > timepos_t::max().earlier (distance)) {
 			new_start = timepos_t::max(); // makes no sense
@@ -751,16 +750,13 @@ Region::move_start (timecnt_t const & distance)
 			return;
 		}
 
-	} else if (distance < 0) {
+	} else {
 
 		if (start() < -distance) {
 			new_start = 0;
 		} else {
 			new_start = start() + distance;
 		}
-
-	} else {
-		return;
 	}
 
 	if (new_start == start()) {
@@ -811,7 +807,7 @@ Region::modify_front (timepos_t const & new_position, bool reset_fade)
 
 	if (new_position < end) { /* can't trim it zero or negative length */
 
-		timecnt_t newlen = 0;
+		timecnt_t newlen;
 		timepos_t np = new_position;
 
 		if (!can_trim_start_before_source_start ()) {
@@ -893,7 +889,7 @@ Region::trim_to_internal (timepos_t const & pos, timecnt_t const & len)
 
 	timecnt_t const start_shift = position().distance (pos);
 
-	if (start_shift > 0) {
+	if (start_shift.positive()) {
 
 		if (start() > timepos_t::max().earlier (start_shift)) {
 			new_start = timepos_t::max();
@@ -901,7 +897,7 @@ Region::trim_to_internal (timepos_t const & pos, timecnt_t const & len)
 			new_start = start() + start_shift;
 		}
 
-	} else if (start_shift < 0) {
+	} else if (start_shift.negative()) {
 
 		if (start() < -start_shift && !can_trim_start_before_source_start ()) {
 			new_start = 0;
@@ -1082,7 +1078,7 @@ Region::sync_offset (int& dir) const
 		}
 	} else {
 		dir = 0;
-		return 0;
+		return timecnt_t();
 	}
 }
 
@@ -1102,7 +1098,7 @@ Region::adjust_to_sync (timepos_t const & pos) const
 			p = 0;
 		}
 	} else {
-		if (timepos_t::max().earlier (p) > offset) {
+		if (timepos_t::max().earlier (timecnt_t (p, p)) > offset) {
 			p += offset;
 		}
 	}
@@ -1578,10 +1574,10 @@ Region::verify_length (timecnt_t& len)
 		return true;
 	}
 
-	timecnt_t maxlen = 0;
+	timecnt_t maxlen;
 
 	for (uint32_t n = 0; n < _sources.size(); ++n) {
-		maxlen = max (maxlen, source_length(n) - start());
+		maxlen = max (maxlen, source_length(n) - timecnt_t (start(), start()));
 	}
 
 	len = min (len, maxlen);
@@ -1596,10 +1592,10 @@ Region::verify_start_and_length (timepos_t const & new_start, timecnt_t& new_len
 		return true;
 	}
 
-	timecnt_t maxlen = 0;
+	timecnt_t maxlen;
 
 	for (uint32_t n = 0; n < _sources.size(); ++n) {
-		maxlen = max (maxlen, source_length(n) - new_start);
+		maxlen = max (maxlen, source_length(n) - timecnt_t (new_start, new_start));
 	}
 
 	new_length = min (new_length, maxlen);
@@ -1818,7 +1814,7 @@ Region::earliest_possible_position () const
 	if (start() > position()) {
 		return 0;
 	} else {
-		return position().earlier (start());
+		return source_position ();
 	}
 }
 
@@ -1868,15 +1864,19 @@ Region::source_beats_to_absolute_time (Temporal::Beats beats) const
 	   the source. The start of the source is an implied position given by
 	   region->position - region->start
 	*/
-	const timepos_t source_start = position().earlier (start());
-	return source_start + beats;
+	return source_position() + beats;
 }
 
 Temporal::Beats
 Region::absolute_time_to_source_beats(timepos_t const & time) const
 {
-	const timepos_t source_start = position().earlier (start());
-	const timepos_t result = time.earlier (source_start);
-	return result.beats();
+	const timepos_t s (source_position());
+	return time.earlier (timecnt_t (s, s)).beats();
 }
 
+timepos_t
+Region::source_position () const
+{
+	const timepos_t p (position());
+	return p.earlier (timecnt_t (start(), p));
+}

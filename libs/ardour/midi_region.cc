@@ -219,8 +219,8 @@ MidiRegion::_read_at (const SourceList&              /*srcs*/,
                       MidiStateTracker*               tracker,
                       MidiChannelFilter*              filter) const
 {
-	timecnt_t internal_offset = 0;
-	timecnt_t to_read         = 0;
+	timecnt_t internal_offset;
+	timecnt_t to_read;
 
 	/* precondition: caller has verified that we cover the desired section */
 
@@ -271,7 +271,7 @@ MidiRegion::_read_at (const SourceList&              /*srcs*/,
 	if (src->midi_read (
 		    lm, // source lock
 		    dst, // destination buffer
-		    this->position().earlier (this->start()), // start position of the source in session
+		    this->source_position(), // start position of the source in session
 		    this->start() + internal_offset, // where to start reading in the source
 		    to_read, // read duration
 		    loop_range,

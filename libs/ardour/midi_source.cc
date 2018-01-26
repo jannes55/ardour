@@ -64,7 +64,7 @@ MidiSource::MidiSource (Session& s, string name, Source::Flag flags)
 	, _capture_loop_length(0)
 {
 	/* force units of length to be beats not samples */
-	_length = timecnt_t (Temporal::Beats());
+	_length = timecnt_t (Temporal::Beats(), timepos_t());
 }
 
 MidiSource::MidiSource (Session& s, const XMLNode& node)
@@ -74,7 +74,7 @@ MidiSource::MidiSource (Session& s, const XMLNode& node)
 	, _capture_loop_length(0)
 {
 	/* force units of length to be beats not samples */
-	_length = timecnt_t (Temporal::Beats());
+	_length = timecnt_t (Temporal::Beats(), timepos_t());
 
 	if (set_state (node, Stateful::loading_state_version)) {
 		throw failed_constructor();
@@ -176,7 +176,7 @@ MidiSource::midi_read (const Lock&                        lm,
 	                             source_start, start, cnt, tracker, name()));
 
 	if (!_model) {
-		return read_unlocked (lm, dst, source_start, start, cnt, loop_range, tracker, filter);
+		return timecnt_t (read_unlocked (lm, dst, source_start, start, cnt, loop_range, tracker, filter), start);
 	}
 
 	// Find appropriate model iterator

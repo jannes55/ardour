@@ -1796,7 +1796,7 @@ MidiModel::insert_silence_at_start (TimeType t)
 	for (Controls::iterator i = controls().begin(); i != controls().end(); ++i) {
 		boost::shared_ptr<AutomationControl> ac = boost::dynamic_pointer_cast<AutomationControl> (i->second);
 		XMLNode& before = ac->alist()->get_state ();
-		i->second->list()->shift (0, t.to_double());
+		i->second->list()->shift (0, timecnt_t (t, i->second->list()->start()));
 		XMLNode& after = ac->alist()->get_state ();
 		s->session().add_command (new MementoCommand<AutomationList> (new MidiAutomationListBinder (s, i->first), &before, &after));
 	}

@@ -118,6 +118,8 @@ public:
 	timecnt_t length ()    const { return _length.val(); }
 	timepos_t end()        const;
 
+	timepos_t source_position() const;
+
 	samplepos_t position_sample ()  const { return _position.val().sample(); }
 	samplepos_t start_sample ()     const { return _start.val().sample(); }
 	samplecnt_t length_samples ()    const { return _length.val().samples(); }

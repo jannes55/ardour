@@ -959,7 +959,7 @@ DiskWriter::do_flush (RunContext ctxt, bool force_flush)
 
 		if (record_enabled() && ((total > _chunk_samples) || force_flush)) {
 			Source::Lock lm(_midi_write_source->mutex());
-			if (_midi_write_source->midi_write (lm, *_midi_buf, get_capture_start_sample (0), to_write)) {
+			if (_midi_write_source->midi_write (lm, *_midi_buf, get_capture_start_sample (0), timecnt_t (to_write, timepos_t()))) {
 				error << string_compose(_("MidiDiskstream %1: cannot write MIDI to disk"), id()) << endmsg;
 				return -1;
 			}
@@ -1325,7 +1325,7 @@ DiskWriter::setup_destructive_playlist ()
 	PropertyList plist;
 	plist.add (Properties::name, _name.val());
 	plist.add (Properties::start, 0);
-	plist.add (Properties::length, max_samplepos - srcs.front()->natural_position());
+	plist.add (Properties::length, timecnt_t (max_samplepos - srcs.front()->natural_position(), srcs.front()->natural_position()));
 
 	boost::shared_ptr<Region> region (RegionFactory::create (srcs, plist));
 	_playlists[DataType::AUDIO]->add_region (region, srcs.front()->natural_position());
@@ -1364,9 +1364,9 @@ DiskWriter::use_destructive_playlist ()
 		throw failed_constructor();
 	}
 
-	/* be sure to stretch the region out to the maximum length (non-musical)*/
+	/* be sure to stretch the region out to the maximum length */
 
-	region->set_length (timecnt_t::max() - region->position());
+	region->set_length (timecnt_t::max() - timecnt_t (region->position(), timepos_t()));
 
 	uint32_t n;
 	ChannelList::iterator chan;

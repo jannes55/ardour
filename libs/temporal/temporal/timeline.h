@@ -195,6 +195,18 @@ class LIBTEMPORAL_API timepos_t {
 		return false;
 	}
 
+	bool operator>= (timepos_t const & other) const {
+		switch (_lock_status.style()) {
+		case Temporal::AudioTime:
+			return _samplepos >= other.sample();
+		case Temporal::BeatTime:
+			return _beats >= other.beats ();
+		case Temporal::BarTime:
+			return _bbt >= other.bbt();
+		}
+		return false;
+	}
+
 	timepos_t operator+(timecnt_t const & d) const;
 	timepos_t operator+(timepos_t const & d) const;
 	timepos_t operator+(samplepos_t) const;
@@ -359,12 +371,42 @@ class LIBTEMPORAL_API timepos_t {
 
 class LIBTEMPORAL_API timecnt_t {
   public:
-	timecnt_t(timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (0), _position (pos) {}
-	timecnt_t(timepos_t const &, timepos_t const & pos);
-	timecnt_t(timecnt_t const &, timepos_t const & pos);
-	timecnt_t(samplepos_t s, timepos_t pos = 0) : _style (Temporal::AudioTime), _samples (s), _position (pos) {}
-	explicit timecnt_t(Temporal::Beats const & b, timepos_t pos = 0) : _style (Temporal::BeatTime), _beats (b), _position (pos) {}
-	explicit timecnt_t(Temporal::BBT_Time const & bbt, timepos_t pos = 0) : _style (Temporal::BarTime), _bbt (bbt), _position (pos) {}
+	timecnt_t () : _style (Temporal::AudioTime), _samples (0) {}
+	timecnt_t (timepos_t const &, timepos_t const & pos);
+	timecnt_t (timecnt_t const &, timepos_t const & pos);
+	timecnt_t (samplepos_t s, timepos_t const & pos) : _style (Temporal::AudioTime), _samples (s), _position (pos) {}
+	explicit timecnt_t (Temporal::Beats const & b, timepos_t const & pos) : _style (Temporal::BeatTime), _beats (b), _position (pos) {}
+	explicit timecnt_t (Temporal::BBT_Time const & bbt, timepos_t const & pos) : _style (Temporal::BarTime), _bbt (bbt), _position (pos) {}
+
+	/* provides a more compact form and faster execution for "timecnt_t > 0 */
+	bool positive() const {
+		switch (_style) {
+		case BarTime: return _bbt > BBT_Offset (0, 0, 0);
+		case BeatTime: return _beats > Beats (0, 0);
+		case AudioTime: break;
+		}
+		return _samples > 0;
+	}
+
+	/* provides a more compact form and faster execution for "timecnt_t < 0 */
+	bool negative() const {
+		switch (_style) {
+		case BarTime: return _bbt < BBT_Offset (0, 0, 0);
+		case BeatTime: return _beats < Beats (0, 0);
+		case AudioTime: break;
+		}
+		return _samples < 0;
+	}
+
+	/* provides a more compact form and faster execution for "timecnt_t == 0 */
+	bool zero() const {
+		switch (_style) {
+		case BarTime: return _bbt == BBT_Offset();
+		case BeatTime: return _beats == Beats (0, 0);
+		case AudioTime: break;
+		}
+		return _samples == 0;
+	}
 
 	void set_position (timepos_t const &pos);
 
@@ -787,15 +829,15 @@ namespace std {
 	template<>
 	struct numeric_limits<Temporal::timecnt_t> {
 		static Temporal::timecnt_t lowest() {
-			return Temporal::timecnt_t (0);
+			return Temporal::timecnt_t (0, Temporal::timepos_t());
 		}
 
 		static Temporal::timecnt_t min() {
-			return Temporal::timecnt_t (0);
+			return Temporal::timecnt_t (0, Temporal::timepos_t());
 		}
 
 		static Temporal::timecnt_t max() {
-			return Temporal::timecnt_t (INT64_MAX);
+			return Temporal::timecnt_t (INT64_MAX, Temporal::timepos_t());
 		}
 
 	};

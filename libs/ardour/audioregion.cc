@@ -267,7 +267,7 @@ AudioRegion::AudioRegion (boost::shared_ptr<const AudioRegion> other)
 	  /* As far as I can see, the _envelope's times are relative to region position, and have nothing
 	     to do with sources (and hence _start).  So when we copy the envelope, we just use the supplied offset.
 	  */
-	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (*other->_envelope.val(), 0, other->length_samples())))
+	, _envelope (Properties::envelope, boost::shared_ptr<AutomationList> (new AutomationList (*other->_envelope.val(), timecnt_t(), other->length())))
 	, _automatable (other->session())
 	, _fade_in_suspended (0)
 	, _fade_out_suspended (0)

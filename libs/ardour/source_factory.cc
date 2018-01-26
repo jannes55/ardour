@@ -403,7 +403,7 @@ SourceFactory::createFromPlaylist (DataType type, Session& s, boost::shared_ptr<
 			if (ap) {
 
 				if (copy) {
-					ap.reset (new AudioPlaylist (ap, start, len.samples(), name, true));
+					ap.reset (new AudioPlaylist (ap, start, timecnt_t (len.samples(), timepos_t()), name, true));
 					start = 0;
 				}
 

@@ -632,7 +632,7 @@ SndFileSource::nondestructive_write_unlocked (Sample *data, samplecnt_t cnt)
 		return 0;
 	}
 
-	update_length (_length.samples() + cnt);
+	update_length (timecnt_t (_length.samples() + cnt, timepos_t()));
 
 	if (_build_peakfiles) {
 		compute_and_write_peaks (data, sample_pos, cnt, true, true);
@@ -719,7 +719,7 @@ SndFileSource::destructive_write_unlocked (Sample* data, samplecnt_t cnt)
 		}
 	}
 
-	update_length (file_pos + cnt);
+	update_length (timecnt_t (file_pos + cnt, timepos_t()));
 
 	if (_build_peakfiles) {
 		compute_and_write_peaks (data, file_pos, cnt, true, true);

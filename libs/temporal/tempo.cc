@@ -1865,7 +1865,7 @@ TempoMap::can_remove (Meter const & m) const
 samplecnt_t
 TempoMap::bbt_duration_at (samplepos_t pos, const BBT_Time& bbt, int /* dir_ignored */ ) const
 {
-	return full_duration_at (pos, timecnt_t (bbt), AudioTime).samples();
+	return full_duration_at (pos, timecnt_t (bbt, pos), AudioTime).samples();
 }
 
 /** Takes a duration (in any time domain) and considers it as a distance from the given position.
@@ -1894,7 +1894,7 @@ TempoMap::full_duration_at (timepos_t const & pos, timecnt_t const & duration, L
 			p.update_audio_and_beat_times(); /* XXX optimize by just fetching beats */
 			p += duration;
 			p.update_audio_and_beat_times(); /* XXX optimize by just fetching beats */
-			return timecnt_t (p.sample() - pos.sample());
+			return timecnt_t (p.sample() - pos.sample(), pos);
 			break;
 		case BarTime:
 			/* we're not doing this yet, if ever */
@@ -1909,7 +1909,7 @@ TempoMap::full_duration_at (timepos_t const & pos, timecnt_t const & duration, L
 			p.update_music_times ();
 			p += duration;
 			p.update_music_times ();
-			return timecnt_t (p.beats () - pos.beats());
+			return timecnt_t (p.beats () - pos.beats(), pos);
 			break;
 		case BeatTime:
 			/*NOTREACHED*/
@@ -1930,7 +1930,7 @@ TempoMap::full_duration_at (timepos_t const & pos, timecnt_t const & duration, L
 	/*NOTREACHED*/
 	abort ();
 	/*NOTREACHED*/
-	return timecnt_t();
+	return timecnt_t (0, timepos_t());
 
 }
 

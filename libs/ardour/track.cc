@@ -947,7 +947,7 @@ Track::use_captured_midi_sources (SourceList& srcs, CaptureInfos const & capture
 		plist.add (Properties::whole_file, true);
 		plist.add (Properties::automatic, true);
 		plist.add (Properties::start, 0);
-		plist.add (Properties::length, total_capture);
+		plist.add (Properties::length, timecnt_t (total_capture, capture_info.front()->start));
 		plist.add (Properties::layer, 0);
 
 		boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));
@@ -970,7 +970,6 @@ Track::use_captured_midi_sources (SourceList& srcs, CaptureInfos const & capture
 		initial_capture = capture_info.front()->start;
 	}
 
-	BeatsSamplesConverter converter (_session.tempo_map(), capture_info.front()->start);
 	const samplepos_t preroll_off = _session.preroll_record_trim_len ();
 
 	for (ci = capture_info.begin(); ci != capture_info.end(); ++ci) {
@@ -990,8 +989,7 @@ Track::use_captured_midi_sources (SourceList& srcs, CaptureInfos const & capture
 
 			/* start of this region is the offset between the start of its capture and the start of the whole pass */
 			plist.add (Properties::start, (*ci)->start - initial_capture);
-			/* XXX seems wrong. we should use an actual beat unit here */
-			plist.add (Properties::length, converter.from((*ci)->samples).to_double());
+			plist.add (Properties::length, timecnt_t (timecnt_t ((*ci)->samples, capture_info.front()->start).beats(), timepos_t (capture_info.front()->start)));
 			plist.add (Properties::name, region_name);
 
 			boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));
@@ -1095,7 +1093,7 @@ Track::use_captured_audio_sources (SourceList& srcs, CaptureInfos const & captur
 			PropertyList plist;
 
 			plist.add (Properties::start, buffer_position);
-			plist.add (Properties::length, (*ci)->samples);
+			plist.add (Properties::length, timecnt_t (timecnt_t ((*ci)->samples, capture_info.front()->start).beats(), capture_info.front()->start));
 			plist.add (Properties::name, region_name);
 
 			boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));

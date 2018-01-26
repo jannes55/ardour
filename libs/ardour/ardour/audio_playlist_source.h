@@ -51,7 +51,7 @@ public:
 	int set_state (const XMLNode&, int version);
 
 	bool can_truncate_peaks() const { return false; }
-	bool can_be_analysed() const    { return _length > 0; }
+	bool can_be_analysed() const    { return _length.positive(); }
 
 protected:
 	friend class SourceFactory;

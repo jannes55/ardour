@@ -1420,7 +1420,7 @@ DiskReader::midi_read (samplepos_t& start, samplecnt_t dur, bool reversed)
 
 		DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("MDS ::read at %1 for %2 loffset %3\n", effective_start, this_read, loop_offset));
 
-		if (midi_playlist()->read (*_midi_buf, effective_start, this_read, loop_range, 0, filter)) {
+		if (midi_playlist()->read (*_midi_buf, timepos_t (effective_start), timecnt_t (this_read, timepos_t (effective_start)), loop_range, 0, filter)) {
 			error << string_compose(
 					_("MidiDiskstream %1: cannot read %2 from playlist at sample %3"),
 					id(), this_read, start) << endmsg;

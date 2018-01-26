@@ -146,9 +146,9 @@ public:
 		}
 		switch (_time_style) {
 		case Temporal::AudioTime:
-			return Temporal::timecnt_t (Temporal::samplepos_t (w));
+			return Temporal::timecnt_t (Temporal::samplepos_t (w), _events.front()->when_as_sample());
 		case Temporal::BeatTime:
-			return Temporal::timecnt_t (Temporal::Beats::ticks (w));
+			return Temporal::timecnt_t (Temporal::Beats::ticks (w), _events.front()->when_as_beats());
 		default:
 			/*NOTREACHED*/
 			abort ();

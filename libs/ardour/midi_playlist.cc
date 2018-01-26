@@ -264,7 +264,7 @@ MidiPlaylist::region_edited(boost::shared_ptr<Region>         region,
 
 	/* Queue any necessary edit compensation events. */
 	t->second->fixer.prepare(
-		_session.tempo_map(), cmd, mr->position().earlier (mr->start()).sample(),
+		_session.tempo_map(), cmd, mr->source_position().sample(),
 		_read_end.sample(), t->second->cursor.active_notes);
 }
 

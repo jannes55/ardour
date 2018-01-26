@@ -31,7 +31,7 @@
 
 using namespace Temporal;
 
-timecnt_t timecnt_t::_max_timecnt (max_samplepos);
+timecnt_t timecnt_t::_max_timecnt (max_samplepos, timepos_t());
 TempoMap* timecnt_t::_tempo_map = 0;
 
 std::ostream&
@@ -94,6 +94,7 @@ timecnt_t::abs () const
 #warning fix timecnt_t::abs for bars
 		break;
 	}
+	return timecnt_t (0, timepos_t());
 }
 
 samplepos_t
