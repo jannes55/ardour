@@ -66,18 +66,29 @@ public:
 
 private:
 
-	//search
+	/* search */
 	ArdourWidgets::ArdourButton* _search_name_checkbox;
 	ArdourWidgets::ArdourButton* _search_tags_checkbox;
 	ArdourWidgets::ArdourButton* _search_ignore_checkbox;
 
-	//radio-button filters
+	/* radio-button filters */
+#ifdef USE_RADIO_FILTERS
 	Gtk::RadioButton *_fil_effects_radio;
 	Gtk::RadioButton *_fil_instruments_radio;
 	Gtk::RadioButton *_fil_utils_radio;
 	Gtk::RadioButton *_fil_favorites_radio;
 	Gtk::RadioButton *_fil_hidden_radio;
 	Gtk::RadioButton *_fil_all_radio;
+#else
+	ArdourWidgets::ArdourDropdown _fil_prop_combo;
+#endif
+
+	bool filter_only_effects () const;
+	bool filter_only_instruments () const;
+	bool filter_only_utils () const;
+	bool filter_only_favorites () const;
+	bool filter_only_hidden () const;
+	bool filter_show_all () const;
 
 	/* combobox filters */
 	ArdourWidgets::ArdourDropdown _fil_type_combo;

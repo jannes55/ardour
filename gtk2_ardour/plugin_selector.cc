@@ -160,19 +160,23 @@ PluginSelector::PluginSelector (PluginManager& mgr)
 	_search_ignore_checkbox->set_active(true);
 	_search_ignore_checkbox->set_name ("pluginlist filter button");
 
-	Gtk::Label* search_help_label1 = manage (new Label(
-		_("All search terms must be matched."), Gtk::ALIGN_LEFT));
-
-	Gtk::Label* search_help_label2 = manage (new Label(
-		_("Ex: \"ess dyn\" will find \"dynamic de-esser\" but not \"de-esser\"."), Gtk::ALIGN_LEFT));
+#ifdef USE_RADIO_FILTERS
+	set_tooltip (search_entry,
+			_("All search terms must be matched.\nEx: \"ess dyn\" will find \"dynamic de-esser\" but not \"de-esser\"."));
+#else
+	Gtk::Label* search_help_label = manage (new Label(
+			_("All search terms must be matched.\nEx: \"ess dyn\" will find \"dynamic de-esser\" but not \"de-esser\"."),
+			Gtk::ALIGN_LEFT));
+#endif
 
 	search_table->attach (search_entry,            0, 3, 0, 1, FILL|EXPAND, FILL);
 	search_table->attach (search_clear_button,     3, 4, 0, 1, FILL, FILL);
 	search_table->attach (*_search_name_checkbox,  0, 1, 1, 2, FILL, FILL);
 	search_table->attach (*_search_tags_checkbox,  1, 2, 1, 2, FILL, FILL);
 	search_table->attach (*_search_ignore_checkbox,2, 3, 1, 2, FILL, FILL);
-	search_table->attach (*search_help_label1,     0, 3, 2, 3, FILL, FILL);
-	search_table->attach (*search_help_label2,     0, 3, 3, 4, FILL, FILL);
+#ifndef USE_RADIO_FILTERS
+	search_table->attach (*search_help_label,      0, 3, 2, 3, FILL, FILL);
+#endif
 
 	search_table->set_border_width (4);
 	search_table->set_col_spacings (4);
@@ -189,7 +193,7 @@ PluginSelector::PluginSelector (PluginManager& mgr)
 	_search_ignore_checkbox->signal_clicked.connect (sigc::mem_fun (*this, &PluginSelector::set_sensitive_widgets));
 
 	/* FILTER */
-
+#ifdef USE_RADIO_FILTERS
 	Gtk::RadioButtonGroup fil_radio_group;
 
 	_fil_effects_radio = manage (new RadioButton (fil_radio_group, _("Show Effects Only")));
@@ -198,8 +202,16 @@ PluginSelector::PluginSelector (PluginManager& mgr)
 	_fil_favorites_radio = manage (new RadioButton (fil_radio_group, _("Show Favorites Only")));
 	_fil_hidden_radio = manage (new RadioButton (fil_radio_group, _("Show Hidden Only")));
 	_fil_all_radio = manage (new RadioButton (fil_radio_group, _("Show All")));
+#else
+	_fil_prop_combo.append_text_item (_("Show Effects Only"));
+	_fil_prop_combo.append_text_item (_("Show Instruments Only"));
+	_fil_prop_combo.append_text_item (_("Show Utilities Only"));
+	_fil_prop_combo.append_text_item (_("Show Favorites Only"));
+	_fil_prop_combo.append_text_item (_("Show Hidden Only"));
+	_fil_prop_combo.append_text_item (_("Show All"));
+	_fil_prop_combo.set_text (_("Show Effects Only"));
+#endif
 
-	//_fil_type_combo = manage (new ComboBoxText);
 	_fil_type_combo.append_text_item (_("Show All Formats"));
 	_fil_type_combo.append_text_item (X_("VST"));
 #ifdef AUDIOUNIT_SUPPORT
@@ -227,6 +239,7 @@ PluginSelector::PluginSelector (PluginManager& mgr)
 	_fil_channel_combo.set_text (_("Show All I/O"));
 #endif
 
+#ifdef USE_RADIO_FILTERS
 	VBox* filter_vbox = manage (new VBox);
 	filter_vbox->pack_start (*_fil_effects_radio,     false, false);
 	filter_vbox->pack_start (*_fil_instruments_radio, false, false);
@@ -234,6 +247,10 @@ PluginSelector::PluginSelector (PluginManager& mgr)
 	filter_vbox->pack_start (*_fil_favorites_radio,   false, false);
 	filter_vbox->pack_start (*_fil_hidden_radio,      false, false);
 	filter_vbox->pack_start (*_fil_all_radio,         false, false);
+#else
+	VBox* filter_vbox = manage (new VBox (true));
+	filter_vbox->pack_start (_fil_prop_combo,         false, false);
+#endif
 	filter_vbox->pack_start (_fil_type_combo,         false, false);
 	filter_vbox->pack_start (_fil_creator_combo,      false, false);
 	filter_vbox->pack_start (_fil_channel_combo,      false, false);
@@ -247,11 +264,15 @@ PluginSelector::PluginSelector (PluginManager& mgr)
 	filter_frame->add (*filter_vbox);
 	filter_frame->show_all ();
 
+#ifdef USE_RADIO_FILTERS
 	_fil_effects_radio->signal_clicked().connect (sigc::mem_fun (*this, &PluginSelector::refill));
 	_fil_instruments_radio->signal_clicked().connect (sigc::mem_fun (*this, &PluginSelector::refill));
 	_fil_utils_radio->signal_clicked().connect (sigc::mem_fun (*this, &PluginSelector::refill));
 	_fil_favorites_radio->signal_clicked().connect (sigc::mem_fun (*this, &PluginSelector::refill));
 	_fil_hidden_radio->signal_clicked().connect (sigc::mem_fun (*this, &PluginSelector::refill));
+#else
+	_fil_prop_combo.StateChanged.connect (sigc::mem_fun (*this, &PluginSelector::refill));
+#endif
 
 	_fil_type_combo.StateChanged.connect (sigc::mem_fun (*this, &PluginSelector::refill));
 	_fil_creator_combo.StateChanged.connect (sigc::mem_fun (*this, &PluginSelector::refill));
@@ -270,21 +291,21 @@ PluginSelector::PluginSelector (PluginManager& mgr)
 	tag_reset_button = manage (new Button (_("Reset")));
 	tag_reset_button->signal_clicked().connect (sigc::mem_fun (*this, &PluginSelector::tag_reset_button_clicked));
 
-	Gtk::Label* tagging_help_label1 = manage (new Label(
-		_("Enter space-separated, one-word Tags for the selected plugin."), Gtk::ALIGN_LEFT));
-
-	Gtk::Label* tagging_help_label2 = manage (new Label(
-		_("You can include dashes, colons or underscores in a Tag."), Gtk::ALIGN_LEFT));
-
-	Gtk::Label* tagging_help_label3 = manage (new Label(
-		_("Ex: \"dynamic de-esser vocal\" applies 3 Tags."), Gtk::ALIGN_LEFT));
+#ifdef USE_RADIO_FILTERS
+	set_tooltip (*tag_entry,
+			_("Enter space-separated, one-word Tags for the selected plugin.\nYou can include dashes, colons or underscores in a Tag.\nEx: \"dynamic de-esser vocal\" applies 3 Tags."));
+#else
+	Gtk::Label* tagging_help_label = manage (new Label(
+			_("Enter space-separated, one-word Tags for the selected plugin.\nYou can include dashes, colons or underscores in a Tag.\nEx: \"dynamic de-esser vocal\" applies 3 Tags."),
+			Gtk::ALIGN_LEFT));
+#endif
 
 	int p = 0;
 	tagging_table->attach (*tag_entry,           0, 1, p, p+1, FILL|EXPAND, FILL);
 	tagging_table->attach (*tag_reset_button,    1, 2, p, p+1, FILL, FILL); p++;
-	tagging_table->attach (*tagging_help_label1, 0, 2, p, p+1, FILL, FILL); p++;
-	tagging_table->attach (*tagging_help_label2, 0, 2, p, p+1, FILL, FILL); p++;
-	tagging_table->attach (*tagging_help_label3, 0, 2, p, p+1, FILL, FILL); p++;
+#ifndef USE_RADIO_FILTERS
+	tagging_table->attach (*tagging_help_label, 0, 2, p, p+1, FILL, FILL); p++;
+#endif
 
 	Frame* tag_frame = manage (new Frame);
 	tag_frame->set_name ("BaseFrame");
@@ -388,28 +409,28 @@ PluginSelector::show_this_plugin (const PluginInfoPtr& info, const std::string& 
 		}
 	}
 
-	if (_fil_effects_radio->get_active() && !info->is_effect()) {
+	if (filter_only_effects () && !info->is_effect()) {
 		return false;
 	}
 
-	if (_fil_instruments_radio->get_active() && !info->is_instrument()) {
+	if (filter_only_instruments () && !info->is_instrument()) {
 		return false;
 	}
 
-	if (_fil_utils_radio->get_active() && !(info->is_utility() || info->is_analyzer())) {
+	if (filter_only_utils () && !(info->is_utility() || info->is_analyzer())) {
 		return false;
 	}
 
-	if (_fil_favorites_radio->get_active() && !(manager.get_status (info) == PluginManager::Favorite)) {
+	if (filter_only_favorites () && !(manager.get_status (info) == PluginManager::Favorite)) {
 		return false;
 	}
 
-	if (_fil_hidden_radio->get_active() && !(manager.get_status (info) == PluginManager::Hidden)) {
+	if (filter_only_hidden () && !(manager.get_status (info) == PluginManager::Hidden)) {
 		return false;
 	}
 
 	if (manager.get_status (info) == PluginManager::Hidden) {
-		if (!_fil_hidden_radio->get_active() && !_fil_all_radio->get_active()) {
+		if (!filter_only_hidden () && !filter_show_all ()) {
 			return false;
 		}
 	}
@@ -496,22 +517,30 @@ void
 PluginSelector::set_sensitive_widgets ()
 {
 	if (_search_ignore_checkbox->get_active() && !search_entry.get_text().empty()) {
+#ifdef USE_RADIO_FILTERS
 		_fil_effects_radio->set_sensitive(false);
 		_fil_instruments_radio->set_sensitive(false);
 		_fil_utils_radio->set_sensitive(false);
 		_fil_favorites_radio->set_sensitive(false);
 		_fil_hidden_radio->set_sensitive(false);
 		_fil_all_radio->set_sensitive(false);
+#else
+		_fil_prop_combo.set_sensitive(false);
+#endif
 		_fil_type_combo.set_sensitive(false);
 		_fil_creator_combo.set_sensitive(false);
 		_fil_channel_combo.set_sensitive(false);
 	} else {
+#ifdef USE_RADIO_FILTERS
 		_fil_effects_radio->set_sensitive(true);
 		_fil_instruments_radio->set_sensitive(true);
 		_fil_utils_radio->set_sensitive(true);
 		_fil_favorites_radio->set_sensitive(true);
 		_fil_hidden_radio->set_sensitive(true);
 		_fil_all_radio->set_sensitive(true);
+#else
+		_fil_prop_combo.set_sensitive(true);
+#endif
 		_fil_type_combo.set_sensitive(true);
 		_fil_creator_combo.set_sensitive(true);
 		_fil_channel_combo.set_sensitive(true);
@@ -894,14 +923,14 @@ PluginSelector::plugin_status_changed (PluginType t, std::string uid, PluginMana
 
 			/* if plug was hidden, remove it from the view */
 			if (stat == PluginManager::Hidden) {
-				if (!_fil_hidden_radio->get_active() && !_fil_all_radio->get_active()) {
+				if (!filter_only_hidden () && !filter_show_all ()) {
 					plugin_model->erase(i);
 				}
-			} else if (_fil_hidden_radio->get_active()) {
+			} else if (filter_only_hidden ()) {
 				plugin_model->erase(i);
 			}
 			/* if no longer a favorite, remove it from the view */
-			if (stat != PluginManager::Favorite && _fil_favorites_radio->get_active()) {
+			if (stat != PluginManager::Favorite && filter_only_favorites ()) {
 					plugin_model->erase(i);
 			}
 
@@ -1256,3 +1285,19 @@ PluginSelector::set_interested_object (PluginInterestedObject& obj)
 {
 	interested_object = &obj;
 }
+
+#ifdef USE_RADIO_FILTERS
+bool PluginSelector::filter_only_effects () const     { return _fil_effects_radio->get_active(); }
+bool PluginSelector::filter_only_instruments () const { return _fil_instruments_radio->get_active(); }
+bool PluginSelector::filter_only_utils () const       { return _fil_utils_radio->get_active(); }
+bool PluginSelector::filter_only_favorites () const   { return _fil_favorites_radio->get_active(); }
+bool PluginSelector::filter_only_hidden () const      { return _fil_hidden_radio->get_active(); }
+bool PluginSelector::filter_show_all () const         { return _fil_all_radio->get_active(); }
+#else
+bool PluginSelector::filter_only_effects () const     { return _fil_prop_combo.get_text () == _("Show Effects Only"); }
+bool PluginSelector::filter_only_instruments () const { return _fil_prop_combo.get_text () == _("Show Instruments Only"); }
+bool PluginSelector::filter_only_utils () const       { return _fil_prop_combo.get_text () == _("Show Utilities Only"); }
+bool PluginSelector::filter_only_favorites () const   { return _fil_prop_combo.get_text () == _("Show Favorites Only"); }
+bool PluginSelector::filter_only_hidden() const       { return _fil_prop_combo.get_text () == _("Show Hidden Only"); }
+bool PluginSelector::filter_show_all () const         { return _fil_prop_combo.get_text () == _("Show All"); }
+#endif
