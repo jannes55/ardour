@@ -315,7 +315,7 @@ RegionEditor::end_clock_changed ()
 void
 RegionEditor::length_clock_changed ()
 {
-	samplecnt_t samples = length_clock.current_time();
+	timecnt_t duration = length_clock.current_time_duration();
 	bool in_command = false;
 	boost::shared_ptr<Playlist> pl = _region->playlist();
 
@@ -324,7 +324,7 @@ RegionEditor::length_clock_changed ()
 		in_command = true;
 
 		_region->clear_changes ();
-		_region->trim_end (_region->position() + samples - 1);
+		_region->trim_end (_region->position() + duration);
 		_session->add_command(new StatefulDiffCommand (_region));
 	}
 
@@ -383,7 +383,7 @@ RegionEditor::bounds_changed (const PropertyChange& what_changed)
 	}
 
 	if (what_changed.contains (ARDOUR::Properties::start)) {
-		start_clock.set_time (_region->start(), true);
+		start_clock.set_time (timepos_t (_region->start()), true);
 	}
 }
 

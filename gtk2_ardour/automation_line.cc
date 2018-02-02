@@ -89,7 +89,6 @@ AutomationLine::AutomationLine (const string&                     name,
 	, _name (name)
 	, alist (al)
 	, _parent_group (parent)
-	, _offset (0)
 	, _maximum_time (std::numeric_limits<timepos_t>::max())
 	, _fill (false)
 	, _desc (desc)
@@ -766,10 +765,10 @@ AutomationLine::sync_model_with_view_point (ControlPoint& cp)
 
 	timepos_t model_x = alist->control_point_time (**(cp.model()));
 
-	if (view_x != trackview.editor().time_to_pixel_unrounded (model_x - _offset)) {
+	if (view_x != trackview.editor().time_to_pixel_unrounded (model_x.earlier (_offset))) {
 		/* convert from view coordinates, via pixels->samples->timepos_t
 		 */
-		const timecnt_t p = trackview.editor().pixel_to_sample (view_x); /* samples */
+		const timecnt_t p = timecnt_t (trackview.editor().pixel_to_sample (view_x), timepos_t()); /* samples */
 		model_x = SAMPLES_TO_TIME (p + _offset); /* correct time domain for list */
 	}
 
@@ -1268,7 +1267,7 @@ AutomationLine::model_to_view_coord (Evoral::ControlEvent const & ev, double& y)
 
 	model_to_view_coord_y (y);
 
-	return (TIME_TO_SAMPLES (w) - _offset).sample();
+	return (w).earlier (_offset).sample();
 }
 
 /** Called when our list has announced that its interpolation style has changed */
@@ -1377,7 +1376,7 @@ AutomationLine::get_point_x_range () const
 samplepos_t
 AutomationLine::session_sample_position (Evoral::ControlEvent const & ev) const
 {
-	return TIME_TO_SAMPLES (alist->control_point_time (ev)).sample() + _offset.samples() + CONVERT_ORIGIN_SAMPLE;
+	return alist->control_point_time (ev).sample() + _offset.samples() + CONVERT_ORIGIN_SAMPLE;
 }
 
 void

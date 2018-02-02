@@ -213,7 +213,6 @@ class LIBTEMPORAL_API timepos_t {
 	timepos_t operator+(Temporal::Beats const &) const;
 	timepos_t operator+(Temporal::BBT_Offset const &) const;
 
-
 	/* operator-() poses severe and thorny problems for a class that represents position on a timeline.
 
 	   If the value of the class is a simple scalar, then subtraction can be used for both:
@@ -282,6 +281,7 @@ class LIBTEMPORAL_API timepos_t {
 
 	/* computes a new position value that is @param d earlier than this */
 
+	timepos_t earlier (timepos_t const & d) const; /* treat d as distance measured from timeline origin */
 	timepos_t earlier (timecnt_t const & d) const;
 	timepos_t earlier (samplepos_t d) const;
 	timepos_t earlier (Beats const & d) const;
@@ -369,6 +369,28 @@ class LIBTEMPORAL_API timepos_t {
 
 };
 
+/**
+ * a timecnt_t measures a duration in a specified time domain and starting at a
+ * specific position.
+ *
+ * It can be freely converted between time domains, as well as used as the
+ * subject of most arithmetic operations.
+ *
+ * An important distinction between timepos_t and timecnt_t can be thought of
+ * this way: a timepos_t ALWAYS refers to a position relative to the origin of
+ * the timeline (technically, the origin in the tempo map used to translate
+ * between audio and musical domains). By contrast, a timecnt_t refers to a
+ * certain distance beyond some arbitrary (specified) origin. So, a timepos_t
+ * of "3 beats" always means "3 beats measured from the timeline origin". A
+ * timecnt_t of "3 beats" always come with a position, and so is really "3
+ * beats after <position>". 
+ *
+ * The ambiguity surrounding operator-() that affects timepos_t does not exist
+ * for timecnt_t: all uses of operator-() are intended to compute the result of
+ * subtracting one timecnt_t from another which will always result in another
+ * timecnt_t of lesser value than the first operand.
+ */
+
 class LIBTEMPORAL_API timecnt_t {
   public:
 	timecnt_t () : _style (Temporal::AudioTime), _samples (0) {}
@@ -409,6 +431,7 @@ class LIBTEMPORAL_API timecnt_t {
 	}
 
 	void set_position (timepos_t const &pos);
+	timepos_t const & position() const { return _position; }
 
 	static timecnt_t const & max() { return _max_timecnt; }
 
@@ -472,12 +495,11 @@ class LIBTEMPORAL_API timecnt_t {
 	}
 
 	timecnt_t operator- (timecnt_t const & t) const {
-		assert (_style == t.style());
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (_samples - t._samples, _position);
+			return timecnt_t (_samples - t.samples(), _position);
 		case Temporal::BeatTime:
-			return timecnt_t (_beats - t._beats, _position);
+			return timecnt_t (_beats - t.beats(), _position);
 		default:
 			break;
 		}
@@ -485,12 +507,11 @@ class LIBTEMPORAL_API timecnt_t {
 	}
 
 	timecnt_t operator+ (timecnt_t const & t) const {
-		assert (_style == t.style());
 		switch (_style) {
 		case Temporal::AudioTime:
-			return timecnt_t (_samples + t._samples, _position);
+			return timecnt_t (_samples + t.samples(), _position);
 		case Temporal::BeatTime:
-			return timecnt_t (_beats + t._beats, _position);
+			return timecnt_t (_beats + t.beats(), _position);
 		default:
 			break;
 		}
@@ -499,12 +520,11 @@ class LIBTEMPORAL_API timecnt_t {
 
 	timecnt_t & operator-= (timecnt_t const & t)  {
 		if (this != &t) {
-			assert (_style == t.style());
 			switch (_style) {
 			case Temporal::AudioTime:
-				_samples -= t._samples;
+				_samples -= t.samples();
 			case Temporal::BeatTime:
-				_beats -= t._beats;
+				_beats -= t.beats();
 			case Temporal::BarTime:
 				throw TemporalTypeException ("cannot perform BBT arithmetic without tempo map");
 			}
@@ -514,12 +534,11 @@ class LIBTEMPORAL_API timecnt_t {
 
 	timecnt_t & operator+= (timecnt_t const & t)  {
 		if (this != &t) {
-			assert (_style == t.style());
 			switch (_style) {
 			case Temporal::AudioTime:
-				_samples += t._samples;
+				_samples += t.samples();
 			case Temporal::BeatTime:
-				_beats += t._beats;
+				_beats += t.beats();
 			case Temporal::BarTime:
 				throw TemporalTypeException ("cannot perform BBT arithmetic without tempo map");
 			}
@@ -533,61 +552,49 @@ class LIBTEMPORAL_API timecnt_t {
 	//timecnt_t & operator+= (timepos_t);
 
 	bool operator> (timecnt_t const & other) const {
-		if (_style != other._style) {
-			return false;
-		}
 		switch (_style) {
 		case Temporal::AudioTime:
-			return _samples > other._samples;
+			return _samples > other.samples();
 		case Temporal::BeatTime:
-			return _beats > other._beats;
+			return _beats > other.beats();
 		case Temporal::BarTime:
-			return _bbt > other._bbt;
+			return _bbt > other.bbt();
 		}
 		return false;
 	}
 
 	bool operator>= (timecnt_t const & other) const {
-		if (_style != other._style) {
-			return false;
-		}
 		switch (_style) {
 		case Temporal::AudioTime:
-			return _samples >= other._samples;
+			return _samples >= other.samples();
 		case Temporal::BeatTime:
-			return _beats >= other._beats;
+			return _beats >= other.beats();
 		case Temporal::BarTime:
-			return _bbt >= other._bbt;
+			return _bbt >= other.bbt();
 		}
 		return false;
 	}
 
 	bool operator< (timecnt_t const & other) const {
-		if (_style != other._style) {
-			return false;
-		}
 		switch (_style) {
 		case Temporal::AudioTime:
-			return _samples < other._samples;
+			return _samples < other.samples();
 		case Temporal::BeatTime:
-			return _beats < other._beats;
+			return _beats < other.beats();
 		case Temporal::BarTime:
-			return _bbt < other._bbt;
+			return _bbt < other.bbt();
 		}
 		return false;
 	}
 
 	bool operator<= (timecnt_t const & other) const {
-		if (_style != other._style) {
-			return false;
-		}
 		switch (_style) {
 		case Temporal::AudioTime:
-			return _samples <= other._samples;
+			return _samples <= other.samples();
 		case Temporal::BeatTime:
-			return _beats <= other._beats;
+			return _beats <= other.beats();
 		case Temporal::BarTime:
-			return _bbt <= other._bbt;
+			return _bbt <= other.bbt();
 		}
 		return false;
 	}
@@ -595,7 +602,7 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t & operator=(timecnt_t const & other) {
 		if (this != &other) {
 			_style = other._style;
-			switch (_style) {
+			switch (other._style) {
 			case Temporal::AudioTime:
 				_samples = other._samples;
 			case Temporal::BeatTime:
@@ -608,31 +615,40 @@ class LIBTEMPORAL_API timecnt_t {
 	}
 
 	bool operator!= (timecnt_t const & other) const {
-		if (_style != other._style) {
-			return true;
-		}
 		switch (_style) {
 		case Temporal::AudioTime:
-			return _samples != other._samples;
+			return _samples != other.samples();
 		case Temporal::BeatTime:
-			return _beats != other._beats;
+			return _beats != other.beats();
 		case Temporal::BarTime:
-			return _bbt != other._bbt;
+			return _bbt != other.bbt();
 		}
 		return false;
 	}
 
 	bool operator== (timecnt_t const & other) const {
-		if (_style != other._style) {
-			return false;
-		}
 		switch (_style) {
 		case Temporal::AudioTime:
-			return _samples == other._samples;
+			return _samples == other.samples();
 		case Temporal::BeatTime:
-			return _beats == other._beats;
+			return _beats == other.beats();
 		case Temporal::BarTime:
-			return _bbt == other._bbt;
+			return _bbt == other.bbt();
+		}
+		return false;
+	}
+
+	/* test for numerical equivalence with a timepos_T. This tests ONLY the
+	   duration in the given domain, NOT position.
+	*/
+	bool operator== (timepos_t const & other) const {
+		switch (_style) {
+		case Temporal::AudioTime:
+			return _samples == other.sample();
+		case Temporal::BeatTime:
+			return _beats == other.beats();
+		case Temporal::BarTime:
+			return _bbt == other.bbt();
 		}
 		return false;
 	}

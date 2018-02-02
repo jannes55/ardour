@@ -985,7 +985,7 @@ ExportReport::audition (std::string path, unsigned n_chn, int page)
 
 	PBD::PropertyList plist;
 
-	plist.add (ARDOUR::Properties::start, 0);
+	plist.add (ARDOUR::Properties::start, timecnt_t(0, timepos_t()));
 	plist.add (ARDOUR::Properties::length, srclist[0]->length ());
 	plist.add (ARDOUR::Properties::name, rname);
 	plist.add (ARDOUR::Properties::layer, 0);

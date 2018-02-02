@@ -65,7 +65,6 @@ SMFSource::SMFSource (Session& s, const string& path, Source::Flag flags)
 	, _open (false)
 	, _last_ev_time_beats(0.0)
 	, _last_ev_time_samples(0)
-	, _smf_last_read_end (0)
 	, _smf_last_read_time (0)
 {
 	/* note that origin remains empty */
@@ -101,7 +100,6 @@ SMFSource::SMFSource (Session& s, const string& path)
 	, _open (false)
 	, _last_ev_time_beats(0.0)
 	, _last_ev_time_samples(0)
-	, _smf_last_read_end (0)
 	, _smf_last_read_time (0)
 {
 	/* note that origin remains empty */
@@ -133,7 +131,6 @@ SMFSource::SMFSource (Session& s, const XMLNode& node, bool must_exist)
 	, _open (false)
 	, _last_ev_time_beats(0.0)
 	, _last_ev_time_samples(0)
-	, _smf_last_read_end (0)
 	, _smf_last_read_time (0)
 {
 	if (set_state(node, Stateful::loading_state_version)) {
@@ -215,7 +212,7 @@ int
 SMFSource::read_unlocked (const Lock&                     lock,
                           Evoral::EventSink<samplepos_t>& destination,
                           timepos_t const                 source_start,
-                          timepos_t                       start,
+                          timecnt_t                       start,
                           timecnt_t                       duration,
                           Temporal::Range*                loop_range,
                           MidiStateTracker*               tracker,

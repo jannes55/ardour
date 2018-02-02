@@ -137,7 +137,7 @@ Filter::finish (boost::shared_ptr<Region> region, SourceList& nsrcs, string regi
 
 	PropertyList plist;
 
-	plist.add (Properties::start, 0);
+	plist.add (Properties::start, timecnt_t (0, timepos_t()));
 	plist.add (Properties::length, region->length());
 	plist.add (Properties::name, region_name);
 	plist.add (Properties::whole_file, true);

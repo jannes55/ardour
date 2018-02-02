@@ -277,7 +277,7 @@ TempoMap* timepos_t::_tempo_map = 0;
 timepos_t::timepos_t (PositionLockStatus /*ignored*/)
 	: update_generation (-1)
 	, _lock_status (PositionLockStatus (AudioTime))
-	, _samplepos (max_samplepos)
+	, _samplepos (std::numeric_limits<samplepos_t>::max())
 {
 	_beats = std::numeric_limits<Beats>::max ();
 	_bbt = std::numeric_limits<BBT_Time>::max();
@@ -608,6 +608,10 @@ timepos_t::operator+ (Temporal::BBT_Offset const & bbt) const
 
 /* */
 
+/* ::distance() assumes that @param d is later on the timeline than this, and
+ * thus returns a positive value if this condition is satisfied.
+ */
+
 timecnt_t
 timepos_t::distance (timepos_t const & d) const
 {
@@ -767,6 +771,36 @@ timepos_t::earlier (Temporal::BBT_Offset const & bbt) const
 	}
 
 	return timepos_t (_tempo_map->bbt_walk (_bbt, -bbt));
+}
+
+timepos_t
+timepos_t::earlier (timepos_t const & other) const
+{
+	switch (other.lock_style()) {
+	case AudioTime:
+		return earlier (other.sample());
+	case BeatTime:
+		return earlier (other.beats());
+	case BarTime:
+		break;
+	}
+
+	return earlier (other.bbt());
+}
+
+timepos_t
+timepos_t::earlier (timecnt_t const & distance) const
+{
+	switch (distance.style()) {
+	case AudioTime:
+		return earlier (distance.samples());
+	case BeatTime:
+		return earlier (distance.beats());
+	case BarTime:
+		break;
+	}
+
+	return earlier (distance.bbt());
 }
 
 /* */

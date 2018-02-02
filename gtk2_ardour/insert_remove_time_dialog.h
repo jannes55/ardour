@@ -34,8 +34,8 @@ public:
 	bool move_glued_markers () const;
 	bool move_locked_markers () const;
 	bool move_tempos () const;
-	samplepos_t position () const;
-	samplepos_t distance () const;
+	Temporal::timepos_t position () const;
+	Temporal::timecnt_t distance () const;
 
 private:
 	void move_markers_toggled ();
@@ -50,6 +50,6 @@ private:
 	Gtk::CheckButton _move_locked_markers;
 	Gtk::CheckButton _move_tempos;
 	Gtk::Label tempo_label;
-	AudioClock duration_clock;
+	mutable AudioClock duration_clock;
 	AudioClock position_clock;
 };

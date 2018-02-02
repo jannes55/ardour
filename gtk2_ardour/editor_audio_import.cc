@@ -779,7 +779,7 @@ Editor::add_sources (vector<string>            paths,
 
 		PropertyList plist;
 
-		plist.add (ARDOUR::Properties::start, 0);
+		plist.add (ARDOUR::Properties::start, timecnt_t (0, timepos_t()));
 		plist.add (ARDOUR::Properties::length, sources[0]->length ());
 		plist.add (ARDOUR::Properties::name, region_name);
 		plist.add (ARDOUR::Properties::layer, 0);
@@ -858,7 +858,7 @@ Editor::add_sources (vector<string>            paths,
 
 			PropertyList plist;
 
-			plist.add (ARDOUR::Properties::start, 0);
+			plist.add (ARDOUR::Properties::start, timecnt_t (0, timepos_t()));
 			plist.add (ARDOUR::Properties::length, (*x)->length());
 			plist.add (ARDOUR::Properties::name, region_name);
 			plist.add (ARDOUR::Properties::layer, 0);
@@ -892,7 +892,7 @@ Editor::add_sources (vector<string>            paths,
 	}
 
 	int n = 0;
-	timecnt_t rlen = 0;
+	timecnt_t rlen;
 
 	begin_reversible_command (Operations::insert_file);
 

@@ -418,6 +418,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	BBT_Time bbt_at (samplepos_t sc) const;
 	BBT_Time bbt_at (Beats const &) const;
+	BBT_Time bbt_at (timepos_t const &) const;
 
 	Beats quarter_note_at (samplepos_t sc) const;
 	Beats quarter_note_at (BBT_Time const &) const;

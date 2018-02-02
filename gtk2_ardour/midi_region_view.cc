@@ -1412,7 +1412,7 @@ MidiRegionView::display_sysexes()
 
 		// Show unless message is beyond the region bounds
 
-		if (timecnt_t (time - _region->start()) >= _region->length() || time < _region->start()) {
+		if (_region->source_relative_position (time) >= _region->length() || time < _region->start()) {
 			sysex->hide();
 		} else {
 			sysex->show();
@@ -1551,7 +1551,7 @@ MidiRegionView::add_ghost (TimeAxisView& tv)
 
 	ghost->set_colors ();
 	ghost->set_height ();
-	ghost->set_duration (trackview.editor().time_to_pixel (_region->length()));
+	ghost->set_duration (trackview.editor().duration_to_pixels (_region->length()));
 
 	for (Events::iterator i = _events.begin(); i != _events.end(); ++i) {
 		ghost->add_note(i->second);
@@ -1625,7 +1625,7 @@ MidiRegionView::extend_active_notes()
 	for (unsigned i = 0; i < 128; ++i) {
 		if (_active_notes[i]) {
 			_active_notes[i]->set_x1(
-				trackview.editor().time_to_pixel(_region->length()));
+				trackview.editor().duration_to_pixels (_region->length()));
 		}
 	}
 }
@@ -1729,7 +1729,7 @@ MidiRegionView::update_sustained (Note* ev, bool update_ghost_regions)
 
 		x1 = std::max(1., trackview.editor().time_to_pixel (note_end)) - 1;
 	} else {
-		x1 = std::max(1., trackview.editor().time_to_pixel (_region->length())) - 1;
+		x1 = std::max(1., trackview.editor().duration_to_pixels (_region->length())) - 1;
 	}
 
 	y1 = y0 + std::max(1., floor(note_height()) - 1);
@@ -1870,7 +1870,7 @@ MidiRegionView::step_add_note (uint8_t channel, uint8_t number, uint8_t velocity
 	timepos_t region_end = _region->last();
 
 	if (note_end > region_end) {
-		_region->set_length (note_end - _region->position());
+		_region->set_length (timecnt_t (note_end.earlier (_region->position()), timepos_t()));
 	}
 
 	MidiTimeAxisView* const mtv = dynamic_cast<MidiTimeAxisView*>(&trackview);
@@ -2058,12 +2058,9 @@ MidiRegionView::add_patch_change (timecnt_t const & t, Evoral::PatchChange<Tempo
 	trackview.editor().begin_reversible_command (name);
 	MidiModel::PatchChangeDiffCommand* c = _model->new_patch_change_diff_command (name);
 	c->add (MidiModel::PatchChangePtr (
-		        new Evoral::PatchChange<Temporal::Beats> (
-			        (_region->position() + t - _region->start()).beats(),
-				patch.channel(), patch.program(), patch.bank()
-				)
-			)
-		);
+		        new Evoral::PatchChange<Temporal::Beats>
+		        (_region->source_relative_position (_region->position() + t).beats(),
+		         patch.channel(), patch.program(), patch.bank())));
 
 	_model->apply_command (*trackview.session(), c);
 	trackview.editor().commit_reversible_command ();
@@ -2410,10 +2407,9 @@ MidiRegionView::update_drag_selection(samplepos_t start, samplepos_t end, double
 	PublicEditor& editor = trackview.editor();
 
 	// Convert to local coordinates
-	const timepos_t p  = _region->position();
 	const double     y  = midi_view()->y_position();
-	const double     x0 = editor.time_to_pixel (max(timepos_t(), timepos_t (start) - p)); /* XXX should likely use some delta() method */
-	const double     x1 = editor.time_to_pixel (max(timepos_t(), timepos_t (end) - p)); /* XXX should likely use some delta() method */
+	const double     x0 = editor.time_to_pixel (max (timepos_t(), _region->region_relative_position (start)));
+	const double     x1 = editor.time_to_pixel (max (timepos_t(), _region->region_relative_position (end)));
 	const double     y0 = max(0.0, gy0 - y);
 	const double     y1 = max(0.0, gy1 - y);
 
@@ -2921,8 +2917,8 @@ MidiRegionView::update_resizing (NoteBase* primary, bool at_front, double delta_
 			// snaps forward if the snapped sample is before the beginning of the region
 			current_x = 0;
 		}
-		if (current_x > trackview.editor().time_to_pixel(_region->length())) {
-			current_x = trackview.editor().time_to_pixel(_region->length());
+		if (current_x > trackview.editor().duration_to_pixels (_region->length())) {
+			current_x = trackview.editor().duration_to_pixels (_region->length());
 		}
 
 		if (at_front) {
@@ -3029,8 +3025,8 @@ MidiRegionView::commit_resizing (NoteBase* primary, bool at_front, double delta_
 		if (current_x < 0) {
 			current_x = 0;
 		}
-		if (current_x > trackview.editor().time_to_pixel(_region->length())) {
-			current_x = trackview.editor().time_to_pixel(_region->length());
+		if (current_x > trackview.editor().duration_to_pixels (_region->length())) {
+			current_x = trackview.editor().duration_to_pixels (_region->length());
 		}
 
 		/* Convert snap delta from pixels to beats with sign. */
@@ -3431,8 +3427,8 @@ MidiRegionView::nudge_notes (bool forward, bool fine)
 		}
 
 		trackview.editor().snap_to (next_pos, (forward ? Temporal::RoundUpAlways : Temporal::RoundDownAlways), false);
-		const timepos_t distance = ref_point - next_pos;
-		delta = _region->region_time_to_region_beats (timepos_t (distance.beats()));
+		const timecnt_t distance = ref_point.distance (next_pos);
+		delta = _region->region_time_to_region_beats (timepos_t (distance));
 	}
 
 	if (!delta) {
@@ -3745,7 +3741,7 @@ MidiRegionView::paste_internal (timepos_t const & pos, unsigned paste_count, flo
 
 		_region->clear_changes ();
 		/* we probably need to get the snap modifier somehow to make this correct for non-musical use */
-		_region->set_length (end - _region->position());
+		_region->set_length (_region->position().distance (end));
 		trackview.session()->add_command (new StatefulDiffCommand (_region));
 	}
 
@@ -4070,9 +4066,9 @@ MidiRegionView::set_step_edit_cursor_width (Temporal::Beats beats)
 	_step_edit_cursor_width = beats;
 
 	if (_step_edit_cursor) {
-		_step_edit_cursor->set_x1 (_step_edit_cursor->x0() + trackview.editor().time_to_pixel (
-			                           _region->region_beats_to_region_time (_step_edit_cursor_position + beats)
-			                           - _region->region_beats_to_region_time (_step_edit_cursor_position)));
+		_step_edit_cursor->set_x1 (_step_edit_cursor->x0() + trackview.editor().duration_to_pixels (
+			                           _region->region_beats_to_region_time (_step_edit_cursor_position).distance
+			                           (_region->region_beats_to_region_time (_step_edit_cursor_position + beats))));
 	}
 }
 

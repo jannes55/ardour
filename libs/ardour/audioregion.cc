@@ -346,7 +346,7 @@ void
 AudioRegion::post_set (const PropertyChange& /*ignored*/)
 {
 	if (!_sync_marked) {
-		_sync_position = _start;
+		_sync_position = timecnt_t (_start, timepos_t());
 	}
 
 	/* return to default fades if the existing ones are too long */

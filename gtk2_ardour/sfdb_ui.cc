@@ -492,7 +492,7 @@ SoundFileBox::audition ()
 
 		PropertyList plist;
 
-		plist.add (ARDOUR::Properties::start, 0);
+		plist.add (ARDOUR::Properties::start, timecnt_t (Temporal::Beats(), timepos_t()));
 		plist.add (ARDOUR::Properties::length, ms->length());
 		plist.add (ARDOUR::Properties::name, rname);
 		plist.add (ARDOUR::Properties::layer, 0);
@@ -541,7 +541,7 @@ SoundFileBox::audition ()
 
 		PropertyList plist;
 
-		plist.add (ARDOUR::Properties::start, 0);
+		plist.add (ARDOUR::Properties::start, timecnt_t (0, timepos_t()));
 		plist.add (ARDOUR::Properties::length, srclist[0]->length());
 		plist.add (ARDOUR::Properties::name, rname);
 		plist.add (ARDOUR::Properties::layer, 0);

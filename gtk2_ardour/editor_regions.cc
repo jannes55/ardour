@@ -1211,7 +1211,7 @@ EditorRegions::sorter (TreeModel::iterator a, TreeModel::iterator b)
 		break;
 
 	case ByPosition:
-		cmp = region1->position() - region2->position();
+		cmp = region2->position().distance (region1->position());
 		break;
 
 	case ByTimestamp:

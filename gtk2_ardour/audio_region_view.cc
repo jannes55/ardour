@@ -712,8 +712,9 @@ AudioRegionView::reset_fade_out_shape_width (boost::shared_ptr<AudioRegion> ar, 
 	 * width is zero. Hence the additional + 1.0 at the end.
 	 */
 
-	double const handle_right = rint(trackview.editor().time_to_pixel (_region->length()) - pwidth);
-	double const trim_handle_right = rint(trackview.editor().time_to_pixel (_region->length()));
+	double const pixels = trackview.editor().duration_to_pixels (_region->length());
+	double const handle_right =  rint (pixels - pwidth);
+	double const trim_handle_right = rint (pixels);
 
 	/* Put the fade out handle so that its right side is at the end-of-fade line;
 	 */
@@ -949,7 +950,7 @@ AudioRegionView::redraw_end_xfade_to (boost::shared_ptr<AudioRegion> ar, samplec
 		npoints = inverse->size();
 		ipoints.assign (npoints, Duple());
 
-		const double rend = trackview.editor().time_to_pixel (_region->length() - width);
+		const double rend = trackview.editor().sample_to_pixel (_region->length_samples() - width);
 
 		Evoral::ControlList::const_iterator x;
 		Points::size_type pi;

@@ -245,8 +245,11 @@ public:
 		return sample / (double) samples_per_pixel;
 	}
 
-	double time_to_pixel (Temporal::timecnt_t const & pos) const;
-	double time_to_pixel_unrounded (Temporal::timecnt_t const & pos) const;
+	double time_to_pixel (Temporal::timepos_t const & pos) const;
+	double time_to_pixel_unrounded (Temporal::timepos_t const & pos) const;
+
+	double duration_to_pixels (Temporal::timecnt_t const & pos) const;
+	double duration_to_pixels_unrounded (Temporal::timecnt_t const & pos) const;
 
 	/* selection */
 

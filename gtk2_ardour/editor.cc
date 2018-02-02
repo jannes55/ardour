@@ -1789,7 +1789,7 @@ Editor::loudness_analyze_range_selection ()
 	Selection& s (PublicEditor::instance ().get_selection ());
 	TimeSelection ts = s.time;
 	ARDOUR::AnalysisGraph ag (_session);
-	timecnt_t total_work = 0;
+	timecnt_t total_work;
 
 	for (TrackSelection::iterator i = s.tracks.begin (); i != s.tracks.end (); ++i) {
 		boost::shared_ptr<AudioPlaylist> pl = boost::dynamic_pointer_cast<AudioPlaylist> ((*i)->playlist ());
@@ -2926,7 +2926,7 @@ Editor::snap_to_internal (Temporal::timepos_t & start, Temporal::RoundMode direc
 			else if ((direction == Temporal::RoundDownMaybe || direction == Temporal::RoundDownAlways))
 				start = before;
 			else if (direction ==  0 ) {
-				if ((start - before) < (after - start)) {
+				if (start.earlier (before) < after.earlier (start)) {
 					start = before;
 				} else {
 					start = after;
@@ -2984,7 +2984,7 @@ Editor::snap_to_internal (Temporal::timepos_t & start, Temporal::RoundMode direc
 			}
 
 		} else if (presnap < start) {
-			if (presnap.sample() < (start - pixel_to_sample (snap_threshold)).sample()) {
+			if (presnap.sample() < start.earlier (pixel_to_sample (snap_threshold)).sample()) {
 				start = presnap;
 			}
 		}
@@ -4047,7 +4047,7 @@ Editor::get_paste_offset (Temporal::timepos_t const & pos, unsigned paste_count,
 {
 	if (paste_count == 0) {
 		/* don't bother calculating an offset that will be zero anyway */
-		return 0;
+		return timecnt_t (0, timepos_t());
 	}
 
 	/* calculate basic unsnapped multi-paste offset */
@@ -4057,7 +4057,7 @@ Editor::get_paste_offset (Temporal::timepos_t const & pos, unsigned paste_count,
 	Temporal::timepos_t snap_pos (pos + offset);
 	snap_to (snap_pos, Temporal::RoundUpMaybe);
 
-	return snap_pos - pos;
+	return pos.distance (snap_pos);
 }
 
 unsigned
@@ -6311,13 +6311,25 @@ Editor::use_own_window (bool and_fill_it)
 }
 
 double
-Editor::time_to_pixel (timecnt_t const & pos) const
+Editor::time_to_pixel (timepos_t const & pos) const
 {
-	return sample_to_pixel (pos.samples());
+	return sample_to_pixel (pos.sample());
 }
 
 double
-Editor::time_to_pixel_unrounded (timecnt_t const & pos) const
+Editor::time_to_pixel_unrounded (timepos_t const & pos) const
 {
-	return sample_to_pixel_unrounded (pos.samples());
+	return sample_to_pixel_unrounded (pos.sample());
+}
+
+double
+Editor::duration_to_pixels (timecnt_t const & dur) const
+{
+	return sample_to_pixel (dur.samples());
+}
+
+double
+Editor::duration_to_pixels_unrounded (timecnt_t const & dur) const
+{
+	return sample_to_pixel_unrounded (dur.samples());
 }

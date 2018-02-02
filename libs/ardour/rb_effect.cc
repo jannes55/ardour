@@ -147,8 +147,8 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 	double stretch = region->stretch() * tsr.time_fraction;
 	double shift = region->shift() * tsr.pitch_fraction;
 
-	samplecnt_t read_start = region->ancestral_start().sample() +
-		samplecnt_t(region->start().sample() / (double)region->stretch());
+	samplecnt_t read_start = region->ancestral_start().samples() +
+		samplecnt_t(region->start().samples() / (double)region->stretch());
 
 	samplecnt_t read_duration =
 		samplecnt_t(region->length().samples() / (double)region->stretch());
@@ -214,7 +214,7 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 
 				samplepos_t this_position;
 				this_position = read_start + pos -
-					region->start().sample() + region->position().sample();
+					region->start().samples() + region->position().sample();
 
 				this_read = region->master_read_at
 					(buffers[i],
@@ -254,7 +254,7 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 
 				samplepos_t this_position;
 				this_position = read_start + pos -
-					region->start().sample() + region->position().sample();
+					region->start().samples() + region->position().sample();
 
 				this_read = region->master_read_at
 					(buffers[i],
@@ -346,7 +346,7 @@ RBEffect::run (boost::shared_ptr<Region> r, Progress* progress)
 
 	for (vector<boost::shared_ptr<Region> >::iterator x = results.begin(); x != results.end(); ++x) {
 
-		(*x)->set_ancestral_data (read_start,
+		(*x)->set_ancestral_data (timecnt_t (read_start, timepos_t()),
 		                          timecnt_t (read_duration, read_start),
 		                          stretch,
 					  shift);

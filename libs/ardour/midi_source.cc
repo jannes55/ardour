@@ -163,7 +163,7 @@ timecnt_t
 MidiSource::midi_read (const Lock&                        lm,
                        Evoral::EventSink<samplepos_t>&    dst,
                        timepos_t                          source_start,
-                       timepos_t                          start,
+                       timecnt_t                          start,
                        timecnt_t                          cnt,
                        Temporal::Range*                   loop_range,
                        MidiCursor&                        cursor,
@@ -176,7 +176,7 @@ MidiSource::midi_read (const Lock&                        lm,
 	                             source_start, start, cnt, tracker, name()));
 
 	if (!_model) {
-		return timecnt_t (read_unlocked (lm, dst, source_start, start, cnt, loop_range, tracker, filter), start);
+		return timecnt_t (read_unlocked (lm, dst, source_start, start, cnt, loop_range, tracker, filter), start.position());
 	}
 
 	// Find appropriate model iterator
@@ -199,6 +199,9 @@ MidiSource::midi_read (const Lock&                        lm,
 	cursor.last_read_end = start + cnt;
 
 	// Copy events in [start, start + cnt) into dst
+
+	samplepos_t source_start_sample = source_start.sample ();
+
 	for (; i != _model->end(); ++i) {
 
 		// Offset by source start to convert event time to session time
@@ -206,14 +209,14 @@ MidiSource::midi_read (const Lock&                        lm,
 		// XXX optimize this to avoid constantly looking up the
 		// tempo map point/iterator for source_start
 
-		samplepos_t time_samples = _session.tempo_map().sample_plus_quarters_as_samples (source_start.sample(), i->time());
+		samplepos_t time_samples = _session.tempo_map().sample_plus_quarters_as_samples (source_start_sample, i->time());
 
-		if (time_samples < start + source_start) {
+		if (time_samples < start + timecnt_t (source_start, timepos_t())) {
 			/* event too early */
 
 			continue;
 
-		} else if (start + cnt + source_start < time_samples) {
+		} else if (start + cnt + timecnt_t (source_start, timepos_t()) < time_samples) {
 
 			DEBUG_TRACE (DEBUG::MidiSourceIO,
 			             string_compose ("%1: reached end with event @ %2 vs. %3\n",
@@ -256,7 +259,7 @@ MidiSource::midi_read (const Lock&                        lm,
 				DEBUG_STR_DECL(a);
 				DEBUG_STR_APPEND(a, string_compose ("%1 added event @ %2 sz %3 within %4 .. %5 ",
 				                                    _name, time_samples, i->size(),
-				                                    start + source_start, start + cnt + source_start));
+				                                    start + timecnt_t (source_start, timepos_t()), start + cnt + timecnt_t (source_start, timepos_t())));
 				for (size_t n=0; n < i->size(); ++n) {
 					DEBUG_STR_APPEND(a,hex);
 					DEBUG_STR_APPEND(a,"0x");

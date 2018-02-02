@@ -53,22 +53,6 @@ using namespace std;
 using namespace ARDOUR;
 using namespace PBD;
 
-namespace ARDOUR {
-	namespace Properties {
-		PBD::PropertyDescriptor<double> start_beats;
-		PBD::PropertyDescriptor<double> length_beats;
-	}
-}
-
-void
-MidiRegion::make_property_quarks ()
-{
-	Properties::start_beats.property_id = g_quark_from_static_string (X_("start-beats"));
-	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for start-beats = %1\n", Properties::start_beats.property_id));
-	Properties::length_beats.property_id = g_quark_from_static_string (X_("length-beats"));
-	DEBUG_TRACE (DEBUG::Properties, string_compose ("quark for length-beats = %1\n", Properties::length_beats.property_id));
-}
-
 /* Basic MidiRegion constructor (many channels) */
 MidiRegion::MidiRegion (const SourceList& srcs)
 	: Region (srcs)
@@ -412,7 +396,7 @@ MidiRegion::model_shifted (Temporal::Beats qn_distance)
 
 	if (!_ignore_shift) {
 		PropertyChange what_changed;
-		_start = _start.val() + qn_distance;
+		_start = _start.val() + timecnt_t (qn_distance, timepos_t());
 		what_changed.add (Properties::start);
 		send_change (what_changed);
 	} else {
@@ -456,5 +440,5 @@ MidiRegion::fix_negative_start ()
 
 	model()->insert_silence_at_start (-_start.val().beats());
 
-	_start = 0;
+	_start = timecnt_t (0, _position);
 }

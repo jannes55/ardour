@@ -790,14 +790,14 @@ RegionView::update_coverage_samples (LayerDisplay d)
 		bool const new_me = (pl->top_unmuted_region_at (t) == _region);
 		/* finish off any old rect, if required */
 		if (cr && me != new_me) {
-			cr->set_x1 (trackview.editor().time_to_pixel (t - position));
+			cr->set_x1 (trackview.editor().duration_to_pixels (position.distance (t)));
 		}
 
 		/* start off any new rect, if required */
 		if (cr == 0 || me != new_me) {
 			cr = new ArdourCanvas::Rectangle (group);
 			_coverage_samples.push_back (cr);
-			cr->set_x0 (trackview.editor().time_to_pixel (t - position));
+			cr->set_x0 (trackview.editor().duration_to_pixels (position.distance (t)));
 			cr->set_y0 (1);
 			cr->set_y1 (_height + 1);
 			cr->set_outline (false);
@@ -822,7 +822,7 @@ RegionView::update_coverage_samples (LayerDisplay d)
 
 	if (cr) {
 		/* finish off the last rectangle */
-		cr->set_x1 (trackview.editor().time_to_pixel (end - position));
+		cr->set_x1 (trackview.editor().duration_to_pixels (position.distance (end)));
 	}
 
 	if (sample_handle_start) {
@@ -960,8 +960,8 @@ RegionView::snap_region_time_to_region_time (timepos_t const & x, bool ensure_sn
 		editor.snap_to (snapped, RoundUpAlways, false, ensure_snap);
 	}
 
-	/* back to region relative, keeping the relevant divisor */
-	return snapped - _region->position();
+	/* back to region relative */
+	return _region->region_relative_position (snapped);
 }
 
 timecnt_t
@@ -973,5 +973,5 @@ RegionView::region_relative_distance (timecnt_t const & duration, Temporal::Lock
 timecnt_t
 RegionView::source_relative_distance (timecnt_t const & duration, Temporal::LockStyle domain)
 {
-	return _region->session().tempo_map().full_duration_at (_region->position() - _region->start(), duration, domain);
+	return _region->session().tempo_map().full_duration_at (_region->source_position(), duration, domain);
 }

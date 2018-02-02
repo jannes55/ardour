@@ -49,7 +49,7 @@ TimeSelection::consolidate ()
 
   restart:
 	for (std::list<TimelineRange>::iterator a = begin(); a != end(); ++a) {
-		for (std::list<Range>::iterator b = begin(); b != end(); ++b) {
+		for (std::list<TimelineRange>::iterator b = begin(); b != end(); ++b) {
 
 			if (&(*a) == &(*b)) {
 				continue;

@@ -74,7 +74,7 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 	void locate ();
 	void set_mode (Mode, bool noemit = false);
 	void set_bbt_reference (samplepos_t);
-	void set_is_duration (bool);
+	void set_is_duration (bool, Temporal::timepos_t const &);
 
 	void copy_text_to_clipboard () const;
 
@@ -82,7 +82,7 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 
 	samplepos_t current_time () const;
 	Temporal::timepos_t current_position () const;
-	Temporal::timepos_t  current_time_duration () const;
+	Temporal::timecnt_t  current_time_duration () const;
 	ARDOUR::samplecnt_t current_sample_duration (samplepos_t pos) const;
 	Temporal::Beats current_beat_duration (Temporal::timepos_t const &) const;
 	void set_session (ARDOUR::Session *s);
@@ -131,12 +131,13 @@ class AudioClock : public CairoWidget, public ARDOUR::SessionHandlePtr
 	bool             _follows_playhead;
 	bool             _accept_on_focus_out;
 	bool             _off;
-	int              em_width;
+	int               em_width;
 	bool             _edit_by_click_field;
 	bool             _negative_allowed;
-	bool             edit_is_negative;
+	bool              edit_is_negative;
 
-	samplepos_t       _limit_pos;
+	ARDOUR::samplecnt_t       _limit_pos;
+	Temporal::timepos_t duration_position;
 
 	Glib::RefPtr<Pango::Layout> _layout;
 

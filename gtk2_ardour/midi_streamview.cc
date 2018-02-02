@@ -467,10 +467,10 @@ MidiStreamView::setup_rec_box ()
 
 				// handle multi
 
-				timepos_t start;
+				timecnt_t start;
 				if (rec_regions.size() > 0) {
 					start = rec_regions.back().first->start()
-						+ _trackview.track()->get_captured_samples(rec_regions.size()-1);
+						+ timecnt_t (_trackview.track()->get_captured_samples(rec_regions.size()-1), timepos_t());
 				}
 
 				if (!rec_regions.empty()) {
@@ -481,15 +481,14 @@ MidiStreamView::setup_rec_box ()
 				PropertyList plist;
 
 				plist.add (ARDOUR::Properties::start, start);
-				plist.add (ARDOUR::Properties::length, 1);
+				plist.add (ARDOUR::Properties::length, timecnt_t (1, timepos_t())); /* XXX should be beats or similar */
 				plist.add (ARDOUR::Properties::name, string());
 				plist.add (ARDOUR::Properties::layer, 0);
 
 				boost::shared_ptr<MidiRegion> region (boost::dynamic_pointer_cast<MidiRegion>
 				                                      (RegionFactory::create (sources, plist, false)));
 				if (region) {
-					region->set_start (_trackview.track()->current_capture_start()
-					                   - _trackview.track()->get_capture_start_sample (0));
+					region->set_start (timepos_t (_trackview.track()->get_capture_start_sample (0)).distance (_trackview.track()->current_capture_start()));
 					region->set_position (_trackview.session()->transport_sample());
 
 					RegionView* rv = add_region_view_internal (region, false, true);
@@ -610,7 +609,7 @@ MidiStreamView::update_rec_box ()
 
 	/* Update the region being recorded to reflect where we currently are */
 	boost::shared_ptr<ARDOUR::Region> region = rec_regions.back().first;
-	region->set_length (timecnt_t (_trackview.track()->current_capture_end () - _trackview.track()->current_capture_start()));
+	region->set_length (timepos_t (_trackview.track()->current_capture_start()).distance (_trackview.track()->current_capture_end ()));
 
 	MidiRegionView* mrv = dynamic_cast<MidiRegionView*> (rec_regions.back().second);
 	mrv->extend_active_notes ();

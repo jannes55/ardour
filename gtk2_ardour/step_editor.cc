@@ -120,7 +120,7 @@ StepEditor::prepare_step_edit_region ()
 		Temporal::Beats baf = max (Temporal::Beats(), _mtv.session()->tempo_map().quarter_note_at (step_edit_insert_position));
 		Temporal::Beats next_bar_in_beats =  baf + Temporal::Beats::beats (m.divisions_per_bar());
 		timepos_t next_bar_pos = _mtv.session()->tempo_map().sample_at (next_bar_in_beats);
-		timecnt_t len = next_bar_pos - step_edit_insert_position;
+		timecnt_t len = step_edit_insert_position.distance (next_bar_pos);
 
 		step_edit_region = _mtv.add_region (step_edit_insert_position, len, true);
 
@@ -137,7 +137,7 @@ StepEditor::reset_step_edit_beat_pos ()
 	assert (step_edit_region_view);
 
 	const timepos_t ep = _editor.get_preferred_edit_position();
-	timecnt_t distance_from_start (ep - step_edit_region->position(), ep);
+	timecnt_t distance_from_start (step_edit_region->position().distance (ep));
 
 	if (distance_from_start < 0) {
 		/* this can happen with snap enabled, and the edit point == Playhead. we snap the
@@ -412,7 +412,7 @@ StepEditor::step_edit_bar_sync ()
 
 	timepos_t fpos = step_edit_region_view->region()->region_beats_to_absolute_time (step_edit_beat_pos);
 	fpos = fpos.bbt().round_up_to_bar ();
-	step_edit_beat_pos = (fpos - step_edit_region->position()).beats().round_up_to_beat();
+	step_edit_beat_pos = step_edit_region->position().distance (fpos).beats().round_up_to_beat();
 	step_edit_region_view->move_step_edit_cursor (step_edit_beat_pos);
 }
 

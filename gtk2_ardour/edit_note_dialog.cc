@@ -31,6 +31,7 @@
 using namespace std;
 using namespace Gtk;
 using namespace Gtkmm2ext;
+using namespace Temporal;
 
 /**
  *    EditNoteDialog constructor.
@@ -94,8 +95,8 @@ EditNoteDialog::EditNoteDialog (MidiRegionView* rv, set<NoteBase*> n)
 	_time_clock.set_session (_region_view->get_time_axis_view().session ());
 	_time_clock.set_mode (AudioClock::BBT);
 
-	Temporal::timecnt_t dur = _region_view->source_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time()), Temporal::AudioTime);
-	Temporal::timepos_t pos = _region_view->region()->position() - _region_view->region()->start() + dur;
+	timecnt_t dur = _region_view->source_relative_distance (timecnt_t ((*_events.begin())->note()->time(), timepos_t()), BeatTime);
+	timepos_t pos = _region_view->region()->source_position() + dur;
 
 	_time_clock.set_time (pos, true);
 
@@ -108,13 +109,14 @@ EditNoteDialog::EditNoteDialog (MidiRegionView* rv, set<NoteBase*> n)
 	_length_clock.set_session (_region_view->get_time_axis_view().session ());
 	_length_clock.set_mode (AudioClock::BBT);
 
-	dur = _region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->end_time ()), Temporal::AudioTime);
+	dur = _region_view->region_relative_distance (timecnt_t ((*_events.begin())->note()->end_time (), timepos_t()), BarTime);
 	pos = _region_view->region()->position() + dur;
-	Temporal::timecnt_t offset;
-	dur = _region_view->region_relative_distance (Temporal::timepos_t ((*_events.begin())->note()->time ()), Temporal::AudioTime);
-	offset = dur + _region_view->region()->position();
+	timecnt_t offset;
+	dur = _region_view->region_relative_distance (timecnt_t ((*_events.begin())->note()->time (), timepos_t()), BarTime);
+	offset = timecnt_t (_region_view->region()->position(), timepos_t()) + dur;
 
-	_length_clock.set_time (pos, true, offset);
+	_length_clock.set_is_duration (true, pos);
+	_length_clock.set_duration (offset, true);
 
 	/* Set up `set all notes...' buttons' sensitivity */
 
@@ -127,8 +129,8 @@ EditNoteDialog::EditNoteDialog (MidiRegionView* rv, set<NoteBase*> n)
 	int test_channel = (*_events.begin())->note()->channel ();
 	int test_pitch = (*_events.begin())->note()->note ();
 	int test_velocity = (*_events.begin())->note()->velocity ();
-	Temporal::Beats test_time = (*_events.begin())->note()->time ();
-	Temporal::Beats test_length = (*_events.begin())->note()->length ();
+	Beats test_time = (*_events.begin())->note()->time ();
+	Beats test_length = (*_events.begin())->note()->length ();
 
 	for (set<NoteBase*>::iterator i = _events.begin(); i != _events.end(); ++i) {
 		if ((*i)->note()->channel() != test_channel) {
@@ -204,15 +206,15 @@ EditNoteDialog::done (int r)
 		}
 	}
 
-	Temporal::timepos_t source_start = _region_view->region()->position() - _region_view->region()->start();
+	timepos_t source_start = _region_view->region()->position().earlier (_region_view->region()->start());
 
 	/* convert current clock time into an offset from the start of the source */
 
-	Temporal::timepos_t time_clock_source_relative = _time_clock.current_position() - source_start;
+	timepos_t time_clock_source_relative = _time_clock.current_position().earlier (source_start);
 
 	/* convert that into a position in Beats - this will be the new note time (as an offset inside the source) */
 
-	Temporal::Beats const new_note_time_source_relative_beats = time_clock_source_relative.beats ();
+	Beats const new_note_time_source_relative_beats = time_clock_source_relative.beats ();
 
 	if (!_time_all.get_sensitive() || _time_all.get_active ()) {
 		for (set<NoteBase*>::iterator i = _events.begin(); i != _events.end(); ++i) {
@@ -226,13 +228,13 @@ EditNoteDialog::done (int r)
 	if (!_length_all.get_sensitive() || _length_all.get_active ()) {
 
 		/* get current note duration, interpreted as beats at the time indicated by the _time_clock (the new note position) */
-		Temporal::Beats const duration = _length_clock.current_beat_duration (_time_clock.current_time());
+		Beats const duration = _length_clock.current_beat_duration (_time_clock.current_time());
 
 		/* compute end of note */
-		Temporal::Beats const new_note_end_source_relative_beats = new_note_time_source_relative_beats + duration;
+		Beats const new_note_end_source_relative_beats = new_note_time_source_relative_beats + duration;
 
 		for (set<NoteBase*>::iterator i = _events.begin(); i != _events.end(); ++i) {
-			Temporal::Beats const new_note_length_beats = new_note_end_source_relative_beats - (*i)->note()->time();
+			Beats const new_note_length_beats = new_note_end_source_relative_beats - (*i)->note()->time();
 			if (new_note_length_beats != (*i)->note()->length()) {
 				_region_view->change_note_length (*i, new_note_length_beats);
 				had_change = true;

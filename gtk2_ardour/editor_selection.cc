@@ -1917,7 +1917,7 @@ Editor::select_all_selectables_using_loop()
 	Location* location = _session->locations()->auto_loop_location();
 	list<Selectable *> touched;
 
-	if (location == 0 || (location->end_time() - location->start_time() <= 1))  {
+	if (location == 0 || (location->end_time().distance (location->start_time()) <= timecnt_t (1, timepos_t())))  {
 		return;
 	}
 
@@ -2007,7 +2007,7 @@ Editor::select_all_selectables_using_edit (bool after, bool from_context_menu)
 	} else {
 		if ((end = get_preferred_edit_position(EDIT_IGNORE_NONE, from_context_menu)) > 1) {
 			start = 0;
-			end -= 1;
+			end = end.earlier (timecnt_t (1, timepos_t()));
 		} else {
 			return;
 		}

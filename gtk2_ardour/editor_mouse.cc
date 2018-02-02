@@ -402,7 +402,7 @@ void
 Editor::button_selection (ArdourCanvas::Item* item, GdkEvent* event, ItemType item_type)
 {
 
- 	/* in object/audition/timefx/gain-automation mode,
+	/* in object/audition/timefx/gain-automation mode,
 	   any button press sets the selection if the object
 	   can be selected. this is a bit of hack, because
 	   we want to avoid this if the mouse operation is a
@@ -498,8 +498,8 @@ Editor::button_selection (ArdourCanvas::Item* item, GdkEvent* event, ItemType it
 		}
 		break;
 
- 	case RegionViewNameHighlight:
- 	case RegionViewName:
+	case RegionViewNameHighlight:
+	case RegionViewName:
 	case LeftFrameHandle:
 	case RightFrameHandle:
 	case FadeInHandleItem:
@@ -1057,7 +1057,8 @@ Editor::button_press_handler_1 (ArdourCanvas::Item* item, GdkEvent* event, ItemT
 						if (!prev) {
 							_drags->set (new RegionCreateDrag (this, item, parent), event);
 						} else {
-							timecnt_t len = t - prev->position_sample ();
+							/* XXX hmm, this is in samples, but we're working with MIDI ... */
+							timecnt_t len = timecnt_t (t - prev->position_sample (), timepos_t());
 							prev->set_length (len);
 						}
 					}
@@ -1277,11 +1278,11 @@ Editor::button_press_handler (ArdourCanvas::Item* item, GdkEvent* event, ItemTyp
 
 	if ((item_type != FadeInHandleItem) &&
 	    (item_type != FadeOutHandleItem) &&
-	    !_drags->active () && 
-	    _session && 
-	    !_session->transport_rolling() && 
-	    (effective_mouse_mode() == MouseRange) && 
-	    UIConfiguration::instance().get_follow_edits() && 
+	    !_drags->active () &&
+	    _session &&
+	    !_session->transport_rolling() &&
+	    (effective_mouse_mode() == MouseRange) &&
+	    UIConfiguration::instance().get_follow_edits() &&
 	    !_session->config.get_external_sync()) {
 
 		timepos_t where (canvas_event_sample (event));
@@ -2080,7 +2081,7 @@ Editor::motion_handler (ArdourCanvas::Item* /*item*/, GdkEvent* event, bool from
 	update_join_object_range_location (event->motion.y);
 
 	if (_drags->active ()) {
-	 	return _drags->motion_handler (event, from_autoscroll);
+		return _drags->motion_handler (event, from_autoscroll);
 	}
 
 	return false;

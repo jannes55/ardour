@@ -100,7 +100,7 @@ AutomationRegionView::create_line (boost::shared_ptr<ARDOUR::AutomationList> lis
 	_line->set_height ((uint32_t)rint(trackview.current_height() - 2.5 - NAME_HIGHLIGHT_SIZE));
 	_line->set_visibility (AutomationLine::VisibleAspects (AutomationLine::Line|AutomationLine::ControlPoints));
 	_line->set_maximum_time (Temporal::timepos_t (_region->length()));
-	_line->set_offset (_region->start_sample ());
+	_line->set_offset (timecnt_t (_region->start_sample (), timepos_t()));
 }
 
 uint32_t
@@ -184,7 +184,7 @@ AutomationRegionView::add_automation_event (GdkEvent *, timepos_t const & w, dou
 
 	/* snap time */
 
-	when = snap_region_time_to_region_time (when - _region->start(), false) + _region->start ();
+	when = snap_region_time_to_region_time (when.earlier (_region->start()), false) + _region->start ();
 
 	/* map using line */
 
@@ -227,7 +227,7 @@ AutomationRegionView::paste (Temporal::timepos_t const &                     pos
 	p += view->editor ().get_paste_offset (pos, paste_count > 0 ? 1 : 0, len);
 
 	/* convert sample-position to model's unit and position */
-	Temporal::timepos_t model_pos = timepos_t (source_relative_distance (p, slist->time_style()));
+	Temporal::timepos_t model_pos = timepos_t (source_relative_distance (timecnt_t (p, timepos_t()), slist->time_style()));
 
 	XMLNode& before = my_list->get_state();
 	my_list->paste (*slist, model_pos, _region->session().tempo_map());

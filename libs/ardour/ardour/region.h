@@ -60,12 +60,12 @@ namespace Properties {
 	LIBARDOUR_API extern PBD::PropertyDescriptor<bool>              hidden;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<bool>              position_locked;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<bool>              valid_transients;
-	LIBARDOUR_API extern PBD::PropertyDescriptor<timepos_t>         start;
+	LIBARDOUR_API extern PBD::PropertyDescriptor<timecnt_t>         start;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<timecnt_t>         length;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<timepos_t>         position;
-	LIBARDOUR_API extern PBD::PropertyDescriptor<timepos_t>         sync_position;
+	LIBARDOUR_API extern PBD::PropertyDescriptor<timecnt_t>         sync_position;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<layer_t>           layer;
-	LIBARDOUR_API extern PBD::PropertyDescriptor<timepos_t>         ancestral_start;
+	LIBARDOUR_API extern PBD::PropertyDescriptor<timecnt_t>         ancestral_start;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<timecnt_t>         ancestral_length;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<float>             stretch;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<float>             shift;
@@ -114,23 +114,19 @@ public:
 	 */
 
 	timepos_t position ()  const { return _position.val(); }
-	timepos_t start ()     const { return _start.val(); }
+	timecnt_t start ()     const { return _start.val(); }
 	timecnt_t length ()    const { return _length.val(); }
 	timepos_t end()        const;
 
-	timepos_t source_position() const;
+	timepos_t source_position () const;
+	timepos_t source_relative_position (Temporal::timepos_t const &) const;
+	timepos_t region_relative_position (Temporal::timepos_t const &) const;
 
 	samplepos_t position_sample ()  const { return _position.val().sample(); }
-	samplepos_t start_sample ()     const { return _start.val().sample(); }
+	samplecnt_t start_sample ()     const { return _start.val().samples(); }
 	samplecnt_t length_samples ()    const { return _length.val().samples(); }
 
 	samplecnt_t readable_length_samples() const { return length_samples(); }
-
-	Temporal::Beats position_beats() const { return _position.val().beats(); }
-	Temporal::Beats start_beats() const { return _start.val().beats(); }
-
-	Temporal::BBT_Time position_bbt() const { return _position.val().bbt(); }
-	Temporal::BBT_Time start_bbt() const { return _start.val().bbt(); }
 
 	layer_t    layer ()     const { return _layer; }
 
@@ -142,17 +138,19 @@ public:
 	timepos_t last_position () const { return _last_position; }
 	timecnt_t last_length ()   const { return _last_length; }
 
-	samplepos_t ancestral_start_sample ()  const { return _ancestral_start.val().sample(); }
+	samplecnt_t ancestral_start_sample ()  const { return _ancestral_start.val().samples(); }
 	samplecnt_t ancestral_length_samples () const { return _ancestral_length.val().samples(); }
-	timepos_t ancestral_start ()  const { return _ancestral_start.val(); }
+	timecnt_t ancestral_start ()  const { return _ancestral_start.val(); }
 	timecnt_t ancestral_length () const { return _ancestral_length.val(); }
 
 	float stretch () const { return _stretch; }
 	float shift ()   const { return _shift; }
 
-	void set_ancestral_data (timepos_t const & start, timecnt_t const & length, float stretch, float shift);
+	void set_ancestral_data (timecnt_t const & start, timecnt_t const & length, float stretch, float shift);
 
+	/* returns the sync point as a distance from the start of the region */
 	timecnt_t sync_offset (int& dir) const;
+	/* returns sync point as a timepos_t (i.e. on the timeline */
 	timepos_t sync_position () const;
 
 	timepos_t adjust_to_sync (timepos_t const &) const;
@@ -237,7 +235,7 @@ public:
 	/* EDITING OPERATIONS */
 
 	void set_length (timecnt_t const &);
-	void set_start (timepos_t const &);
+	void set_start (timecnt_t const &);
 	void set_position (timepos_t const &);
 	void set_initial_position (timepos_t const &);
 	void special_set_position (timepos_t const &);
@@ -412,7 +410,7 @@ protected:
 	Region (boost::shared_ptr<const Region>, const SourceList&);
 
 	/** Constructor for derived types only */
-	Region (Session& s, timepos_t start, timecnt_t length, const std::string& name, DataType);
+	Region (Session& s, timepos_t const & start, timecnt_t const & length, const std::string& name, DataType);
 
 	virtual bool can_trim_start_before_source_start () const {
 		return false;
@@ -425,8 +423,8 @@ protected:
 	void post_set (const PBD::PropertyChange&);
 	virtual void set_position_internal (timepos_t const & pos);
 	virtual void set_length_internal (timecnt_t const &);
-	virtual void set_start_internal (timepos_t const &);
-	bool verify_start_and_length (timepos_t const &, timecnt_t&);
+	virtual void set_start_internal (timecnt_t const &);
+	bool verify_start_and_length (timecnt_t const &, timecnt_t&);
 	void first_edit ();
 
 	DataType _type;
@@ -435,11 +433,11 @@ protected:
 	PBD::Property<bool>        _left_of_split;
 	PBD::Property<bool>        _right_of_split;
 	PBD::Property<bool>        _valid_transients;
-	PBD::Property<timepos_t>   _start;
+	PBD::Property<timecnt_t>   _start;
 	PBD::Property<timecnt_t>   _length;
 	PBD::Property<timepos_t>   _position;
 	/** Sync position relative to the start of our file */
-	PBD::Property<timepos_t>   _sync_position;
+	PBD::Property<timecnt_t>   _sync_position;
 
 	SourceList              _sources;
 	/** Used when timefx are applied, so we can always use the original source */
@@ -473,8 +471,8 @@ private:
 
 	void maybe_uncopy ();
 
-	bool verify_start (timepos_t const &);
-	bool verify_start_mutable (timepos_t& _start);
+	bool verify_start (timecnt_t const &);
+	bool verify_start_mutable (timecnt_t& _start);
 	bool verify_length (timecnt_t&);
 
 	virtual void recompute_at_start () = 0;
@@ -490,7 +488,7 @@ private:
 	PBD::Property<bool>        _external;
 	PBD::Property<bool>        _hidden;
 	PBD::Property<bool>        _position_locked;
-	PBD::Property<timepos_t>   _ancestral_start;
+	PBD::Property<timecnt_t>   _ancestral_start;
 	PBD::Property<timecnt_t>   _ancestral_length;
 	PBD::Property<float>       _stretch;
 	PBD::Property<float>       _shift;

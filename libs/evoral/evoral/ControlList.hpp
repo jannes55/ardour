@@ -92,7 +92,7 @@ public:
 	Temporal::timepos_t when_as_sample() const { return Temporal::timepos_t (Temporal::samplepos_t (when)); }
 	Temporal::timepos_t when_as_beats() const { return Temporal::timepos_t (Temporal::Beats::ticks (when)); }
 
-	when_t  when;
+	when_t  when; /* XXX relative to what ? */
 	double  value;
 	double* coeff; ///< double[4] allocated by Curve as needed
 };

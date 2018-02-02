@@ -442,17 +442,17 @@ Editor::nudge_forward (bool next, bool force_playhead)
 					if (next) {
 						distance = next_distance;
 					}
-					if (std::numeric_limits<timepos_t>::max() - distance > loc->start_time() + loc->length()) {
+					if (std::numeric_limits<timepos_t>::max().earlier (distance) > loc->start_time() + loc->length()) {
 						loc->set_start (loc->start_time() + distance, false);
 					} else {
-						loc->set_start (std::numeric_limits<timepos_t>::max() - loc->length(), false);
+						loc->set_start (std::numeric_limits<timepos_t>::max().earlier (loc->length()), false);
 					}
 				} else {
 					distance = get_nudge_distance (loc->end_time(), next_distance);
 					if (next) {
 						distance = next_distance;
 					}
-					if (std::numeric_limits<timepos_t>::max() - distance > loc->end_time()) {
+					if (std::numeric_limits<timepos_t>::max().earlier (distance) > loc->end_time()) {
 						loc->set_end (loc->end_time() + distance, false);
 					} else {
 						loc->set_end (std::numeric_limits<timepos_t>::max(), false);
@@ -507,7 +507,7 @@ Editor::nudge_backward (bool next, bool force_playhead)
 			r->clear_changes ();
 
 			if (r->position() > distance) {
-				r->set_position (r->position() - distance);
+				r->set_position (r->position().earlier (distance));
 			} else {
 				r->set_position (0);
 			}
@@ -534,8 +534,8 @@ Editor::nudge_backward (bool next, bool force_playhead)
 					if (next) {
 						distance = next_distance;
 					}
-					if (distance < loc->start_time()) {
-						loc->set_start (loc->start_time() - distance, false);
+					if (timepos_t (distance) < loc->start_time()) {
+						loc->set_start (loc->start_time().earlier (distance), false);
 					} else {
 						loc->set_start (0, false);
 					}
@@ -546,8 +546,8 @@ Editor::nudge_backward (bool next, bool force_playhead)
 						distance = next_distance;
 					}
 
-					if (distance < loc->end_time() - loc->length()) {
-						loc->set_end (loc->end_time() - distance, false);
+					if (timepos_t (distance) < loc->end_time().earlier (loc->length())) {
+						loc->set_end (loc->end_time().earlier (distance), false);
 					} else {
 						loc->set_end (timepos_t (loc->length()), false);
 					}
@@ -572,7 +572,7 @@ Editor::nudge_backward (bool next, bool force_playhead)
 		distance = get_nudge_distance (playhead_cursor->current_sample (), next_distance);
 
 		if (playhead_cursor->current_sample () > distance) {
-			_session->request_locate ((playhead_cursor->current_time () - distance).sample());
+			_session->request_locate ((playhead_cursor->current_time ().earlier (distance)).sample());
 		} else {
 			_session->goto_start();
 		}
@@ -622,7 +622,7 @@ Editor::nudge_backward_capture_offset ()
 		r->clear_changes ();
 
 		if (r->position() > distance) {
-			r->set_position (r->position() - distance);
+			r->set_position (r->position().earlier (distance));
 		} else {
 			r->set_position (0);
 		}
@@ -830,23 +830,22 @@ Editor::build_region_boundary_cache ()
 }
 
 boost::shared_ptr<Region>
-Editor::find_next_region (timepos_t const & sample, RegionPoint point, int32_t dir, TrackViewList& tracks, TimeAxisView **ontrack)
+Editor::find_next_region (timepos_t const & when, RegionPoint point, int32_t dir, TrackViewList& tracks, TimeAxisView **ontrack)
 {
 	TrackViewList::iterator i;
 	timepos_t closest = std::numeric_limits<timepos_t>::max();
 	boost::shared_ptr<Region> ret;
-	timepos_t rpos = 0;
-
-	timepos_t track_sample;
+	timepos_t rpos;
+	timepos_t track_when;
 
 	for (i = tracks.begin(); i != tracks.end(); ++i) {
 
-		timecnt_t distance;
+		timepos_t maybe;
 		boost::shared_ptr<Region> r;
 
-		track_sample = sample;
+		track_when = when;
 
-		if ((r = (*i)->find_next_region (track_sample, point, dir)) == 0) {
+		if ((r = (*i)->find_next_region (track_when, point, dir)) == 0) {
 			continue;
 		}
 
@@ -864,14 +863,14 @@ Editor::find_next_region (timepos_t const & sample, RegionPoint point, int32_t d
 			break;
 		}
 
-		if (rpos > sample) {
-			distance = rpos - sample;
+		if (rpos > when) {
+			maybe = rpos.earlier (when);
 		} else {
-			distance = sample - rpos;
+			maybe = when.earlier (rpos);
 		}
 
-		if (distance < closest) {
-			closest = distance;
+		if (maybe < closest) {
+			closest = maybe;
 			if (ontrack != 0)
 				*ontrack = (*i);
 			ret = r;
@@ -901,7 +900,7 @@ Editor::find_next_region_boundary (timepos_t const & pos, int32_t dir, const Tra
 			continue;
 		}
 
-		d = pos.exclusive_delta (contender).abs ();
+		d = contender.distance (pos).abs ();
 
 		if (d < distance) {
 			current_nearest = contender;
@@ -1920,7 +1919,7 @@ Editor::calc_extra_zoom_edges(timepos_t &start, timepos_t &end)
 	const samplepos_t extra_samples = (samplepos_t) floor (one_centimeter_in_pixels * new_fpp);
 
 	if (start > extra_samples) {
-		start -= extra_samples;
+		start.earlier (extra_samples);
 	} else {
 		start = std::numeric_limits<timepos_t>::min();
 	}
@@ -2686,7 +2685,7 @@ Editor::play_with_preroll ()
 		timepos_t ret = start;
 
 		if (start > preroll) {
-			start = start - preroll;
+			start = start.earlier (preroll);
 		}
 
 		end = end + preroll;  //"post-roll"
@@ -2980,7 +2979,7 @@ Editor::region_from_selection ()
 	for (TrackSelection::iterator i = tracks.begin(); i != tracks.end(); ++i) {
 		boost::shared_ptr<Region> current;
 		boost::shared_ptr<Playlist> pl;
-		timepos_t internal_start;
+		timecnt_t internal_start;
 		string new_name;
 
 		if ((pl = (*i)->playlist()) == 0) {
@@ -2991,12 +2990,12 @@ Editor::region_from_selection ()
 			continue;
 		}
 
-		internal_start = start - current->position();
+		internal_start = timecnt_t (start.earlier (current->position()), current->position());
 		RegionFactory::region_name (new_name, current->name(), true);
 
 		PropertyList plist;
 
-		plist.add (ARDOUR::Properties::start, current->start() + internal_start);
+		plist.add (ARDOUR::Properties::start, internal_start + current->start());
 		plist.add (ARDOUR::Properties::length, selection_cnt);
 		plist.add (ARDOUR::Properties::name, new_name);
 		plist.add (ARDOUR::Properties::layer, 0);
@@ -3038,13 +3037,13 @@ Editor::create_region_from_selection (vector<boost::shared_ptr<Region> >& new_re
 			continue;
 		}
 
-		internal_start = start.exclusive_delta (current->position());
+		internal_start = current->position().distance (start);
 		RegionFactory::region_name (new_name, current->name(), true);
 
 		PropertyList plist;
 
 		plist.add (ARDOUR::Properties::start, current->start() + internal_start);
-		plist.add (ARDOUR::Properties::length, end.exclusive_delta (start));
+		plist.add (ARDOUR::Properties::length, start.distance (end));
 		plist.add (ARDOUR::Properties::name, new_name);
 
 		new_regions.push_back (RegionFactory::create (current, plist));
@@ -3436,13 +3435,13 @@ Editor::crop_region_to (timepos_t const & start, timepos_t const & end)
 
 			pos = (*i)->position();
 			new_start = max (start, pos);
-			if (std::numeric_limits<timepos_t>::max() - pos > (*i)->length()) {
+			if (std::numeric_limits<timepos_t>::max().earlier (pos) > timepos_t ((*i)->length())) {
 				new_end = (pos + (*i)->length()).decrement();
 			} else {
 				new_end = std::numeric_limits<timepos_t>::max();
 			}
 			new_end = min (end, new_end);
-			new_length = new_end.exclusive_delta (new_start);
+			new_length = new_start.distance (new_end);
 
 			(*i)->clear_changes ();
 			(*i)->trim_to (new_start, new_length);
@@ -3630,20 +3629,20 @@ Editor::align_regions_relative (RegionPoint point)
 	case Start:
 		pos = position;
 		if (position > r->position()) {
-			distance = position.exclusive_delta (r->position());
+			distance = position.distance (r->position());
 		} else {
-			distance = r->position().exclusive_delta (position);
+			distance = r->position().distance (position);
 			dir = -1;
 		}
 		break;
 
 	case End:
 		if (position > r->last()) {
-			distance = position.exclusive_delta (r->last_sample());
+			distance = position.distance (r->last());
 			pos = r->position() + distance;
 		} else {
-			distance = r->last().exclusive_delta (position);
-			pos = r->position() - distance;
+			distance = r->last().distance (position);
+			pos = r->position().earlier (distance);
 			dir = -1;
 		}
 		break;
@@ -3651,9 +3650,9 @@ Editor::align_regions_relative (RegionPoint point)
 	case SyncPoint:
 		pos = r->adjust_to_sync (position);
 		if (pos > r->position()) {
-			distance = pos.exclusive_delta (r->position());
+			distance = pos.distance (r->position());
 		} else {
-			distance = r->position().exclusive_delta (pos);
+			distance = r->position().distance (pos);
 			dir = -1;
 		}
 		break;
@@ -3684,7 +3683,7 @@ Editor::align_regions_relative (RegionPoint point)
 		if (dir > 0) {
 			region->set_position (region->position() + distance);
 		} else {
-			region->set_position (region->position() - distance);
+			region->set_position (region->position().earlier (distance));
 		}
 
 		_session->add_command(new StatefulDiffCommand (region));
@@ -3714,7 +3713,7 @@ Editor::align_region_internal (boost::shared_ptr<Region> region, RegionPoint poi
 
 	case End:
 		if (position > region->length()) {
-			region->set_position (position - region->length());
+			region->set_position (position.earlier (region->length()));
 		}
 		break;
 
@@ -3815,7 +3814,7 @@ Editor::trim_region_to_location (const Location& loc, const char* str)
 		timepos_t end (loc.end_time());
 
 		rv->region()->clear_changes ();
-		rv->region()->trim_to (start, end.exclusive_delta (start));
+		rv->region()->trim_to (start, end.distance (start));
 
 		if (!in_command) {
 			begin_reversible_command (str);
@@ -4653,7 +4652,7 @@ Editor::cut_copy_regions (CutCopyOp op, RegionSelection& rs)
 
 		case Cut:
 			_xx = RegionFactory::create (r);
-			npl->add_region (_xx, r->position() - first_position);
+			npl->add_region (_xx, r->position().earlier (first_position));
 			pl->remove_region (r);
 			if (Config->get_edit_mode() == Ripple)
 				pl->ripple (r->position(), -r->length(), boost::shared_ptr<Region>());
@@ -4661,7 +4660,7 @@ Editor::cut_copy_regions (CutCopyOp op, RegionSelection& rs)
 
 		case Copy:
 			/* copy region before adding, so we're not putting same object into two different playlists */
-			npl->add_region (RegionFactory::create (r), r->position() - first_position);
+			npl->add_region (RegionFactory::create (r), r->position().earlier (first_position));
 			break;
 
 		case Clear:
@@ -4963,9 +4962,9 @@ Editor::duplicate_selection (float times)
 			timecnt_t distance;
 
 			if (clicked_selection) {
-				distance = selection->time[clicked_selection].end().exclusive_delta (selection->time[clicked_selection].start());
+				distance = selection->time[clicked_selection].end().distance (selection->time[clicked_selection].start());
 			} else {
-				distance = selection->time.end_time().exclusive_delta (selection->time.start_time ());
+				distance = selection->time.end_time().distance (selection->time.start_time ());
 			}
 
 			selection->move_time (distance);
@@ -5583,7 +5582,8 @@ Editor::insert_patch_change (bool from_context)
 		MidiRegionView* const mrv = dynamic_cast<MidiRegionView*> (*i);
 		if (mrv) {
 			if (p >= mrv->region()->position() && p <= mrv->region()->last()) {
-				mrv->add_patch_change (p - mrv->region()->position(), d.patch ());
+				const timepos_t patchpos = p.earlier (mrv->region()->position());
+				mrv->add_patch_change (timecnt_t (patchpos, mrv->region()->source_position()), d.patch ());
 			}
 		}
 	}
@@ -6942,7 +6942,7 @@ Editor::split_region_at_points (boost::shared_ptr<Region> r, AnalysisFeatureList
 	pl->freeze ();
 	pl->remove_region (r);
 
-	timepos_t pos = 0;
+	timecnt_t pos;
 
 	timepos_t rstart = r->position ();
 	timepos_t rend = r->last ();
@@ -6951,7 +6951,7 @@ Editor::split_region_at_points (boost::shared_ptr<Region> r, AnalysisFeatureList
 
 		timepos_t tx (*x);
 
-		/* deal with positons that are out of scope of present region bounds */
+		/* deal with positions that are out of scope of present region bounds */
 		if (tx <= rstart || tx > rend) {
 			++x;
 			continue;
@@ -6959,11 +6959,11 @@ Editor::split_region_at_points (boost::shared_ptr<Region> r, AnalysisFeatureList
 
 		/* file start = original start + how far we from the initial position ?  */
 
-		timepos_t file_start = r->start() + pos;
+		timecnt_t file_start = r->start() + pos;
 
 		/* length = next position - current position */
 
-		timecnt_t len = tx - pos - rstart;
+		timecnt_t len = pos - rstart.distance (tx);
 
 		/* XXX we do we really want to allow even single-sample regions?
 		 * shouldn't we have some kind of lower limit on region size?
@@ -7013,7 +7013,7 @@ Editor::split_region_at_points (boost::shared_ptr<Region> r, AnalysisFeatureList
 	PropertyList plist;
 
 	plist.add (ARDOUR::Properties::start, r->start() + pos);
-	plist.add (ARDOUR::Properties::length, r->last() - (r->position() + pos) + 1);
+	plist.add (ARDOUR::Properties::length, (r->position() + pos).distance (r->last()));
 	plist.add (ARDOUR::Properties::name, new_name);
 	plist.add (ARDOUR::Properties::layer, 0);
 
@@ -7209,10 +7209,10 @@ Editor::close_region_gaps ()
 		}
 
 		(*r)->region()->clear_changes ();
-		(*r)->region()->trim_front ((position - timepos_t (pull_back_samples)));
+		(*r)->region()->trim_front ((position.earlier (timecnt_t (pull_back_samples, timepos_t()))));
 
 		last_region->clear_changes ();
-		last_region->trim_end ((position - timepos_t (pull_back_samples + crossfade_len)));
+		last_region->trim_end (position.earlier (timecnt_t (pull_back_samples + crossfade_len, timepos_t())));
 
 		_session->add_command (new StatefulDiffCommand ((*r)->region()));
 		_session->add_command (new StatefulDiffCommand (last_region));
@@ -7320,7 +7320,7 @@ Editor::playhead_forward_to_grid ()
 	timepos_t pos (playhead_cursor->current_sample ());
 
 	if (pos.sample() < max_samplepos - 1) {
-		pos += timepos_t (2);
+		pos += timecnt_t (2, timepos_t());
 		snap_to_internal (pos, Temporal::RoundUpAlways, false, true);
 		_session->request_locate (pos.sample());
 	}
@@ -7337,7 +7337,7 @@ Editor::playhead_backward_to_grid ()
 	timepos_t pos  (playhead_cursor->current_sample ());
 
 	if (pos.sample() > 2) {
-		pos -= timepos_t (2);
+		pos.earlier (timecnt_t (2, timepos_t()));
 		snap_to_internal (pos, Temporal::RoundDownAlways, false, true);
 		_session->request_locate (pos.sample());
 	}
@@ -7739,7 +7739,7 @@ Editor::do_remove_time ()
 		return;
 	}
 
-	samplecnt_t distance = d.distance();
+	timecnt_t distance = d.distance();
 
 	if (distance == 0) {
 		return;
@@ -7836,7 +7836,7 @@ Editor::remove_time (timepos_t const & pos, timecnt_t const & duration, InsertTi
 							moved = true;
 						} else if ((*i)->start_time() >= end) {
 							// start (and thus entire range) lies beyond end of cut
-							(*i)->set_start ((*i)->start_time() - duration, false); // slip the start marker back
+							(*i)->set_start ((*i)->start_time().earlier (duration), false); // slip the start marker back
 							moved = true;
 						}
 						if ((*i)->end_time() >= pos && (*i)->end_time() < end) {
@@ -7845,7 +7845,7 @@ Editor::remove_time (timepos_t const & pos, timecnt_t const & duration, InsertTi
 							moved = true;
 						} else if ((*i)->end_time() >= end) {
 							// end is beyond end of cut
-							(*i)->set_end ((*i)->end_time() - duration, false); // slip the end marker back
+							(*i)->set_end ((*i)->end_time().earlier (duration), false); // slip the end marker back
 							moved = true;
 						}
 
@@ -7854,7 +7854,7 @@ Editor::remove_time (timepos_t const & pos, timecnt_t const & duration, InsertTi
 					loc_kill_list.push_back(*i);
 					moved = true;
 				} else if ((*i)->start_time() >= pos) {
-					(*i)->set_start ((*i)->start_time() - duration, false);
+					(*i)->set_start ((*i)->start_time().earlier (duration), false);
 					moved = true;
 				}
 

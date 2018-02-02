@@ -6280,7 +6280,7 @@ Session::write_one_track (Track& track, Temporal::timepos_t const & tstart, Temp
 
 		PropertyList plist;
 
-		plist.add (Properties::start, 0);
+		plist.add (Properties::start, timecnt_t (0, timepos_t ()));
 		plist.add (Properties::length, srcs.front()->length ());
 		plist.add (Properties::name, region_name_from_path (srcs.front()->name(), true));
 

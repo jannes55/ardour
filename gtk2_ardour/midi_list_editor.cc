@@ -764,7 +764,7 @@ MidiListEditor::redisplay_model ()
 		MidiModel::Notes notes = region->midi_source(0)->model()->notes();
 		TreeModel::Row row;
 		stringstream ss;
-		const timepos_t start = region->start();
+		const timecnt_t start = region->start();
 
 		for (MidiModel::Notes::iterator i = notes.begin(); i != notes.end(); ++i) {
 			row = *(model->append());
@@ -773,7 +773,7 @@ MidiListEditor::redisplay_model ()
 			row[columns.note] = (*i)->note();
 			row[columns.velocity] = (*i)->velocity();
 
-			Temporal::BBT_Time bbt ((region->position() + (*i)->time() - start).bbt());
+			Temporal::BBT_Time bbt (((region->position() + (*i)->time()).earlier (start)).bbt());
 
 			ss.str ("");
 			ss << bbt;

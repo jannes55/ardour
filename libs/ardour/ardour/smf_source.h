@@ -80,8 +80,8 @@ public:
 	bool _open;
 	Temporal::Beats     _last_ev_time_beats;
 	samplepos_t         _last_ev_time_samples;
-	/** end time (start + duration) of last call to read_unlocked */
-	mutable timepos_t   _smf_last_read_end;
+	/** end time (as offset within file) of last call to read_unlocked */
+	mutable timecnt_t   _smf_last_read_end;
 	/** time (in SMF ticks, 1 tick per _ppqn) of the last event read by read_unlocked */
 	mutable uint64_t    _smf_last_read_time;
 
@@ -92,7 +92,7 @@ public:
 	int read_unlocked (const Lock&                    lock,
 	                   Evoral::EventSink<samplepos_t>& dst,
 	                   timepos_t                       position,
-	                   timepos_t                       start,
+	                   timecnt_t                       start,
 	                   timecnt_t                       cnt,
 	                   Temporal::Range*                loop_range,
 	                   MidiStateTracker*               tracker,

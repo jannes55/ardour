@@ -88,8 +88,8 @@ class LIBARDOUR_API MidiSource : virtual public Source, public boost::enable_sha
 	 * All time stamps in parameters are in audio samples (even if the source has tempo time).
 	 * \param dst Ring buffer where read events are written.
 	 * \param source_start Start position of the SOURCE in this read context.
-	 * \param start Start of range to be read.
-	 * \param cnt Length of range to be read (in audio samples).
+	 * \param start first position in source to be read
+	 * \param cnt Length of range to be read
 	 * \param loop_range If non-null, all event times will be mapped into this loop range.
 	 * \param tracker an optional pointer to MidiStateTracker object, for note on/off tracking.
 	 * \param filtered Parameters whose MIDI messages will not be returned.
@@ -97,7 +97,7 @@ class LIBARDOUR_API MidiSource : virtual public Source, public boost::enable_sha
 	virtual timecnt_t midi_read (const Lock&                        lock,
 	                             Evoral::EventSink<samplepos_t>&    dst,
 	                             timepos_t                          source_start,
-	                             timepos_t                          start,
+	                             timecnt_t                          start,
 	                             timecnt_t                          cnt,
 	                             Temporal::Range*                   loop_range,
 	                             MidiCursor&                        cursor,
@@ -223,7 +223,7 @@ class LIBARDOUR_API MidiSource : virtual public Source, public boost::enable_sha
 	virtual int read_unlocked (const Lock&                     lock,
 	                                 Evoral::EventSink<samplepos_t>& dst,
 	                                 timepos_t                       position,
-	                                 timepos_t                       start,
+	                                 timecnt_t                       start,
 	                                 timecnt_t                       cnt,
 	                                 Temporal::Range*                loop_range,
 	                                 MidiStateTracker*               tracker,

@@ -1272,6 +1272,21 @@ TempoMap::iterator_at (Temporal::BBT_Time const & bbt)
 }
 
 Temporal::BBT_Time
+TempoMap::bbt_at (timepos_t const & pos) const
+{
+	switch (pos.lock_style()) {
+	case BarTime:
+		return pos.bbt();
+	case AudioTime:
+		return bbt_at (pos.sample());
+	default:
+		break;
+	}
+
+	return bbt_at (pos.beats());
+}
+
+Temporal::BBT_Time
 TempoMap::bbt_at (samplepos_t s) const
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);

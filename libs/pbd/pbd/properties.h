@@ -80,6 +80,18 @@ public:
 		return _current;
 	}
 
+	T operator- (T const other) const {
+		return _current - other;
+	}
+
+	bool operator< (T const &other) const {
+		return _current < other;
+	}
+
+	bool operator> (T const &other) const {
+		return _current > other;
+	}
+
 	bool operator==(const T& other) const {
 		return _current == other;
 	}

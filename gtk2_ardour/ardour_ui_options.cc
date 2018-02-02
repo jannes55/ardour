@@ -444,21 +444,21 @@ ARDOUR_UI::parameter_changed (std::string p)
 		if (editor) editor->toggle_meter_updating();
 	} else if (p == "primary-clock-delta-edit-cursor") {
 		if (UIConfiguration::instance().get_primary_clock_delta_edit_cursor()) {
-			primary_clock->set_is_duration (true);
+			primary_clock->set_is_duration (true, timepos_t());
 			primary_clock->set_editable (false);
 			primary_clock->set_widget_name ("transport delta");
 		} else {
-			primary_clock->set_is_duration (false);
+			primary_clock->set_is_duration (false, timepos_t());
 			primary_clock->set_editable (true);
 			primary_clock->set_widget_name ("transport");
 		}
 	} else if (p == "secondary-clock-delta-edit-cursor") {
 		if (UIConfiguration::instance().get_secondary_clock_delta_edit_cursor()) {
-			secondary_clock->set_is_duration (true);
+			secondary_clock->set_is_duration (true, timepos_t());
 			secondary_clock->set_editable (false);
 			secondary_clock->set_widget_name ("secondary delta");
 		} else {
-			secondary_clock->set_is_duration (false);
+			secondary_clock->set_is_duration (false, timepos_t());
 			secondary_clock->set_editable (true);
 			secondary_clock->set_widget_name ("secondary");
 		}

@@ -212,8 +212,10 @@ public:
 	virtual samplepos_t playhead_cursor_sample () const = 0;
 	virtual double sample_to_pixel (samplepos_t sample) const = 0;
 	virtual double sample_to_pixel_unrounded (samplepos_t sample) const = 0;
-	virtual double time_to_pixel (Temporal::timecnt_t const &) const = 0;
-	virtual double time_to_pixel_unrounded (Temporal::timecnt_t const &) const = 0;
+	virtual double time_to_pixel (Temporal::timepos_t const &) const = 0;
+	virtual double time_to_pixel_unrounded (Temporal::timepos_t const &) const = 0;
+	virtual double duration_to_pixels (Temporal::timecnt_t const &) const = 0;
+	virtual double duration_to_pixels_unrounded (Temporal::timecnt_t const &) const = 0;
 
 	virtual Selection& get_selection () const = 0;
 	virtual bool get_selection_extents (Temporal::timepos_t &start, Temporal::timepos_t &end) const = 0;

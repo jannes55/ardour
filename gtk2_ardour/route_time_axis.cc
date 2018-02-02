@@ -1505,14 +1505,14 @@ RouteTimeAxisView::paste (Temporal::timepos_t const & ps, const Selection& selec
 
 	/* add multi-paste offset if applicable */
 	std::pair<timepos_t,timepos_t> extent   = (*p)->get_extent();
-	const timecnt_t                duration = extent.second - extent.first;
+	const timecnt_t                duration = extent.first.distance (extent.second);
 	pos += _editor.get_paste_offset (pos, ctx.count, duration);
 
 	pl->clear_changes ();
 	pl->clear_owned_changes ();
 	if (Config->get_edit_mode() == Ripple) {
 		std::pair<timepos_t,timepos_t> extent = (*p)->get_extent_with_endspace();
-		timecnt_t amount = extent.second - extent.first;
+		timecnt_t amount = extent.first.distance (extent.second);
 		pl->ripple(pos, amount * ctx.times, boost::shared_ptr<Region>());
 	}
 	pl->paste (*p, pos, ctx.times);

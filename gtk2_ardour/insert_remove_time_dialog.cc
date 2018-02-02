@@ -69,12 +69,14 @@ InsertRemoveTimeDialog::InsertRemoveTimeDialog (PublicEditor& e, bool remove)
 	table->attach (*time_label, 0, 1, 1, 2, FILL | EXPAND);
 	duration_clock.set_session (_session);
 	duration_clock.set_mode (ARDOUR_UI::instance()->secondary_clock->mode());
+	duration_clock.set_is_duration (true, timepos_t());
+
 	table->attach (duration_clock, 1, 2, 1, 2);
 
 	//if a Range is selected, assume the user wants to insert/remove the length of the range
 	if ( _editor.get_selection().time.length() != 0 ) {
 		position_clock.set_time ( _editor.get_selection().time.start_time(), true );
-		duration_clock.set_time ( _editor.get_selection().time.end_time(), true,  _editor.get_selection().time.start_time() );
+		duration_clock.set_time ( _editor.get_selection().time.end_time(), true,  timecnt_t (_editor.get_selection().time.start_time(), timepos_t()));
 		duration_clock.set_bbt_reference (_editor.get_selection().time.start_time().sample());
 	} else {
 		timepos_t const pos = _editor.get_preferred_edit_position (EDIT_IGNORE_MOUSE);
@@ -189,16 +191,17 @@ InsertRemoveTimeDialog::move_locked_markers () const
 	return _move_locked_markers.get_active ();
 }
 
-samplepos_t
+timepos_t
 InsertRemoveTimeDialog::position () const
 {
 	return position_clock.current_time();
 }
 
-samplepos_t
+timecnt_t
 InsertRemoveTimeDialog::distance () const
 {
-	return duration_clock.current_sample_duration ( position_clock.current_time() );
+	duration_clock.set_is_duration (true, position_clock.current_position());
+	return duration_clock.current_time_duration ();
 }
 
 void

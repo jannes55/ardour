@@ -209,9 +209,9 @@ Editor::do_ptimport (std::string ptpath,
 						ptflookup_t rp;
 						PropertyList plist;
 
-						plist.add (ARDOUR::Properties::start, a->sampleoffset);
+						plist.add (ARDOUR::Properties::start, timecnt_t (a->sampleoffset, timepos_t()));
 						plist.add (ARDOUR::Properties::position, 0);
-						plist.add (ARDOUR::Properties::length, a->length);
+						plist.add (ARDOUR::Properties::length, timecnt_t (a->length, timepos_t()));
 						plist.add (ARDOUR::Properties::name, a->name);
 						plist.add (ARDOUR::Properties::layer, 0);
 						plist.add (ARDOUR::Properties::whole_file, false);
@@ -239,8 +239,8 @@ Editor::do_ptimport (std::string ptpath,
 			samplecnt_t length = (samplecnt_t) a->length;
 			boost::shared_ptr<Source> src = _session->create_midi_source_by_stealing_name (midi_track);
 			PropertyList plist;
-			plist.add (ARDOUR::Properties::start, 0);
-			plist.add (ARDOUR::Properties::length, length);
+			plist.add (ARDOUR::Properties::start, timecnt_t (0, timepos_t()));
+			plist.add (ARDOUR::Properties::length, timecnt_t (length, timepos_t (f)));
 			plist.add (ARDOUR::Properties::name, PBD::basename_nosuffix(src->name()));
 			boost::shared_ptr<Region> region = (RegionFactory::create (src, plist));
 			region->set_position (f);

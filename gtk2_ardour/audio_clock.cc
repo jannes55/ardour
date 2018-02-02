@@ -797,7 +797,7 @@ AudioClock::session_configuration_changed (std::string p)
 	switch (_mode) {
 	case Timecode:
 		if (is_duration) {
-			set_time (current_time_duration (), true);
+			set_duration (current_time_duration (), true);
 		} else {
 			set_time (current_position(), true);
 		}
@@ -888,7 +888,7 @@ AudioClock::set_time (Temporal::timepos_t const & w, bool force, Temporal::timec
 	}
 
 	if (is_duration) {
-		when = when - offset;
+		when = when.earlier (offset);
 	}
 
 	if (when > _limit_pos) {
@@ -1939,16 +1939,11 @@ AudioClock::current_beat_duration (Temporal::timepos_t const & pos) const
 	return beats;
 }
 
-timepos_t
+timecnt_t
 AudioClock::current_time_duration () const
 {
-	/* return current duration as if it was a position. This will then be
-	 * serialized with time domain information so that it can be reset
-	 * quickly and accurately later.
-	 */
 	assert (is_duration);
-
-	return last_when;
+	return timecnt_t (last_when, duration_position);
 }
 
 samplecnt_t
@@ -2315,13 +2310,24 @@ AudioClock::set_editable (bool yn)
 }
 
 void
-AudioClock::set_is_duration (bool yn)
+AudioClock::set_is_duration (bool yn, timepos_t const & p)
 {
 	if (yn == is_duration) {
+		if (yn) {
+			/* just reset position */
+			duration_position = p;
+		}
+
 		return;
 	}
 
 	is_duration = yn;
+	if (yn) {
+		duration_position = p;
+	} else {
+		duration_position = timepos_t ();
+	}
+
 	set_time (last_when, true);
 }
 

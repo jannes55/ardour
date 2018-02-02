@@ -374,7 +374,7 @@ AudioTrack::freeze_me (InterThreadInfo& itt)
 
 	PropertyList plist;
 
-	plist.add (Properties::start, 0);
+	plist.add (Properties::start, timecnt_t (0, timepos_t()));
 	plist.add (Properties::length, timecnt_t (srcs[0]->length_samples(0), timepos_t()));
 	plist.add (Properties::name, region_name);
 	plist.add (Properties::whole_file, true);

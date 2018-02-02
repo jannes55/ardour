@@ -820,7 +820,7 @@ AutomationTimeAxisView::paste_one (timepos_t const & pos, unsigned paste_count, 
 
 	/* add multi-paste offset if applicable */
 
-	Temporal::timepos_t len = Temporal::timepos_t ((*p)->length());
+	Temporal::timecnt_t len = (*p)->length();
 	Temporal::timepos_t tpos (pos);
 
 	assert (line()->the_list()->time_style() != Temporal::BarTime);
@@ -839,7 +839,7 @@ AutomationTimeAxisView::paste_one (timepos_t const & pos, unsigned paste_count, 
 
 	/* convert position to model's unit and position */
 	Temporal::DistanceMeasure const & dm (_line->distance_measure());
-	Temporal::timepos_t model_pos = dm (tpos - _line->distance_measure().origin(), line()->the_list()->time_style());
+	Temporal::timepos_t model_pos = dm (_line->distance_measure().origin().distance (tpos), line()->the_list()->time_style());
 
 	XMLNode &before = alist->get_state();
 	alist->paste (**p, model_pos, _session->tempo_map());
@@ -1146,8 +1146,8 @@ AutomationTimeAxisView::cut_copy_clear_one (AutomationLine& line, Selection& sel
 	XMLNode &before = alist->get_state();
 
 	/* convert time selection to automation list model coordinates */
-	timepos_t start = selection.time.front().from - line.distance_measure().origin();
-	timepos_t end = selection.time.front().to - line.distance_measure().origin();
+	timepos_t start = selection.time.front().from.earlier (line.distance_measure().origin());
+	timepos_t end = selection.time.front().to.earlier (line.distance_measure().origin());
 
 	switch (op) {
 	case Delete:

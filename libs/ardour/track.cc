@@ -17,6 +17,8 @@
 */
 #include "pbd/error.h"
 
+#include "temporal/tempo.h"
+
 #include "ardour/amp.h"
 #include "ardour/audioengine.h"
 #include "ardour/audiofilesource.h"
@@ -946,7 +948,7 @@ Track::use_captured_midi_sources (SourceList& srcs, CaptureInfos const & capture
 		plist.add (Properties::name, whole_file_region_name);
 		plist.add (Properties::whole_file, true);
 		plist.add (Properties::automatic, true);
-		plist.add (Properties::start, 0);
+		plist.add (Properties::start, timecnt_t (0, timepos_t()));
 		plist.add (Properties::length, timecnt_t (total_capture, capture_info.front()->start));
 		plist.add (Properties::layer, 0);
 
@@ -971,6 +973,7 @@ Track::use_captured_midi_sources (SourceList& srcs, CaptureInfos const & capture
 	}
 
 	const samplepos_t preroll_off = _session.preroll_record_trim_len ();
+	const timepos_t cstart (_session.tempo_map().quarter_note_at (capture_info.front()->start));
 
 	for (ci = capture_info.begin(); ci != capture_info.end(); ++ci) {
 
@@ -988,8 +991,8 @@ Track::use_captured_midi_sources (SourceList& srcs, CaptureInfos const & capture
 			PropertyList plist;
 
 			/* start of this region is the offset between the start of its capture and the start of the whole pass */
-			plist.add (Properties::start, (*ci)->start - initial_capture);
-			plist.add (Properties::length, timecnt_t (timecnt_t ((*ci)->samples, capture_info.front()->start).beats(), timepos_t (capture_info.front()->start)));
+			plist.add (Properties::start, timecnt_t ((*ci)->start - initial_capture, cstart));
+			plist.add (Properties::length, timecnt_t (timecnt_t ((*ci)->samples, cstart).beats(), cstart));
 			plist.add (Properties::name, region_name);
 
 			boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));
@@ -1051,10 +1054,12 @@ Track::use_captured_audio_sources (SourceList& srcs, CaptureInfos const & captur
 	   children of this one (later!)
 	*/
 
+	const timepos_t cstart (capture_info.front()->start);
+
 	try {
 		PropertyList plist;
 
-		plist.add (Properties::start, afs->last_capture_start_sample());
+		plist.add (Properties::start, timecnt_t (afs->last_capture_start_sample(), cstart));
 		plist.add (Properties::length, afs->length());
 		plist.add (Properties::name, whole_file_region_name);
 		boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));
@@ -1092,8 +1097,8 @@ Track::use_captured_audio_sources (SourceList& srcs, CaptureInfos const & captur
 
 			PropertyList plist;
 
-			plist.add (Properties::start, buffer_position);
-			plist.add (Properties::length, timecnt_t (timecnt_t ((*ci)->samples, capture_info.front()->start).beats(), capture_info.front()->start));
+			plist.add (Properties::start, timecnt_t (buffer_position, cstart));
+			plist.add (Properties::length, timecnt_t ((*ci)->samples, cstart));
 			plist.add (Properties::name, region_name);
 
 			boost::shared_ptr<Region> rx (RegionFactory::create (srcs, plist));
@@ -1118,5 +1123,3 @@ Track::use_captured_audio_sources (SourceList& srcs, CaptureInfos const & captur
 	pl->set_capture_insertion_in_progress (false);
 	_session.add_command (new StatefulDiffCommand (pl));
 }
-
-

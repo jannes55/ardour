@@ -1324,7 +1324,7 @@ DiskWriter::setup_destructive_playlist ()
 
 	PropertyList plist;
 	plist.add (Properties::name, _name.val());
-	plist.add (Properties::start, 0);
+	plist.add (Properties::start, timecnt_t (0, timepos_t()));
 	plist.add (Properties::length, timecnt_t (max_samplepos - srcs.front()->natural_position(), srcs.front()->natural_position()));
 
 	boost::shared_ptr<Region> region (RegionFactory::create (srcs, plist));

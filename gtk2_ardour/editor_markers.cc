@@ -272,7 +272,7 @@ Editor::check_marker_label (ArdourMarker* m)
 
 		/* Update just the available space between the previous marker and this one */
 
-		double const p = time_to_pixel (m->position() - (*prev)->position());
+		double const p = time_to_pixel (m->position().earlier ((*prev)->position()));
 
 		if (m->label_on_left()) {
 			(*prev)->set_right_label_limit (p / 2);
@@ -291,7 +291,7 @@ Editor::check_marker_label (ArdourMarker* m)
 
 		/* Update just the available space between this marker and the next */
 
-		double const p = time_to_pixel ((*next)->position() - m->position());
+		double const p = duration_to_pixels (m->position().distance ((*next)->position()));
 
 		if ((*next)->label_on_left()) {
 			m->set_right_label_limit (p / 2);
@@ -348,7 +348,7 @@ Editor::update_marker_labels (ArdourCanvas::Container* group)
 	while (i != sorted.end()) {
 
 		if (prev != sorted.end()) {
-			double const p = time_to_pixel ((*i)->position() - (*prev)->position());
+			double const p = duration_to_pixels ((*prev)->position().distance ((*i)->position()));
 
 			if ((*prev)->label_on_left()) {
 				(*i)->set_left_label_limit (p);
@@ -359,7 +359,7 @@ Editor::update_marker_labels (ArdourCanvas::Container* group)
 		}
 
 		if (next != sorted.end()) {
-			double const p = time_to_pixel ((*next)->position() - (*i)->position());
+			double const p = duration_to_pixels ((*i)->position().distance ((*next)->position()));
 
 			if ((*next)->label_on_left()) {
 				(*i)->set_right_label_limit (p / 2);

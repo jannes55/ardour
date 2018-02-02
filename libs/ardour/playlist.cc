@@ -3087,7 +3087,7 @@ Playlist::combine (const RegionList& r)
 
 	/* now a new whole-file region using the list of sources */
 
-	plist.add (Properties::start, 0);
+	plist.add (Properties::start, timecnt_t (0, timepos_t()));
 	plist.add (Properties::length, timecnt_t (extent.second, timepos_t()));
 	plist.add (Properties::name, parent_name);
 	plist.add (Properties::whole_file, true);
@@ -3099,7 +3099,7 @@ Playlist::combine (const RegionList& r)
 	 */
 
 	plist.clear ();
-	plist.add (Properties::start, 0);
+	plist.add (Properties::start, timecnt_t (0, timepos_t()));
 	plist.add (Properties::length, timecnt_t (extent.second, timepos_t()));
 	plist.add (Properties::name, child_name);
 	plist.add (Properties::layer, layer+1);
@@ -3193,7 +3193,7 @@ Playlist::uncombine (boost::shared_ptr<Region> target)
 		bool modified_region;
 
 		if (i == rl.begin()) {
-			move_offset = original->position().distance (target->position()) - timecnt_t (target->start(), target->start());
+			move_offset = original->position().distance (target->position()) - timecnt_t (target->start(), target->position());
 			adjusted_start = original->position() + target->start();
 			adjusted_end = adjusted_start + target->length();
 		}

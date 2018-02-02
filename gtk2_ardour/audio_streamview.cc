@@ -218,8 +218,8 @@ AudioStreamView::setup_rec_box ()
 
 				PropertyList plist;
 
-				plist.add (Properties::start, start);
-				plist.add (Properties::length, 1);
+				plist.add (Properties::start, timecnt_t (start, timepos_t()));
+				plist.add (Properties::length, timecnt_t (samplecnt_t (1), timepos_t()));
 				plist.add (Properties::name, string());
 				plist.add (Properties::layer, 0);
 
@@ -353,9 +353,8 @@ AudioStreamView::update_rec_regions (samplepos_t start, samplecnt_t cnt)
 				if (nlen != region->length_samples()) {
 
 					region->suspend_property_changes ();
-					/* set non-musical position / length */
 					region->set_position (_trackview.track()->get_capture_start_sample(n));
-					region->set_length (nlen);
+					region->set_length (timecnt_t (nlen, _trackview.track()->get_capture_start_sample (n)));
 					region->resume_property_changes ();
 
 					if (origlen == 1) {
@@ -364,7 +363,7 @@ AudioStreamView::update_rec_regions (samplepos_t start, samplecnt_t cnt)
 						setup_new_rec_layer_time (region);
 					}
 
-					check_record_layers (region, (region->position() - region->start() + start + cnt).sample());
+					check_record_layers (region, (region->position().earlier (region->start()) + start + cnt).sample());
 
 					/* also update rect */
 					ArdourCanvas::Rectangle * rect = rec_rects[n].rectangle;
@@ -374,7 +373,7 @@ AudioStreamView::update_rec_regions (samplepos_t start, samplecnt_t cnt)
 
 			} else {
 
-				samplecnt_t nlen = _trackview.track()->get_captured_samples(n);
+				timecnt_t nlen (_trackview.track()->get_captured_samples(n), timepos_t());
 
 				if (nlen != region->length_samples()) {
 
