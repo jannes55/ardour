@@ -183,7 +183,7 @@ TimeAxisViewItem::init (ArdourCanvas::Item* parent, double fpp, uint32_t base_co
 	if (visibility & ShowFrame) {
 		sample = new ArdourCanvas::Rectangle (group,
 						     ArdourCanvas::Rect (0.0, 0.0,
-									 trackview.editor().sample_to_pixel(duration),
+						                         trackview.editor().duration_to_pixels(duration),
 									 trackview.current_height()));
 
 		sample->set_outline_what (ArdourCanvas::Rectangle::What (ArdourCanvas::Rectangle::LEFT|ArdourCanvas::Rectangle::RIGHT));
@@ -281,9 +281,9 @@ TimeAxisViewItem::set_position(timepos_t pos, void* src, double* delta)
 		return false;
 	}
 
-	position = pos.sample();
+	_position = pos.sample();
 
-	double new_unit_pos = trackview.editor().sample_to_pixel (pos);
+	double new_unit_pos = trackview.editor().time_to_pixel (pos);
 
 	if (delta) {
 		(*delta) = new_unit_pos - group->position().x;
@@ -303,7 +303,7 @@ TimeAxisViewItem::set_position(timepos_t pos, void* src, double* delta)
 }
 
 /** @return position of this item on the timeline */
-samplepos_t
+timepos_t
 TimeAxisViewItem::get_position() const
 {
 	return _position;
@@ -322,8 +322,8 @@ TimeAxisViewItem::set_duration (timecnt_t dur, void* src)
 {
 	if ((dur > max_item_duration) || (dur < min_item_duration)) {
 		warning << string_compose (
-				P_("new duration %1 sample is out of bounds for %2", "new duration of %1 samples is out of bounds for %2", dur),
-				get_item_name(), dur)
+			P_("new duration %1 sample is out of bounds for %2", "new duration of %1 samples is out of bounds for %2", dur.samples()),
+			get_item_name(), dur)
 			<< endmsg;
 		return false;
 	}
@@ -798,8 +798,8 @@ TimeAxisViewItem::set_samples_per_pixel (double fpp)
 	samples_per_pixel = fpp;
 	set_position (this->get_position(), this);
 
-	double end_pixel = trackview.editor().sample_to_pixel (_position + get_duration());
-	double first_pixel = trackview.editor().sample_to_pixel (_position);
+	double end_pixel = trackview.editor().time_to_pixel (_position + get_duration());
+	double first_pixel = trackview.editor().time_to_pixel (_position);
 
 	reset_width_dependent_items (end_pixel - first_pixel);
 }

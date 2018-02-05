@@ -845,18 +845,12 @@ TimeAxisView::show_selection (TimeSelection& ts)
 	selection_group->show();
 	selection_group->raise_to_top();
 
-	for (list<AudioRange>::iterator i = ts.begin(); i != ts.end(); ++i) {
-		samplepos_t start, end;
-		samplecnt_t cnt;
-
-		start = (*i).start;
-		end = (*i).end;
-		cnt = end - start + 1;
+	for (list<TimelineRange>::iterator i = ts.begin(); i != ts.end(); ++i) {
 
 		rect = get_selection_rect ((*i).id);
 
-		x1 = _editor.sample_to_pixel (start);
-		x2 = _editor.sample_to_pixel (start + cnt - 1);
+		x1 = _editor.time_to_pixel ((*i).start());
+		x2 = _editor.time_to_pixel ((*i).end());
 		y2 = current_height() - 1;
 
 		rect->rect->set (ArdourCanvas::Rect (x1, 0, x2, y2));

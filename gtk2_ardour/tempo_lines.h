@@ -21,6 +21,8 @@
 
 #include "temporal/tempo.h"
 
+#include "ardour/types.h"
+
 #include "canvas/line_set.h"
 
 class TempoLines {
@@ -31,7 +33,7 @@ public:
 	void tempo_map_changed ();
 
 	void draw (Temporal::TempoMapPoints & grid,
-		   unsigned                   divisions,
+		   uint32_t                   divisions,
 	           ARDOUR::samplepos_t        leftmost_sample,
 	           ARDOUR::samplecnt_t        sample_rate);
 
@@ -39,10 +41,10 @@ public:
 	void hide();
 
 private:
-	void draw_ticks (std::vector<Temporal::TempoMapPoint>& grid,
-			 unsigned                              divisions,
-	                 ARDOUR::samplecnt_t                   leftmost_sample,
-	                 ARDOUR::samplecnt_t                   sample_rate);
+	void draw_ticks (Temporal::TempoMapPoints&     grid,
+			 uint32_t                      divisions,
+	                 ARDOUR::samplecnt_t           leftmost_sample,
+	                 ARDOUR::samplecnt_t           sample_rate);
 
 	ArdourCanvas::LineSet lines;
 };
