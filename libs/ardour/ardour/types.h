@@ -307,10 +307,6 @@ namespace ARDOUR {
 		bool equal (const TimelineRange& other) const {
 			return Temporal::TimeRange::operator== (other);
 		}
-
-		Temporal::OverlapType coverage (samplepos_t s, samplepos_t e) const {
-			return Temporal::coverage (from.sample(), to.sample(), s, e);
-		}
 	};
 
 	/*

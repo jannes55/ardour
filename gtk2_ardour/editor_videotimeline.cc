@@ -82,7 +82,7 @@ Editor::toggle_video_timeline_locked ()
 }
 
 void
-Editor::embed_audio_from_video (std::string path, samplepos_t n, bool lock_position_to_video)
+Editor::embed_audio_from_video (std::string path, Temporal::timepos_t when, bool lock_position_to_video)
 {
 	vector<std::string> paths;
 	paths.push_back(path);
@@ -95,11 +95,11 @@ Editor::embed_audio_from_video (std::string path, samplepos_t n, bool lock_posit
 	ipw.show ();
 
 	boost::shared_ptr<ARDOUR::Track> track;
-	bool ok = (import_sndfiles (paths, Editing::ImportDistinctFiles, Editing::ImportAsTrack, ARDOUR::SrcBest, n, 1, 1, track, false) == 0);
+	bool ok = (import_sndfiles (paths, Editing::ImportDistinctFiles, Editing::ImportAsTrack, ARDOUR::SrcBest, when, 1, 1, track, false) == 0);
 	if (ok && track) {
 		if (lock_position_to_video) {
 			boost::shared_ptr<ARDOUR::Playlist> pl = track->playlist();
-			pl->find_next_region(n, ARDOUR::End, 0)->set_video_locked(true);
+			pl->find_next_region (when, ARDOUR::End, 0)->set_video_locked(true);
 		}
 		_session->save_state ("");
 	}

@@ -334,8 +334,8 @@ TimeAxisViewItem::set_duration (timecnt_t dur, void* src)
 
 	item_duration = dur;
 
-	double end_pixel = trackview.editor().time_to_pixel (position + dur);
-	double first_pixel = trackview.editor().time_to_pixel (position);
+	double end_pixel = trackview.editor().time_to_pixel (_position + dur);
+	double first_pixel = trackview.editor().time_to_pixel (_position);
 
 	reset_width_dependent_items (end_pixel - first_pixel);
 

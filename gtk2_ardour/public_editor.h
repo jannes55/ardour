@@ -361,7 +361,7 @@ public:
 	virtual void set_xjadeo_sensitive (bool onoff) = 0;
 	virtual int  get_videotl_bar_height () const = 0;
 	virtual void set_video_timeline_height (const int h) = 0;
-	virtual void embed_audio_from_video (std::string, samplepos_t n = 0, bool lock_position_to_video = true) = 0;
+	virtual void embed_audio_from_video (std::string, Temporal::timepos_t when = Temporal::timepos_t(), bool lock_position_to_video = true) = 0;
 
 	virtual bool track_selection_change_without_scroll () const = 0;
 

@@ -23,6 +23,9 @@
 
 #include "pbd/file_utils.h"
 #include "pbd/types_convert.h"
+
+#include "temporal/time.h"
+
 #include "ardour/session_directory.h"
 
 #include "ardour_ui.h"
@@ -43,7 +46,7 @@
 using namespace std;
 using namespace ARDOUR;
 using namespace PBD;
-using namespace Timecode;
+using namespace Temporal;
 using namespace VideoUtils;
 
 VideoTimeLine::VideoTimeLine (PublicEditor *ed, ArdourCanvas::Container *vbg, int initial_height)

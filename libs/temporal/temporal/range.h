@@ -161,6 +161,11 @@ struct LIBTEMPORAL_API Range {
 		}
 		return t;
 	}
+
+	OverlapType coverage (timepos_t const & s, timepos_t const & e) const {
+		return Temporal::coverage (from, to, s, e);
+	}
+
 };
 
 typedef Range TimeRange;

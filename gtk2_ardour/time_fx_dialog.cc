@@ -147,6 +147,7 @@ TimeFXDialog::TimeFXDialog (Editor& e, bool pitch, samplecnt_t oldlen, samplecnt
 		duration_clock->set (new_length, true);
 		duration_clock->set_mode (AudioClock::BBT);
 		duration_clock->set_bbt_reference (position);
+		duration_clock->set_is_duration (true, position);
 
 		Gtk::Alignment* clock_align = manage (new Gtk::Alignment);
 		clock_align->add (*duration_clock);
@@ -314,5 +315,5 @@ TimeFXDialog::duration_clock_changed ()
 
 	PBD::Unwinder<bool> uw (ignore_adjustment_change, true);
 
-	duration_adjustment.set_value (100.0 * (duration_clock->current_duration() / (double) original_length));
+	duration_adjustment.set_value (100.0 * (duration_clock->current_time_duration().samples() / (double) original_length));
 }

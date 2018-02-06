@@ -1634,7 +1634,7 @@ private:
 	void toggle_video_timeline_locked ();
 	void set_video_timeline_locked (const bool);
 	void queue_visual_videotimeline_update ();
-	void embed_audio_from_video (std::string, samplepos_t n = 0, bool lock_position_to_video = true);
+	void embed_audio_from_video (std::string, Temporal::timepos_t when = Temporal::timepos_t(), bool lock_position_to_video = true);
 
 	bool track_selection_change_without_scroll () const {
 		return _track_selection_change_without_scroll;

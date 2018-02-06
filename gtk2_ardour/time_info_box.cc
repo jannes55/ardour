@@ -62,6 +62,8 @@ TimeInfoBox::TimeInfoBox (std::string state_node_name, bool with_punch)
 			string_compose ("%1-selection-length", state_node_name),
 			false, "selection", false, false, true, false);
 
+	selection_length->set_is_duration (true, timepos_t());
+
 	selection_title.set_text (_("Selection"));
 
 	set_homogeneous (false);
@@ -233,22 +235,24 @@ TimeInfoBox::set_session (Session* s)
 void
 TimeInfoBox::region_selection_changed ()
 {
-	samplepos_t s, e;
+	timepos_t s, e;
 	Selection& selection (Editor::instance().get_selection());
-	s = selection.regions.start();
-	e = selection.regions.end_sample();
+	s = selection.regions.start_time();
+	e = selection.regions.end_time();
 	selection_start->set_off (false);
 	selection_end->set_off (false);
 	selection_length->set_off (false);
-	selection_start->set (s);
-	selection_end->set (e);
-	selection_length->set (e, false, s);
+	selection_start->set_time (s);
+	selection_end->set_time (e);
+
+	selection_length->set_is_duration (true, s);
+	selection_length->set_duration (s.distance (e));
 }
 
 void
 TimeInfoBox::selection_changed ()
 {
-	samplepos_t s, e;
+	timepos_t s, e;
 	Selection& selection (Editor::instance().get_selection());
 
 	region_property_connections.drop_connections();
@@ -273,28 +277,30 @@ TimeInfoBox::selection_changed ()
 					selection_start->set_off (false);
 					selection_end->set_off (false);
 					selection_length->set_off (false);
-					selection_start->set (selection.time.start());
-					selection_end->set (selection.time.end_sample());
-					selection_length->set (selection.time.end_sample(), false, selection.time.start());
+					selection_start->set_time (selection.time.start_time());
+					selection_end->set_time (selection.time.end_time());
+					selection_length->set_is_duration (true, selection.time.start_time());
+					selection_length->set_duration (selection.time.start_time().distance (selection.time.end_time()));
 				} else {
 					selection_start->set_off (true);
 					selection_end->set_off (true);
 					selection_length->set_off (true);
 				}
 			} else {
-				s = max_samplepos;
-				e = 0;
+				s = std::numeric_limits<timepos_t>::max();
+				e = std::numeric_limits<timepos_t>::min();
 				for (PointSelection::iterator i = selection.points.begin(); i != selection.points.end(); ++i) {
-					samplepos_t const p = (*i)->line().session_position ((*i)->model ());
+					timepos_t const p = (*i)->line().the_list()->control_point_time (**((*i)->model ()));
 					s = min (s, p);
 					e = max (e, p);
 				}
 				selection_start->set_off (false);
 				selection_end->set_off (false);
 				selection_length->set_off (false);
-				selection_start->set (s);
-				selection_end->set (e);
-				selection_length->set (e, false, s);
+				selection_start->set_time (s);
+				selection_end->set_time (e);
+				selection_length->set_is_duration (true, s);
+				selection_length->set_duration (s.distance (e));
 			}
 		} else {
 			/* this is more efficient than tracking changes per region in large selections */
@@ -320,14 +326,15 @@ TimeInfoBox::selection_changed ()
 
 			if (tact && tact->get_active() &&  !selection.regions.empty()) {
 				/* show selected regions */
-				s = selection.regions.start();
-				e = selection.regions.end_sample();
+				s = selection.regions.start_time();
+				e = selection.regions.end_time();
 				selection_start->set_off (false);
 				selection_end->set_off (false);
 				selection_length->set_off (false);
-				selection_start->set (s);
-				selection_end->set (e);
-				selection_length->set (e, false, s);
+				selection_start->set_time (s);
+				selection_end->set_time (e);
+				selection_length->set_is_duration (true, s);
+				selection_length->set_duration (s.distance (s));
 			} else {
 				selection_start->set_off (true);
 				selection_end->set_off (true);
@@ -337,9 +344,10 @@ TimeInfoBox::selection_changed ()
 			selection_start->set_off (false);
 			selection_end->set_off (false);
 			selection_length->set_off (false);
-			selection_start->set (selection.time.start());
-			selection_end->set (selection.time.end_sample());
-			selection_length->set (selection.time.end_sample(), false, selection.time.start());
+			selection_start->set_time (selection.time.start_time());
+			selection_end->set_time (selection.time.end_time());
+			selection_length->set_is_duration (true, selection.time.start_time());
+			selection_length->set_duration (selection.time.start_time().distance (selection.time.end_time()));
 		}
 		break;
 
@@ -384,6 +392,6 @@ TimeInfoBox::punch_changed (Location* loc)
 	punch_start->set_off (false);
 	punch_end->set_off (false);
 
-	punch_start->set (loc->start());
-	punch_end->set (loc->end());
+	punch_start->set_time (loc->start_time());
+	punch_end->set_time (loc->end_time());
 }

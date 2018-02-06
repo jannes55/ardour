@@ -55,9 +55,9 @@ TimeSelection::consolidate ()
 				continue;
 			}
 
-			if (a->coverage (b->start, b->end) != Temporal::OverlapNone) {
-				a->start = std::min (a->start, b->start);
-				a->end = std::max (a->end, b->end);
+			if (a->coverage (b->start(), b->end()) != Temporal::OverlapNone) {
+				a->set_start (std::min (a->start(), b->start()));
+				a->set_end (std::max (a->end(), b->end()));
 				erase (b);
 				changed = true;
 				goto restart;
@@ -71,43 +71,19 @@ TimeSelection::consolidate ()
 samplepos_t
 TimeSelection::start_sample ()
 {
-	if (empty()) {
-		return 0;
-	}
-
-	samplepos_t first = max_samplepos;
-
-	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
-		if ((*i).start < first) {
-			first = (*i).start;
-		}
-	}
-	return first;
+	return start_time().sample ();
 }
 
 samplepos_t
 TimeSelection::end_sample ()
 {
-	samplepos_t last = 0;
-
-	/* XXX make this work like RegionSelection: no linear search needed */
-
-	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
-		if ((*i).end > last) {
-			last = (*i).end;
-		}
-	}
-	return last;
+	return end_time().sample ();
 }
 
 samplecnt_t
 TimeSelection::length_samples()
 {
-	if (empty()) {
-		return 0;
-	}
-
-	return end_sample() - start() + 1;
+	return length().samples();
 }
 
 timepos_t
@@ -120,8 +96,8 @@ TimeSelection::start_time ()
 	timepos_t first = std::numeric_limits<timepos_t>::max();
 
 	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
-		if ((*i).start < first) {
-			first = (*i).start;
+		if ((*i).start() < first) {
+			first = (*i).start();
 		}
 	}
 	return first;
@@ -132,11 +108,9 @@ TimeSelection::end_time()
 {
 	timepos_t last = std::numeric_limits<timepos_t>::min();
 
-	/* XXX make this work like RegionSelection: no linear search needed */
-
 	for (std::list<TimelineRange>::iterator i = begin(); i != end(); ++i) {
 		if ((*i).end() > last) {
-			last = (*i).end;
+			last = (*i).end();
 		}
 	}
 	return last;
@@ -149,5 +123,5 @@ TimeSelection::length()
 		return timecnt_t();
 	}
 
-	return timecnt_t (end() - start() + 1);
+	return start_time().distance (end_time());
 }

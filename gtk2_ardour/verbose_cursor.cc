@@ -136,9 +136,7 @@ VerboseCursor::set_duration (timepos_t const & start, timepos_t const & end)
 {
 	char buf[128];
 	Temporal::Time timecode;
-	Temporal::BBT_Time sbbt;
-	Temporal::BBT_Time ebbt;
-	Meter meter_at_start (_editor->_session->tempo_map().meter_at_sample (start));
+	Temporal::BBT_Offset bbt;
 
 	if (_editor->_session == 0) {
 		return;
@@ -149,51 +147,23 @@ VerboseCursor::set_duration (timepos_t const & start, timepos_t const & end)
 	switch (m) {
 	case AudioClock::BBT:
 	{
-		_editor->_session->bbt_time (start, sbbt);
-		_editor->_session->bbt_time (end, ebbt);
-
-		/* subtract */
-		/* XXX this computation won't work well if the
-		user makes a selection that spans any meter changes.
-		*/
-
-		/* use signed integers for the working values so that
-		   we can underflow.
-		*/
-
-		int ticks = ebbt.ticks;
-		int beats = ebbt.beats;
-		int bars = ebbt.bars;
-
-		ticks -= sbbt.ticks;
-		if (ticks < 0) {
-			ticks += int (Temporal::BBT_Time::ticks_per_beat);
-			--beats;
-		}
-
-		beats -= sbbt.beats;
-		if (beats < 0) {
-			beats += int (meter_at_start.divisions_per_bar());
-			--bars;
-		}
-
-		bars -= sbbt.bars;
-
-		snprintf (buf, sizeof (buf), "%02" PRIu32 "|%02" PRIu32 "|%02" PRIu32, bars, beats, ticks);
+		timecnt_t d = _editor->_session->tempo_map().full_duration_at (start, start.distance (end), Temporal::BarTime);
+		bbt = d.bbt();
+		snprintf (buf, sizeof (buf), "%02" PRIu32 "|%02" PRIu32 "|%02" PRIu32, bbt.bars, bbt.beats, bbt.ticks);
 		break;
 	}
 
 	case AudioClock::Timecode:
-		_editor->_session->timecode_duration (end - start, timecode);
+		_editor->_session->timecode_duration (start.distance (end).samples(), timecode);
 		snprintf (buf, sizeof (buf), "%s", Temporal::timecode_format_time (timecode).c_str());
 		break;
 
 	case AudioClock::MinSec:
-		AudioClock::print_minsec (end - start, buf, sizeof (buf), _editor->_session->sample_rate());
+		AudioClock::print_minsec (end.sample() - start.sample(), buf, sizeof (buf), _editor->_session->sample_rate());
 		break;
 
 	default:
-		snprintf (buf, sizeof(buf), "%" PRIi64, end - start);
+		snprintf (buf, sizeof(buf), "%" PRIi64, start.distance (end).samples());
 		break;
 	}
 
