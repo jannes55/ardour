@@ -84,7 +84,7 @@ struct CurveComparator {
 	}
 };
 void
-Editor::draw_metric_marks (Temporal::TempoMapPoints const & points)
+Editor::draw_metric_marks (Temporal::TempoMapPoints & points)
 {
 	char buf[64];
 	TempoMapPoints::const_iterator prev_ts = points.end();
@@ -93,7 +93,7 @@ Editor::draw_metric_marks (Temporal::TempoMapPoints const & points)
 
 	remove_metric_marks (); // also clears tempo curves
 
-	for (TempoMapPoints::const_iterator i = points.begin(); i != points.end(); ++i) {
+	for (TempoMapPoints::iterator i = points.begin(); i != points.end(); ++i) {
 
 		if (!i->is_explicit()) {
 			continue;
@@ -308,7 +308,7 @@ Editor::redisplay_tempo (bool immediate_redraw)
 	}
 }
 void
-Editor::tempo_curve_selected (TempoMapPoint* p, bool yn)
+Editor::tempo_curve_selected (TempoMapPoint const * p, bool yn)
 {
 	if (p == 0) {
 		return;
@@ -522,8 +522,7 @@ Editor::edit_tempo_section (Temporal::TempoMapPoint const & point)
 	double end_bpm = tempo_dialog.get_end_bpm ();
 	double nt = tempo_dialog.get_note_type ();
 	bpm = max (0.01, bpm);
-	Tempo tempo (bpm, nt);
-	tempo.set_end_note_types_per_minute (end_bpm);
+	Tempo tempo (bpm, end_bpm, nt);
 
 	Temporal::BBT_Time when;
 	tempo_dialog.get_bbt_time (when);

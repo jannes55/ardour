@@ -56,14 +56,23 @@ class LIBTEMPORAL_API Tempo {
 	 * @param npm Note Types per minute
 	 * @param note_type Note Type (default `4': quarter note)
 	 */
-	Tempo (double npm, int note_type = 4, Type type = Tempo::Constant) :
+	Tempo (double npm, int note_type = 4) :
 		_superclocks_per_note_type (double_npm_to_sc (npm)),
 		_end_superclocks_per_note_type (double_npm_to_sc (npm)),
-		_note_type (type),
+		_note_type (note_type),
 		_active (true),
 		_locked_to_meter (false),
 		_clamped (false),
-		_type (type) {}
+		_type (Tempo::Constant) {}
+
+	Tempo (double npm, double enpm, int note_type = 4) :
+		_superclocks_per_note_type (double_npm_to_sc (npm)),
+		_end_superclocks_per_note_type (double_npm_to_sc (enpm)),
+		_note_type (note_type),
+		_active (true),
+		_locked_to_meter (false),
+		_clamped (false),
+		_type (npm != enpm ? Tempo::Ramped : Tempo::Constant) {}
 
 	/* these five methods should only be used to show and collect information to the user (for whom
 	 * bpm as a floating point number is the obvious representation)
@@ -76,7 +85,6 @@ class LIBTEMPORAL_API Tempo {
 	void   set_note_types_per_minute (double npm) { _superclocks_per_note_type = double_npm_to_sc (npm); }
 
 	int note_type () const { return _note_type; }
-	void set_end_note_types_per_minute (double npm);
 
 	superclock_t superclocks_per_note_type () const {
 		return _superclocks_per_note_type;
@@ -239,26 +247,34 @@ class LIBTEMPORAL_API TempoMapPoint
 {
   public:
 	enum Flag {
-		ExplicitTempo = 0x1,
-		ExplicitMeter = 0x2,
+		ExplicitTempo =    0x1,
+		ExplicitMeter =    0x2,
+		ExplicitPosition = 0x4,
 	};
 
 	TempoMapPoint (TempoMap* map, Flag f, Tempo const& t, Meter const& m, superclock_t sc, Beats const & q, BBT_Time const & bbt, bool ramp = false)
-		: _flags (f), _explicit (t, m, ramp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _map (map) {}
+		: _flags (f), _explicit (t, m, ramp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _floating (false), _map (map) {}
 	TempoMapPoint (TempoMapPoint const & tmp, superclock_t sc, Beats const & q, BBT_Time const & bbt)
-		: _flags (Flag (0)), _reference (&tmp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _map (tmp.map()) {}
+		: _flags (Flag (0)), _reference (&tmp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _floating (false), _map (tmp.map()) {}
 	~TempoMapPoint () {}
 
 	TempoMap* map() const { return _map; }
 	void set_map (TempoMap* m);
 
+
+	/* called by a GUI that is manipulating the position of this point */
+	void start_float ();
+	void end_float ();
+	bool floating() const { return _floating; }
+
 	Flag flags() const             { return _flags; }
 	void set_flags (Flag f);
 
-	bool is_explicit_tempo() const { return _flags & ExplicitTempo; }
-	bool is_explicit_meter() const { return _flags & ExplicitMeter; }
-	bool is_explicit() const       { return _flags & (ExplicitMeter|ExplicitTempo); }
-	bool is_implicit() const       { return _flags == Flag (0); }
+	bool is_explicit_tempo ()    const { return _flags & ExplicitTempo; }
+	bool is_explicit_meter ()    const { return _flags & ExplicitMeter; }
+	bool is_explicit_position () const { return _flags & ExplicitPosition; }
+	bool is_explicit() const           { return _flags & (ExplicitMeter|ExplicitTempo|ExplicitPosition); }
+	bool is_implicit() const           { return _flags == Flag (0); }
 
 	void make_explicit (Flag f) {
 		if (!(_flags & f)) {
@@ -353,6 +369,7 @@ class LIBTEMPORAL_API TempoMapPoint
 	Beats                 _quarters;
 	BBT_Time              _bbt;
 	bool                  _dirty;
+	bool                  _floating;
 	TempoMap*             _map;
 };
 
@@ -374,9 +391,14 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	bool set_tempo_and_meter (Tempo const &, Meter const &, samplepos_t, bool ramp, bool flexible);
 
-	bool set_tempo (Tempo const &, BBT_Time const &, bool ramp = false);
-	bool set_tempo (Tempo const &, samplepos_t, bool ramp = false);
-	bool set_tempo (Tempo const &, timepos_t const &, bool ramp = false);
+	void change_tempo (TempoMapPoint&, Tempo const &);
+
+	/* these will return null if the tempo could not be set at the * requested time
+	 */
+	TempoMapPoint* set_tempo (Tempo const &, BBT_Time const &, bool ramp = false);
+	TempoMapPoint* set_tempo (Tempo const &, samplepos_t, bool ramp = false);
+	TempoMapPoint* set_tempo (Tempo const &, Beats const &, bool ramp = false);
+	TempoMapPoint* set_tempo (Tempo const &, timepos_t const &, bool ramp = false);
 
 	void remove_tempo_at (TempoMapPoint const &);
 
@@ -387,7 +409,10 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	void remove_meter_at (TempoMapPoint const &);
 
 	void remove_explicit_point (samplepos_t);
+
+	/* these are a convenience method that just wrap some odd semantics */
 	bool move_to (timepos_t const & current, timepos_t const & destination, bool push = false);
+	bool move_to (TempoMapPoint & point, timepos_t const & destination, bool push = false);
 
 	bool can_remove (Tempo const &) const;
 	bool can_remove (Meter const &) const;
@@ -410,6 +435,8 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	Tempo const & tempo_at (Beats const &b) const;
 	Tempo const & tempo_at (BBT_Time const & bbt) const;
 	Tempo const & tempo_at (timepos_t const & t) const;
+
+	TempoMapPoint const * previous_tempo (TempoMapPoint const &) const;
 
 	/* convenience function */
 	BBT_Time round_to_bar (BBT_Time const & bbt) const {
@@ -481,7 +508,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	void get_tempos (TempoMapPoints& points) const;
 	void get_meters (TempoMapPoints& points) const;
 
-	template<class T> void apply_with_points (T& obj, void (T::*method)(TempoMapPoints const &)) {
+	template<class T> void apply_with_points (T& obj, void (T::*method)(TempoMapPoints &)) {
 		Glib::Threads::RWLock::ReaderLock lm (_lock);
 		(obj.*method)(_points);
 	}
@@ -554,6 +581,8 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	void rebuild_locked (superclock_t limit);
 	void dump_locked (std::ostream&);
+
+	bool move_to (TempoMapPoints::iterator & current, timepos_t const & destination, bool push);
 };
 
 } /* end of namespace Temporal */

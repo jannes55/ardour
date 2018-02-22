@@ -2263,7 +2263,7 @@ Editor::cancel_time_selection ()
 }
 
 void
-Editor::point_trim (GdkEvent* event, samplepos_t new_bound)
+Editor::point_trim (GdkEvent* event, timepos_t const & new_bound)
 {
 	RegionView* rv = clicked_regionview;
 

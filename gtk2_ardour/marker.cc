@@ -548,28 +548,29 @@ ArdourMarker::set_right_label_limit (double p)
 
 /***********************************************************************/
 
-MetricMarker::MetricMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text, ArdourMarker::Type type, Temporal::TempoMapPoint const & p)
+TempoMapMarker::TempoMapMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text, ArdourMarker::Type type, Temporal::TempoMapPoint & p)
 	: ArdourMarker (editor, parent, rgba, text, type, p.sample(), false)
-	, _point (p)
+	, _point (&p)
 {
-	assert (_point.is_explicit());
+	assert (_point->is_explicit());
 }
 
-MetricMarker::~MetricMarker ()
+TempoMapMarker::~TempoMapMarker ()
 {
 }
 
 Temporal::TempoMetric &
-MetricMarker::metric() const
+TempoMapMarker::metric() const
 {
-	return _point.nonconst_metric();
+	return point().nonconst_metric();
 }
 
 /***********************************************************************/
 
-TempoMarker::TempoMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text, Temporal::TempoMapPoint const & point)
-	: MetricMarker (editor, parent, rgba, text, Tempo, point)
+TempoMarker::TempoMarker (PublicEditor& editor, ArdourCanvas::Container& parent, guint32 rgba, const string& text, Temporal::TempoMapPoint & p)
+	: TempoMapMarker (editor, parent, rgba, text, Tempo, p)
 {
+	assert (point().is_explicit_tempo());
 	group->Event.connect (sigc::bind (sigc::mem_fun (editor, &PublicEditor::canvas_tempo_marker_event), group, this));
 }
 
@@ -600,6 +601,13 @@ TempoMarker::update_height_mark (const double ratio)
 }
 
 /***********************************************************************/
+
+MeterMarker::MeterMarker (PublicEditor& editor, ArdourCanvas::Container & parent, guint32 rgba, const std::string& text, Temporal::TempoMapPoint & p)
+	: TempoMapMarker (editor, parent, rgba, text, Tempo, p)
+{
+	assert (point().is_explicit_meter());
+	group->Event.connect (sigc::bind (sigc::mem_fun (editor, &PublicEditor::canvas_meter_marker_event), group, this));
+}
 
 Temporal::Meter&
 MeterMarker::meter () const

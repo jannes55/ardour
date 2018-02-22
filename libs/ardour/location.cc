@@ -1360,13 +1360,13 @@ Locations::get_location_by_id(PBD::ID id)
 }
 
 void
-Locations::find_all_between (samplepos_t start, samplepos_t end, LocationList& ll, Location::Flags flags)
+Locations::find_all_between (timepos_t const & start, timepos_t const & end, LocationList& ll, Location::Flags flags)
 {
 	Glib::Threads::Mutex::Lock lm (lock);
 
 	for (LocationList::const_iterator i = locations.begin(); i != locations.end(); ++i) {
 		if ((flags == 0 || (*i)->matches (flags)) &&
-		    ((*i)->start_sample() >= start && (*i)->end_sample() < end)) {
+		    ((*i)->start_time() >= start && (*i)->end_time() < end)) {
 			ll.push_back (*i);
 		}
 	}

@@ -517,7 +517,7 @@ Selection::move_time (timecnt_t const & distance)
 }
 
 void
-Selection::replace (uint32_t sid, samplepos_t start, samplepos_t end)
+Selection::replace (uint32_t sid, timepos_t const & start, timepos_t const & end)
 {
 	clear_objects();  //enforce object/range exclusivity
 

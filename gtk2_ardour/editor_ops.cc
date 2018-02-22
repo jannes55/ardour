@@ -6821,12 +6821,10 @@ Editor::define_one_bar (samplepos_t start, samplepos_t end)
 	XMLNode& before (_session->tempo_map().get_state());
 
 	if (do_global) {
-		Tempo nt (beats_per_minute, t.note_type());
-		nt.set_end_note_types_per_minute (t.end_note_types_per_minute());
+		Tempo nt (beats_per_minute, t.end_note_types_per_minute(), t.note_type());
 		_session->tempo_map().set_tempo (nt, 0);
 	} else if (p.sample() == start) {
-		Tempo nt (beats_per_minute, t.note_type());
-		nt.set_end_note_types_per_minute (t.end_note_types_per_minute());
+		Tempo nt (beats_per_minute, t.end_note_types_per_minute(), t.note_type());
 		_session->tempo_map().set_tempo (nt, start);
 	} else {
 		/* constant tempo */

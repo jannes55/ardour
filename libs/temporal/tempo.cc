@@ -812,7 +812,16 @@ TempoMap::set_tempo_and_meter (Tempo const & tempo, Meter const & meter, samplep
 	return true;
 }
 
-bool
+void
+TempoMap::change_tempo (TempoMapPoint& point, Tempo const & tempo)
+{
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+	assert (point.is_explicit_tempo ());
+	*((Tempo*) &point.metric()) = tempo;
+	point.set_dirty (true);
+}
+
+TempoMapPoint*
 TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -835,7 +844,7 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 		Temporal::BBT_Time bbt = _points.front().bbt_at (b).round_to_beat ();
 
 		_points.insert (_points.begin(), TempoMapPoint (this, TempoMapPoint::ExplicitTempo, t, _points.front().metric(), sc, b, bbt, ramp));
-		return true;
+		return &_points.front();
 	}
 
 	/* special case #2: only one map entry, at the same time as the new point.
@@ -846,7 +855,7 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 		/* change tempo */
 		*((Tempo*) &_points.front().nonconst_metric()) = t;
 		_points.front().make_explicit (TempoMapPoint::ExplicitTempo);
-		return true;
+		return &_points.front();
 	}
 
 	/* Remember: iterator_at() returns an iterator that references the TempoMapPoint at or BEFORE sc */
@@ -860,7 +869,7 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 		*((Tempo*) &i->nonconst_metric()) = t;
 		i->make_explicit (TempoMapPoint::ExplicitTempo);
 		/* done */
-		return true;
+		return &*i;
 	}
 
 	/* new time differs from existing point */
@@ -870,7 +879,7 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 		   note-of-previous-meter from the previous note.
 		*/
 		cerr << "new tempo too close to previous ...\n";
-		return false;
+		return 0;
 	}
 
 	Meter const & meter (i->metric());
@@ -909,10 +918,11 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 		++i;
 	}
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, t, meter, sc, qn, bbt, ramp));
-	return true;
+
+	return &*--i;
 }
 
-bool
+TempoMapPoint*
 TempoMap::set_tempo (Tempo const & t, timepos_t const & time, bool ramp)
 {
 	switch (time.lock_style()) {
@@ -923,15 +933,13 @@ TempoMap::set_tempo (Tempo const & t, timepos_t const & time, bool ramp)
 		return set_tempo (t, time.bbt(), ramp);
 		break;
 	case BeatTime:
-		cerr << (_("programming error: beat time used in tempo map as current")) << endl;
-		abort ();
+		break;
 		break;
 	}
-	/*NOTREACHED*/
-	return false;
+	return set_tempo (t, time.beats(), ramp);
 }
 
-bool
+TempoMapPoint*
 TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
@@ -947,14 +955,14 @@ TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 		BBT_Time const & bra (bbt);
 		BBT_Time const & brb (b);
 		cerr << "Cannot insert tempo at " << bra << " before first point at " << brb << endl;
-		return false;
+		return 0;
 	}
 
 	if (_points.size() == 1 && _points.front().bbt() == on_beat) {
 		/* change Tempo */
 		*((Tempo*) &_points.front().nonconst_metric()) = t;
 		_points.front().make_explicit (TempoMapPoint::ExplicitTempo);
-		return true;
+		return &_points.front();
 	}
 
 	TempoMapPoints::iterator i = iterator_at (on_beat);
@@ -962,7 +970,7 @@ TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 	if (i->bbt() == on_beat) {
 		*((Tempo*) &i->nonconst_metric()) = t;
 		i->make_explicit (TempoMapPoint::ExplicitTempo);
-		return true;
+		return &*i;
 	}
 
 	Meter const & meter (i->metric());
@@ -970,8 +978,54 @@ TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, t, meter, 0, Temporal::Beats(), on_beat, ramp));
 
-	return true;
+	return &*--i;
 }
+
+TempoMapPoint*
+TempoMap::set_tempo (Tempo const & t, Temporal::Beats const & beats, bool ramp)
+{
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+
+	/* tempo changes are required to be on-beat */
+
+	Temporal::Beats on_beat = beats.round_up_to_beat();
+
+	assert (!_points.empty());
+
+	if (_points.front().quarters() > on_beat) {
+		cerr << "Cannot insert tempo at " << beats << " before first point at " << _points.front().quarters() << endl;
+		return 0;
+	}
+
+	if (_points.size() == 1 && _points.front().quarters() == on_beat) {
+		/* change Tempo */
+		*((Tempo*) &_points.front().nonconst_metric()) = t;
+		_points.front().make_explicit (TempoMapPoint::ExplicitTempo);
+		return &_points.front();
+	}
+
+	TempoMapPoints::iterator i = iterator_at (on_beat);
+
+	if (i->quarters() == on_beat) {
+		*((Tempo*) &i->nonconst_metric()) = t;
+		i->make_explicit (TempoMapPoint::ExplicitTempo);
+		return &*i;
+	}
+
+	Meter const & meter (i->metric());
+	++i;
+
+	const BBT_Time bbt = bbt_at (on_beat);
+
+	TempoMapPoint p (this, TempoMapPoint::ExplicitTempo, t, meter, 0, on_beat, bbt, ramp);
+
+	_points.insert (i, p);
+
+	/* i points after the newly insert point */
+
+	return &*--i;
+}
+
 
 void
 TempoMap::remove_tempo_at (TempoMapPoint const & p)
@@ -1457,12 +1511,19 @@ TempoMap::remove_explicit_point (samplepos_t s)
 }
 
 bool
+TempoMap::move_to (TempoMapPoint& point, timepos_t const & dest, bool push)
+{
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+	TempoMapPoints::iterator p (iterator_at (point.sclock()));
+	return move_to (p, dest, push);
+}
+
+bool
 TempoMap::move_to (timepos_t const & cur, timepos_t const & dest, bool push)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 
 	superclock_t current = S2Sc (cur.sample());
-	superclock_t destination;
 
 	TempoMapPoints::iterator p;
 
@@ -1484,6 +1545,14 @@ TempoMap::move_to (timepos_t const & cur, timepos_t const & dest, bool push)
 		return false;
 	}
 
+	return move_to (p, dest, push);
+}
+
+bool
+TempoMap::move_to (TempoMapPoints::iterator& p, timepos_t const & dest, bool push)
+{
+	superclock_t current = p->sclock();
+
 	switch (dest.lock_style()) {
 	case AudioTime:
 	case BarTime:
@@ -1494,7 +1563,7 @@ TempoMap::move_to (timepos_t const & cur, timepos_t const & dest, bool push)
 		abort ();
 	}
 
-	destination = S2Sc (dest.sample ());
+	superclock_t destination = S2Sc (dest.sample ());
 
 	/* put a "dirty" flag in at the nearest (prior) explicit point to the removal point
 	 */

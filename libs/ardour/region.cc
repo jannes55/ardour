@@ -1892,3 +1892,4 @@ Region::region_relative_position (timepos_t const & p) const
 {
 	return p.earlier (_position.val());
 }
+

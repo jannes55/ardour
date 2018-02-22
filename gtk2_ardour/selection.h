@@ -188,7 +188,7 @@ public:
 
 	void move_time (Temporal::timecnt_t const &);
 
-	void replace (uint32_t time_index, samplepos_t start, samplepos_t end);
+	void replace (uint32_t time_index, Temporal::timepos_t const & start, Temporal::timepos_t const & end);
 
 	/*
 	 * A note about items in an editing Selection:

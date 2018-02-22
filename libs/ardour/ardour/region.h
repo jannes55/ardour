@@ -296,7 +296,9 @@ public:
 	/** Convert a timestamp in absolute time to beats measured from source start*/
 	Temporal::Beats absolute_time_to_source_beats(Temporal::timepos_t const &) const;
 
-	Temporal::Beats session_relative_ (double qn) const;
+	Temporal::Beats absolute_time_to_region_beats (Temporal::timepos_t const & b) const {
+		return b.distance (position()).beats ();
+	}
 
 	int apply (Filter &, Progress* progress = 0);
 

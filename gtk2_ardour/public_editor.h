@@ -478,7 +478,7 @@ public:
 
 	virtual void get_regions_at (RegionSelection &, Temporal::timepos_t const & where, TrackViewList const &) const = 0;
 	virtual void get_regions_after (RegionSelection&, Temporal::timepos_t const & where, const TrackViewList& ts) const = 0;
-	virtual RegionSelection get_regions_from_selection_and_mouse (samplepos_t) = 0;
+	virtual RegionSelection get_regions_from_selection_and_mouse (Temporal::timepos_t const &) = 0;
 	virtual void get_regionviews_by_id (PBD::ID const id, RegionSelection & regions) const = 0;
 	virtual void get_per_region_note_selection (std::list<std::pair<PBD::ID, std::set<boost::shared_ptr<Evoral::Note<Temporal::Beats> > > > >&) const = 0;
 

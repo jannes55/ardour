@@ -332,7 +332,7 @@ public:
 	void mixer_strip_width_changed ();
 	void hide_track_in_display (TimeAxisView* tv, bool apply_to_selection = false);
 	void show_track_in_display (TimeAxisView* tv, bool move_into_view = false);
-	void tempo_curve_selected (Temporal::TempoMapPoint* ts, bool yn);
+	void tempo_curve_selected (Temporal::TempoMapPoint const * ts, bool yn);
 
 	/* nudge is initiated by transport controls owned by ARDOUR_UI */
 
@@ -554,7 +554,7 @@ public:
 	void mouse_add_new_marker (Temporal::timepos_t const & where, bool is_cd=false);
 	void split_regions_at (Temporal::timepos_t const &, RegionSelection&, bool snap = true);
 	void split_region_at_points (boost::shared_ptr<ARDOUR::Region>, ARDOUR::AnalysisFeatureList&, bool can_ferret, bool select_new = false);
-	RegionSelection get_regions_from_selection_and_mouse (samplepos_t);
+	RegionSelection get_regions_from_selection_and_mouse (Temporal::timepos_t const &);
 
 	void mouse_add_new_tempo_event (Temporal::timepos_t const & where);
 	void mouse_add_new_meter_event (Temporal::timepos_t const & where);
@@ -1758,7 +1758,7 @@ private:
 	Curves tempo_curves;
 
 	void remove_metric_marks ();
-	void draw_metric_marks (Temporal::TempoMapPoints const &);
+	void draw_metric_marks (Temporal::TempoMapPoints &);
 
 	void compute_current_bbt_points (Temporal::TempoMapPoints& grid, samplepos_t left, samplepos_t right);
 
@@ -1953,7 +1953,7 @@ private:
 	void stop_canvas_autoscroll ();
 
 	/* trimming */
-	void point_trim (GdkEvent *, samplepos_t);
+	void point_trim (GdkEvent *, Temporal::timepos_t const &);
 
 	void trim_region_front();
 	void trim_region_back();

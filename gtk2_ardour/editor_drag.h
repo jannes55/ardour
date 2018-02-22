@@ -71,6 +71,14 @@ class AudioRegionView;
 class AutomationLine;
 class AutomationTimeAxisView;
 
+/* Rules: 
+
+   1) "raw" positions (derived directly from events, using pixel->sample conversion) are in samples
+   2) all other positions use timepos_t
+   3) all distances use timecnt_t
+
+*/
+
 /** Class to manage current drags */
 class DragManager
 {
@@ -109,7 +117,7 @@ public:
 		return _current_pointer_y;
 	}
 
-	/** @return current pointer sample */
+	/** @return current raw pointer sample */
 	ARDOUR::samplepos_t current_pointer_sample () const {
 		return _current_pointer_sample;
 	}
@@ -120,7 +128,7 @@ private:
 	bool _ending; ///< true if end_grab or abort is in progress, otherwise false
 	double _current_pointer_x; ///< canvas-coordinate space x of the current pointer
 	double _current_pointer_y; ///< canvas-coordinate space y of the current pointer
-	ARDOUR::samplepos_t _current_pointer_sample; ///< sample that the pointer is now at
+	ARDOUR::samplepos_t _current_pointer_sample; ///< raw sample that the pointer is now at
 	bool _old_follow_playhead; ///< state of Editor::follow_playhead() before the drags started
 };
 
@@ -144,8 +152,11 @@ public:
 	bool motion_handler (GdkEvent*, bool);
 	void abort ();
 
-	ARDOUR::timepos_t adjusted_sample (ARDOUR::samplepos_t, GdkEvent const *, bool snap = true) const;
-	ARDOUR::samplepos_t adjusted_current_sample (GdkEvent const *, bool snap = true) const;
+	Temporal::timepos_t adjusted_time (Temporal::timepos_t const &, GdkEvent const *, bool snap = true) const;
+	Temporal::timepos_t adjusted_current_time (GdkEvent const *, bool snap = true) const;
+	ARDOUR::samplepos_t adjusted_current_sample (GdkEvent const * ev, bool snap = true) {
+		return adjusted_current_time (ev, snap).sample();
+	}
 
 	bool was_double_click() const { return _was_double_click; }
 	void set_double_click (bool yn) { _was_double_click = yn; }
@@ -206,10 +217,8 @@ public:
 		return _initially_vertical;
 	}
 
-	/** Set up the _pointer_sample_offset */
-	virtual void setup_pointer_sample_offset () {
-		_pointer_sample_offset = 0;
-	}
+	/** Set up the _pointer_offset */
+	virtual void setup_pointer_offset ();
 
 protected:
 
@@ -226,7 +235,11 @@ protected:
 	}
 
 	ARDOUR::samplepos_t grab_sample () const {
-		return _grab_sample;
+		return _grab_time.sample();
+	}
+
+	Temporal::timepos_t grab_time () const {
+		return _grab_time;
 	}
 
 	double last_pointer_x () const {
@@ -238,11 +251,14 @@ protected:
 	}
 
 	ARDOUR::samplepos_t last_pointer_sample () const {
-		return _last_pointer_sample;
+		return _last_pointer_time.sample();
+	}
+
+	Temporal::timepos_t last_pointer_time () const {
+		return _last_pointer_time;
 	}
 
 	Temporal::timecnt_t snap_delta (guint const) const;
-	Temporal::Beats     snap_delta_music (guint const) const;
 
 	double current_pointer_x () const;
 	double current_pointer_y () const;
@@ -260,7 +276,7 @@ protected:
 	DragManager* _drags;
 	ArdourCanvas::Item* _item; ///< our item
 	/** Offset from the mouse's position for the drag to the start of the thing that is being dragged */
-	ARDOUR::samplecnt_t _pointer_sample_offset;
+	Temporal::timecnt_t _pointer_offset;
 	bool _x_constrained; ///< true if x motion is constrained, otherwise false
 	bool _y_constrained; ///< true if y motion is constrained, otherwise false
 	bool _was_rolling; ///< true if the session was rolling before the drag started, otherwise false
@@ -276,14 +292,9 @@ private:
 	double _last_pointer_x; ///< trackview x of the pointer last time a motion occurred
 	double _last_pointer_y; ///< trackview y of the pointer last time a motion occurred
 	ARDOUR::samplepos_t _raw_grab_sample; ///< unsnapped sample that the mouse was at when start_grab was called, or 0
-	ARDOUR::samplepos_t _grab_sample; ///< adjusted_sample that the mouse was at when start_grab was called, or 0
-	ARDOUR::samplepos_t _last_pointer_sample; ///< adjusted_sample the last time a motion occurred
-
-	/* difference between some key position's snapped and unsnapped
-	 *  samplepos. used for relative snap.
-	 */
-	Temporal::timecnt_t _snap_delta;
-	Temporal::Beats     _snap_delta_music;
+	Temporal::timepos_t _grab_time; ///< adjusted_time (using offset and snap) that the mouse was at when start_grab was called, or 0
+	Temporal::timepos_t _last_pointer_time; ///< adjusted_time the last time a motion occurred
+	Temporal::timecnt_t _snap_delta; ///< difference between an important position snapped and unsnapped. set in ::start_grab() by each type of Drag. used for relative snap.
 	CursorContext::Handle _cursor_ctx; ///< cursor change context
 	bool _constraint_pressed; ///< if the keyboard indicated constraint modifier was pressed on start_grab()
 };
@@ -307,9 +318,9 @@ public:
 	*/
 	double layer;
 	double initial_y; ///< the initial y position of the view before any reparenting
-	samplepos_t initial_position; ///< initial position of the region
-	samplepos_t initial_end; ///< initial end position of the region
-	samplepos_t anchored_fade_length; ///< fade_length when anchored during drag
+	Temporal::timepos_t initial_position; ///< initial position of the region
+	Temporal::timepos_t initial_end; ///< initial end position of the region
+	samplepos_t anchored_fade_length; ///< fade_length when anchored during drag (always AudioTime)
 	boost::shared_ptr<ARDOUR::Playlist> initial_playlist;
 	TimeAxisView* initial_time_axis_view;
 };
@@ -401,7 +412,7 @@ public:
 		return std::make_pair (4, 4);
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 protected:
 	typedef std::set<boost::shared_ptr<ARDOUR::Playlist> > PlaylistSet;
@@ -487,9 +498,9 @@ protected:
 private:
 	TimeAxisView *prev_tav;		// where regions were most recently dragged from
 	TimeAxisView *orig_tav;		// where drag started
-	ARDOUR::samplecnt_t prev_amount;
-	ARDOUR::samplepos_t prev_position;
-	ARDOUR::samplecnt_t selection_length;
+	Temporal::timecnt_t prev_amount;
+	Temporal::timepos_t prev_position;
+	Temporal::timecnt_t selection_length;
 	bool allow_moves_across_tracks; // only if all selected regions are on one track
 	ARDOUR::RegionList *exclude;
 	void add_all_after_to_views (TimeAxisView *tav, Temporal::timepos_t const & where, const RegionSelection &exclude, bool drag_in_progress);
@@ -558,17 +569,16 @@ public:
 	void finished (GdkEvent *, bool);
 	void aborted (bool);
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 private:
-
-	double total_dx (GdkEvent * event) const; // total movement in quarter notes
+	Temporal::Beats total_dx (GdkEvent * event) const; // total movement in beats (quarter notes)
 	int8_t total_dy () const;
 
 	MidiRegionView* _region;
 	NoteBase* _primary;
 	Temporal::Beats _cumulative_dx;
 	double _cumulative_dy;
-	double _earliest; // earliest quarter note in note selection
+	Temporal::Beats _earliest; // earliest quarter note in note selection
 	bool   _was_selected;
 	double _note_height;
 	bool   _copy;
@@ -595,7 +605,7 @@ public:
 
 private:
 	double y_to_region (double) const;
-	ARDOUR::samplecnt_t grid_samples (samplepos_t) const;
+	Temporal::Beats grid_aligned_beats (samplepos_t pos, GdkEvent const *) const;
 
 	/** @return minimum number of samples (in x) and pixels (in y) that should be considered a movement */
 	virtual std::pair<ARDOUR::samplecnt_t, int> move_threshold () const {
@@ -604,7 +614,7 @@ private:
 
 	MidiRegionView* _region_view;
 	ArdourCanvas::Rectangle* _drag_rect;
-	samplepos_t _note[2];
+	Temporal::Beats _note[2];
 };
 
 class HitCreateDrag : public Drag
@@ -655,7 +665,7 @@ public:
 		return false;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 	MidiRegionView* _region_view;
@@ -723,7 +733,7 @@ public:
 		return false;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 
@@ -752,11 +762,11 @@ public:
 		return false;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 	MeterMarker* _marker;
-	Temporal::Meter const * _real_section;
+	Temporal::TempoMapPoint* _point;
 
 	bool _copy;
 	Editing::SnapType _old_snap_type;
@@ -783,16 +793,16 @@ public:
 		return true;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 	TempoMarker* _marker;
-	ARDOUR::TempoSection* _real_section;
+	Temporal::TempoMapPoint* _point;
 
 	bool _copy;
 	bool _movable;
 	Temporal::Tempo _grab_bpm;
-	double _grab_qn;
+	Temporal::Beats _grab_qn;
 	XMLNode* _before_state;
 };
 
@@ -815,7 +825,7 @@ public:
 		return false;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 	double _grab_qn;
@@ -843,7 +853,7 @@ public:
 		return true;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 	double _grab_qn;
@@ -874,11 +884,11 @@ public:
 		return true;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
-	double _grab_qn;
-	ARDOUR::TempoSection* _tempo;
+	Temporal::Beats _grab_qn;
+	Temporal::TempoMapPoint* _point;
 	XMLNode* _before_state;
 	bool _drag_valid;
 };
@@ -931,7 +941,7 @@ public:
 		return false;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 };
 
 /** Region fade-out drag */
@@ -949,7 +959,7 @@ public:
 		return false;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 };
 
 /** Marker drag */
@@ -972,7 +982,7 @@ public:
 		return false;
 	}
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 	void update_item (ARDOUR::Location *);
@@ -1172,15 +1182,15 @@ public:
 	void finished (GdkEvent *, bool);
 	void aborted (bool);
 
-	void setup_pointer_sample_offset ();
+	void setup_pointer_offset ();
 
 private:
 	Operation _operation;
 	bool _add;
 	TrackSelection _track_selection_at_start;
 	bool _time_selection_at_start;
-	samplepos_t start_at_start;
-	samplepos_t end_at_start;
+	Temporal::timepos_t start_at_start;
+	Temporal::timepos_t end_at_start;
 };
 
 /** Range marker drag */
@@ -1260,7 +1270,7 @@ private:
 	double y_fraction (boost::shared_ptr<AutomationLine>, double global_y_position) const;
 	double value (boost::shared_ptr<ARDOUR::AutomationList> list, double x) const;
 
-	std::list<Temporal::Range> _ranges;
+	std::list<ARDOUR::TimelineRange> _ranges;
 
 	/** A line that is part of the drag */
 	struct Line {

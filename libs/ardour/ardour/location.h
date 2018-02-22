@@ -207,7 +207,7 @@ class LIBARDOUR_API Locations : public SessionHandleRef, public PBD::StatefulDes
 
 	void marks_either_side (timepos_t const &, timepos_t &, timepos_t &) const;
 
-	void find_all_between (samplepos_t start, samplepos_t, LocationList&, Location::Flags);
+	void find_all_between (timepos_t const & start, timepos_t const & end, LocationList&, Location::Flags);
 
 	PBD::Signal1<void,Location*> current_changed;
 

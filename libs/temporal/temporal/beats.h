@@ -371,6 +371,7 @@ public:
 	int32_t get_ticks() const { return _ticks; }
 
 	bool operator!() const { return _beats == 0 && _ticks == 0; }
+	operator bool () const { return _beats != 0 || _ticks != 0; }
 
 	static Beats tick() { return Beats(0, 1); }
 
@@ -417,8 +418,7 @@ namespace std {
 	template<>
 	struct numeric_limits<Temporal::Beats> {
 		static Temporal::Beats lowest() {
-			return Temporal::Beats(std::numeric_limits<int32_t>::min(),
-			                     std::numeric_limits<int32_t>::min());
+			return Temporal::Beats(std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::min());
 		}
 
 		/* We don't define min() since this has different behaviour for integral and floating point types,
@@ -426,8 +426,7 @@ namespace std {
 		   than a confusing one. */
 
 		static Temporal::Beats max() {
-			return Temporal::Beats(std::numeric_limits<int32_t>::max(),
-			                     std::numeric_limits<int32_t>::max());
+			return Temporal::Beats(std::numeric_limits<int32_t>::max(), Temporal::Beats::PPQN-1);
 		}
 	};
 }

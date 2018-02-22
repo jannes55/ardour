@@ -5011,7 +5011,7 @@ Editor::get_regions_from_selection_and_edit_point (EditIgnoreOption ignore, bool
  *  Note that we have forced the rule that selected regions and selected tracks are mutually exclusive
  */
 RegionSelection
-Editor::get_regions_from_selection_and_mouse (samplepos_t pos)
+Editor::get_regions_from_selection_and_mouse (timepos_t const & pos)
 {
 	RegionSelection regions;
 

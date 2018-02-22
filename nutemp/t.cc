@@ -1190,6 +1190,8 @@ TempoMap::move_to (superclock_t current, superclock_t destination, bool push)
 
 	_points.erase (p);
 
+	set_dirty (true);
+
 	return true;
 }
 
