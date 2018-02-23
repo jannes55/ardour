@@ -304,14 +304,16 @@ class LIBTEMPORAL_API TempoMapPoint
 
 	superclock_t        sclock() const      { return _sclock; }
 
-	/* time domain will vary according to lock style */
 	timepos_t           time() const;
-
 	samplepos_t         sample() const;
 	Beats const &       quarters() const  { return _quarters; }
-	BBT_Time  const &   bbt() const { return _bbt; }
+	BBT_Time  const &   bbt() const       { return _bbt; }
+
 	bool                ramped() const      { return metric().ramped(); }
-	TempoMetric const & metric() const      { return is_explicit() ? _explicit : _reference->metric(); }
+
+	TempoMetric const & metric() const { return is_explicit() ? _explicit : _reference->metric(); }
+	Tempo               tempo() const  { return metric(); }
+	Tempo               meter() const  { return metric(); }
 
 	void compute_c_superclock (samplecnt_t sr, superclock_t end_superclocks_per_note_type, superclock_t duration) { if (is_explicit()) { _explicit.compute_c_superclock (sr, end_superclocks_per_note_type, duration); } }
 	void compute_c_quarters (samplecnt_t sr, superclock_t end_superclocks_per_note_type, Beats const & duration) { if (is_explicit()) { _explicit.compute_c_quarters (sr, end_superclocks_per_note_type, duration); } }
@@ -331,9 +333,6 @@ class LIBTEMPORAL_API TempoMapPoint
 
 	BBT_Time bbt_at (Beats const &) const;
 	BBT_Time bbt_at (superclock_t) const;
-
-	samplepos_t sample_at (Beats const &) const;
-	samplepos_t sample_at (BBT_Time const &) const;
 
 	XMLNode& get_state() const;
 	int set_state (XMLNode const&, int version);

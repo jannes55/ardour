@@ -1168,7 +1168,7 @@ MidiRegionView::redisplay_model()
 			   touching model.  Leave active notes (with length 0) alone since
 			   they are being extended. */
 			for (Events::iterator i = _events.begin(); i != _events.end(); ++i) {
-				if (i->second->note()->length() > 0) {
+				if (i->second->note()->length() > std::numeric_limits<Temporal::Beats>::lowest()) {
 					update_note(i->second);
 				}
 			}
@@ -2689,7 +2689,7 @@ MidiRegionView::move_copies (Temporal::Beats const & dx_qn, double dy, double cu
 }
 
 void
-MidiRegionView::note_dropped(NoteBase *, double d_qn, int8_t dnote, bool copy)
+MidiRegionView::note_dropped(NoteBase *, Temporal::Beats const & d_qn, int8_t dnote, bool copy)
 {
 	uint8_t lowest_note_in_selection  = 127;
 	uint8_t highest_note_in_selection = 0;
@@ -2723,9 +2723,9 @@ MidiRegionView::note_dropped(NoteBase *, double d_qn, int8_t dnote, bool copy)
 
 		for (Selection::iterator i = _selection.begin(); i != _selection.end() ; ++i) {
 
-			Temporal::Beats new_time = Temporal::Beats ((*i)->note()->time().to_double() + d_qn);
+			Temporal::Beats new_time = Temporal::Beats ((*i)->note()->time() + d_qn);
 
-			if (new_time < 0) {
+			if (new_time < std::numeric_limits<Temporal::Beats>::lowest()) {
 				continue;
 			}
 
@@ -2764,7 +2764,7 @@ MidiRegionView::note_dropped(NoteBase *, double d_qn, int8_t dnote, bool copy)
 			/* update time */
 			Temporal::Beats new_time = Temporal::Beats ((*i)->note()->time().to_double() + d_qn);
 
-			if (new_time < 0) {
+			if (new_time < std::numeric_limits<Temporal::Beats>::lowest()) {
 				continue;
 			}
 
@@ -2945,9 +2945,9 @@ MidiRegionView::update_resizing (NoteBase* primary, bool at_front, double delta_
 
 			/* negative beat offsets aren't allowed */
 			if (snap_delta_samps > 0) {
-				snap_delta_beats = _region->region_time_to_region_beats (snap_delta_samps);
+				snap_delta_beats = _region->region_distance_to_region_beats (timecnt_t (snap_delta_samps, _region->position()));
 			} else if (snap_delta_samps < 0) {
-				snap_delta_beats = _region->region_time_to_region_beats (-snap_delta_samps);
+				snap_delta_beats = _region->region_distance_to_region_beats (timecnt_t (-snap_delta_samps, _region->position()));
 				sign = -1;
 			}
 
@@ -3035,9 +3035,9 @@ MidiRegionView::commit_resizing (NoteBase* primary, bool at_front, double delta_
 		int sign = 1;
 
 		if (snap_delta_samps > 0) {
-			snap_delta_beats = _region->region_time_to_region_beats (snap_delta_samps);
+			snap_delta_beats = _region->region_distance_to_region_beats (timecnt_t (snap_delta_samps, _region->position()));
 		} else if (snap_delta_samps < 0) {
-			snap_delta_beats = _region->region_time_to_region_beats ( - snap_delta_samps);
+			snap_delta_beats = _region->region_distance_to_region_beats (timecnt_t (-snap_delta_samps, _region->position()));
 			sign = -1;
 		}
 
@@ -3137,7 +3137,7 @@ MidiRegionView::trim_note (NoteBase* event, Temporal::Beats front_delta, Tempora
 	*/
 
 	if (!!front_delta) {
-		if (front_delta < 0) {
+		if (front_delta < std::numeric_limits<Temporal::Beats>::lowest()) {
 
 			if (event->note()->time() < -front_delta) {
 				new_start = Temporal::Beats();
@@ -3170,7 +3170,7 @@ MidiRegionView::trim_note (NoteBase* event, Temporal::Beats front_delta, Tempora
 
 	if (!!end_delta) {
 		bool can_change = true;
-		if (end_delta < 0) {
+		if (end_delta < std::numeric_limits<Temporal::Beats>::lowest()) {
 			if (event->note()->length() < -end_delta) {
 				can_change = false;
 			}
@@ -3407,7 +3407,7 @@ MidiRegionView::nudge_notes (bool forward, bool fine)
 
 		timecnt_t       unused;
 		const timecnt_t distance = trackview.editor().get_nudge_distance (ref_point, unused);
-		delta = _region->region_time_to_region_beats (timepos_t (distance.beats()));
+		delta = _region->region_distance_to_region_beats (timecnt_t (distance.beats(), _region->position()));
 
 	} else {
 
@@ -3428,7 +3428,7 @@ MidiRegionView::nudge_notes (bool forward, bool fine)
 
 		trackview.editor().snap_to (next_pos, (forward ? Temporal::RoundUpAlways : Temporal::RoundDownAlways), false);
 		const timecnt_t distance = ref_point.distance (next_pos);
-		delta = _region->region_time_to_region_beats (timepos_t (distance));
+		delta = _region->region_distance_to_region_beats (timecnt_t (distance, _region->position()));
 	}
 
 	if (!delta) {

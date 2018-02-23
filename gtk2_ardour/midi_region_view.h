@@ -202,7 +202,7 @@ public:
 
 	Temporal::Beats earliest_in_selection ();
 	void move_selection(Temporal::Beats const & dx, double dy, double cumulative_dy);
-	void note_dropped (NoteBase* ev, double d_qn, int8_t d_note, bool copy);
+	void note_dropped (NoteBase* ev, Temporal::Beats const & d_qn, int8_t d_note, bool copy);
 	NoteBase* copy_selection (NoteBase* primary);
  	void move_copies(Temporal::Beats const & dx_qn, double dy, double cumulative_dy);
 

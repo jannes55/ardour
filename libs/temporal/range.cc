@@ -20,17 +20,18 @@
 
 using namespace Temporal;
 
-/** Subtract the ranges in `sub' from that in `range',
- *  returning the result.
+/** Subtract the ranges in `sub' from this range returning the result.
  */
 RangeList
-subtract (Range range, RangeList sub)
+Range::subtract (RangeList & sub) const
 {
 	/* Start with the input range */
-	RangeList result;
-	result.add (range);
 
-	if (sub.empty () || range.empty()) {
+	RangeList result;
+
+	result.add (*this);
+
+	if (sub.empty () || empty()) {
 		return result;
 	}
 
@@ -50,7 +51,7 @@ subtract (Range range, RangeList sub)
 		/* Work on all parts of the current result using this range *i */
 		for (typename RangeList::List::const_iterator j = r.begin(); j != r.end(); ++j) {
 
-			switch (coverage (j->from, j->to, i->from, i->to)) {
+			switch (Temporal::coverage (j->from, j->to, i->from, i->to)) {
 			case OverlapNone:
 				/* The thing we're subtracting (*i) does not overlap this bit of the result (*j),
 				   so pass it through.

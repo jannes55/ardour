@@ -219,7 +219,7 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 
 		/* ... and then remove the bits that are already done */
 
-		Temporal::RangeList region_to_do = Temporal::subtract (region_range, done);
+		Temporal::RangeList region_to_do = region_range.subtract (done);
 
 		/* Make a note to read those bits, adding their bodies (the parts between end-of-fade-in
 		   and start-of-fade-out) to the `done' list.

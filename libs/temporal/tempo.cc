@@ -391,6 +391,25 @@ TempoMapPoint::set_map (TempoMap* m)
 }
 
 void
+TempoMapPoint::set_flags (Flag f)
+{
+	_flags = f;
+	set_dirty (true);
+}
+
+void
+TempoMapPoint::start_float ()
+{
+	_floating = true;
+}
+
+void
+TempoMapPoint::end_float ()
+{
+	_floating = false;
+}
+
+void
 TempoMapPoint::set_dirty (bool yn)
 {
 	if (yn != _dirty) {
@@ -1458,7 +1477,7 @@ TempoMap::samplewalk_to_quarters (Temporal::Beats const & pos, samplecnt_t dista
 {
 	/* XXX this converts from beats to samples and back to beats... undesirable */
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
-	samplepos_t s = const_point_at (pos).sample_at (pos);
+	samplepos_t s = sample_at_locked (pos);
 	s += distance;
 	return const_point_at (distance).quarters_at (s);
 
@@ -2164,4 +2183,24 @@ TempoMap::remove_time (timepos_t const & pos, timecnt_t const & duration)
 	}
 
 	return moved;
+}
+
+TempoMapPoint const *
+TempoMap::previous_tempo (TempoMapPoint const & point) const
+{
+	bool seen_current_tempo = false;
+	TempoMapPoints::const_iterator i = const_iterator_at (point.sclock());
+
+	while (i != _points.begin()) {
+		if (i->is_explicit_tempo ()) {
+			if (!seen_current_tempo) {
+				seen_current_tempo = true;
+			} else {
+				return &(*i);
+			}
+		}
+		--i;
+	}
+
+	return 0;
 }

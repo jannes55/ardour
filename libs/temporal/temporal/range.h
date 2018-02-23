@@ -128,12 +128,16 @@ template<typename T>
 	return OverlapNone;
 }
 
+class RangeList;
+
 struct LIBTEMPORAL_API Range {
 	Range (timepos_t f, timepos_t t) : from (f), to (t) {}
 	timepos_t from; ///< start of the range
 	timepos_t to;   ///< end of the range (inclusive; lies after end of range)
 	bool empty() const { return from == to; }
 	timecnt_t length() const { return from.distance (to); }
+
+	RangeList subtract (RangeList &) const;
 
 	/* helper APIs during the transition to timepos_t */
 	samplepos_t start_sample () const;
@@ -228,8 +232,6 @@ struct LIBTEMPORAL_API RangeMove {
 	timecnt_t length; ///< length of the range
 	timepos_t to;     ///< new start of the range
 };
-
-RangeList subtract (Range range, RangeList sub);
 
 }
 

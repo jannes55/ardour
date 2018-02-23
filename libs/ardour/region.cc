@@ -1858,6 +1858,27 @@ Region::end() const
 	return _position.val() + _length.val();
 }
 
+Temporal::Beats
+Region::region_distance_to_region_beats (timecnt_t const & region_relative_offset) const
+{
+	return timecnt_t (region_relative_offset, position()).beats ();
+}
+
+Temporal::Beats
+Region::source_beats_to_absolute_beats (Temporal::Beats beats) const
+{
+	return source_position().beats() + beats;
+}
+
+Temporal::timepos_t
+Region::region_beats_to_absolute_time (Temporal::Beats beats) const
+{
+	/* beats is an additional offset to the start point of the region, from
+	   the effective start of the source on the timeline.
+	*/
+	return source_position() + start () + beats;
+}
+
 Temporal::timepos_t
 Region::source_beats_to_absolute_time (Temporal::Beats beats) const
 {
