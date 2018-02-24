@@ -224,6 +224,15 @@ TempoMetric::superclocks_per_bar (samplecnt_t sr) const
 /*
 Ramp Overview
 
+In these notes, we have two units that are reciprocally related: T and S. 
+
+   T = 1/S
+
+T is tempo or "beat-things per minute"
+S is speed or "minutes per beat-thing"
+
+Most equation-like expressions are expressed both in terms of T and S.
+
       |                     *
 Tempo |                   *
 Tt----|-----------------*|
@@ -836,7 +845,7 @@ TempoMap::change_tempo (TempoMapPoint& point, Tempo const & tempo)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 	assert (point.is_explicit_tempo ());
-	*((Tempo*) &point.metric()) = tempo;
+	*((Tempo*) &point.nonconst_metric()) = tempo;
 	point.set_dirty (true);
 }
 
@@ -1075,7 +1084,7 @@ TempoMap::remove_tempo_at (TempoMapPoint const & p)
 	}
 
 	/* change tempo record here */
-	*((Tempo*) &(i->nonconst_metric())) = *((Tempo*) &prev->metric());
+	*((Tempo*) &(i->nonconst_metric())) = *((Tempo const *) &prev->metric());
 	/* make it inexplicit */
 	i->set_flags (TempoMapPoint::Flag (i->flags() & ~TempoMapPoint::ExplicitTempo));
 }
@@ -1249,8 +1258,8 @@ TempoMap::remove_meter_at (TempoMapPoint const & p)
 	}
 
 	/* change meter record here */
-	*((Meter*) &(i->nonconst_metric())) = *((Meter*) &prev->metric());
-	/* make it inexplicit */
+	*((Meter*) &(i->nonconst_metric())) = *((Meter const *) &prev->metric());
+	/* make it implicit */
 	i->set_flags (TempoMapPoint::Flag (i->flags() & ~TempoMapPoint::ExplicitMeter));
 }
 

@@ -415,7 +415,7 @@ SMFSource::append_event_beats (const Glib::Threads::Mutex::Lock&   lock,
 	Temporal::Beats time = ev.time();
 	if (time < _last_ev_time_beats) {
 		const Temporal::Beats difference = _last_ev_time_beats - time;
-		if (difference.to_double() / (double)ppqn() < 1.0) {
+		if (difference < Temporal::Beats::ticks (ppqn())) {
 			/* Close enough.  This problem occurs because Sequence is not
 			   actually ordered due to fuzzy time comparison.  I'm pretty sure
 			   this is inherently a bad idea which causes problems all over the
@@ -423,8 +423,8 @@ SMFSource::append_event_beats (const Glib::Threads::Mutex::Lock&   lock,
 			time = _last_ev_time_beats;
 		} else {
 			/* Out of order by more than a tick. */
-			warning << string_compose(_("Skipping event with unordered beat time %1 < %2 (off by %3 beats, %4 ticks)"),
-			                          ev.time(), _last_ev_time_beats, difference, difference.to_double() / (double)ppqn())
+			warning << string_compose(_("Skipping event with unordered beat time %1 < %2 (off by %3 beats)"),
+			                          ev.time(), _last_ev_time_beats, difference)
 			        << endmsg;
 			return;
 		}

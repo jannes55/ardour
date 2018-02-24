@@ -522,8 +522,6 @@ LuaBindings::common (lua_State* L)
 		.endClass ()
 
 		.beginClass <Temporal::Beats> ("Beats")
-		.addConstructor <void (*) (double)> ()
-		.addFunction ("to_double", &Temporal::Beats::to_double)
 		.endClass ()
 
 		.beginClass <Evoral::Parameter> ("Parameter")

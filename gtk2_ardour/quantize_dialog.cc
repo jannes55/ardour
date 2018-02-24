@@ -55,7 +55,7 @@ static const gchar *_grid_strings[] = {
 	0
 };
 
-static const int _grid_beats[] = {
+static const int _grid_divisors[] = {
 	0,
 	128, 64, 32, 28, 24, 20, 16, 14,
 	12, 10, 8, 7, 6, 5, 4, 3, 2, 1,
@@ -129,37 +129,38 @@ QuantizeDialog::~QuantizeDialog()
 {
 }
 
-double
-QuantizeDialog::start_grid_size () const
+int
+QuantizeDialog::start_grid_divisor () const
 {
-	return grid_size_to_musical_time (start_grid_combo.get_active_text ());
+	return grid_size_to_divisor (start_grid_combo.get_active_text ());
 }
 
-double
-QuantizeDialog::end_grid_size () const
+int
+QuantizeDialog::end_grid_divisor () const
 {
-	return grid_size_to_musical_time (end_grid_combo.get_active_text ());
+	return grid_size_to_divisor (end_grid_combo.get_active_text ());
 }
 
-double
-QuantizeDialog::grid_size_to_musical_time (const string& txt) const
+int
+QuantizeDialog::grid_size_to_divisor (const string& txt) const
 {
 	if (txt == _("main grid")) {
-		bool success;
 
-		Temporal::Beats b = editor.get_grid_type_as_beats (success, 0);
-		if (!success) {
-			return 1.0;
+		int divisions = editor.get_grid_beat_divisions ();
+
+		if (divisions) {
+			return divisions;
 		}
-		return b.to_double();
+
+		return 1;
 	}
 
+	int divisor = 1;
 
-	double divisor = 1.0;
 	for (size_t i = 1; i < grid_strings.size(); ++i) {
 		if (txt == grid_strings[i]) {
-			assert (_grid_beats[i] != 0);
-			divisor = 1.0 / _grid_beats[i];
+			assert (_grid_divisors[i] != 0);
+			divisor = _grid_divisors[i];
 			break;
 		}
 	}
@@ -183,8 +184,9 @@ QuantizeDialog::strength () const
 	return strength_adjustment.get_value ();
 }
 
-float
+Temporal::Beats
 QuantizeDialog::threshold () const
 {
-	return threshold_adjustment.get_value ();
+	/* explicit use of from-double Beats constructor */
+	return Temporal::Beats (threshold_adjustment.get_value ());
 }

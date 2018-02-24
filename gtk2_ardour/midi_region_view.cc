@@ -2564,7 +2564,7 @@ MidiRegionView::move_selection(Temporal::Beats const & dx_qn, double dy, double 
 		if (midi_view()->note_mode() == Sustained) {
 			Note* sus = dynamic_cast<Note*> (*i);
 			double const len_dx = editor->sample_to_pixel_unrounded (
-				tmap.sample_at (note_time_qn + dx_qn + n->note()->length().to_double()));
+				tmap.sample_at (note_time_qn + dx_qn + n->note()->length()));
 
 			sus->set_x1 (n->item()->canvas_to_item (ArdourCanvas::Duple (len_dx, 0)).x);
 		}
@@ -2762,7 +2762,7 @@ MidiRegionView::note_dropped(NoteBase *, Temporal::Beats const & d_qn, int8_t dn
 		for (CopyDragEvents::iterator i = _copy_drag_events.begin(); i != _copy_drag_events.end() ; ++i) {
 
 			/* update time */
-			Temporal::Beats new_time = Temporal::Beats ((*i)->note()->time().to_double() + d_qn);
+			Temporal::Beats new_time = Temporal::Beats ((*i)->note()->time() + d_qn);
 
 			if (new_time < std::numeric_limits<Temporal::Beats>::lowest()) {
 				continue;
@@ -2976,7 +2976,10 @@ MidiRegionView::update_resizing (NoteBase* primary, bool at_front, double delta_
 			len = std::max(Temporal::Beats(1 / 512.0), len);
 
 			char buf[16];
-			snprintf (buf, sizeof (buf), "%.3g beats", len.to_double());
+#warning paul replace this use of Beats::to_double
+			//snprintf (buf, sizeof (buf), "%.3g beats", len.to_double());
+			buf[1] = '!';
+			buf[0] = '\0';
 			show_verbose_cursor (buf, 0, 0);
 
 			cursor_set = true;
@@ -4250,6 +4253,7 @@ MidiRegionView::get_velocity_for_add (MidiModel::TimeType time) const
 	}
 
 	MidiModel::Notes::const_iterator m = _model->note_lower_bound(time);
+
 	if (m == _model->notes().begin()) {
 		// Before the start, use the velocity of the first note
 		return (*m)->velocity();
@@ -4263,8 +4267,7 @@ MidiRegionView::get_velocity_for_add (MidiModel::TimeType time) const
 	MidiModel::Notes::const_iterator n = m;
 	--n;
 
-	const double frac = ((time - (*n)->time()).to_double() /
-	                     ((*m)->time() - (*n)->time()).to_double());
+	const double frac = (time - (*n)->time()) / ((*m)->time() - (*n)->time());
 
 	return (*n)->velocity() + (frac * ((*m)->velocity() - (*n)->velocity()));
 }

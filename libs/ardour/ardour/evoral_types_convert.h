@@ -20,6 +20,8 @@
 #ifndef ARDOUR_EVORAL_TYPES_CONVERT_H
 #define ARDOUR_EVORAL_TYPES_CONVERT_H
 
+#include <sstream>
+
 #include "pbd/enum_convert.h"
 
 #include "temporal/beats.h"
@@ -32,7 +34,10 @@ DEFINE_ENUM_CONVERT(Evoral::ControlList::InterpolationStyle)
 template <>
 inline bool to_string (Temporal::Beats beats, std::string& str)
 {
-	return double_to_string (beats.to_double (), str);
+	std::stringstream sstr;
+	sstr << beats;
+	str = sstr.str ();
+	return true;
 }
 
 template <>
@@ -50,7 +55,7 @@ template <>
 inline std::string to_string (Temporal::Beats beats)
 {
 	std::string tmp;
-	double_to_string (beats.to_double (), tmp);
+	double_to_string (beats, tmp);
 	return tmp;
 }
 

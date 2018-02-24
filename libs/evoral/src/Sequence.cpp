@@ -247,7 +247,7 @@ Sequence<Time>::const_iterator::choose_next(Time earliest_t)
 
 	// Use the next note off iff it's earlier or the same time as the note on
 	if ((!_active_notes.empty())) {
-		if (_type == NIL || _active_notes.top()->end_time().to_double() <= earliest_t.to_double()) {
+		if (_type == NIL || _active_notes.top()->end_time() <= earliest_t) {
 			_type      = NOTE_OFF;
 			earliest_t = _active_notes.top()->end_time();
 		}
@@ -256,7 +256,7 @@ Sequence<Time>::const_iterator::choose_next(Time earliest_t)
 	// Use the next earliest controller iff it's earlier than the note event
 	if (_control_iter != _control_iters.end() &&
 	    _control_iter->list && _control_iter->x != DBL_MAX) {
-		if (_type == NIL || _control_iter->x < earliest_t.to_double()) {
+		if (_type == NIL || _control_iter->x < earliest_t) {
 			_type      = CONTROL;
 			earliest_t = Time(_control_iter->x);
 		}
@@ -1066,7 +1066,7 @@ Sequence<Time>::append_control_unlocked(const Parameter& param, Time time, doubl
 	DEBUG_TRACE (DEBUG::Sequence, string_compose ("%1 %2 @ %3 = %4 # controls: %5\n",
 	                                              this, _type_map.to_symbol(param), time, value, _controls.size()));
 	boost::shared_ptr<Control> c = control(param, true);
-	c->list()->add (time.to_double(), value, true, false);
+	c->list()->add (Temporal::timepos_t (time), value, true, false);
 	/* XXX control events should use IDs */
 }
 

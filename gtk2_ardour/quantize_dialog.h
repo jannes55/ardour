@@ -44,13 +44,13 @@ public:
 	QuantizeDialog (PublicEditor&);
 	~QuantizeDialog ();
 
-	double start_grid_size() const;
-	double end_grid_size() const;
-	bool   snap_start() const { return snap_start_button.get_active(); }
-	bool   snap_end() const { return snap_end_button.get_active(); }
-	float  strength() const;
-	float  threshold () const;
-	float  swing () const;
+	int   start_grid_divisor() const;
+	int   end_grid_divisor() const;
+	bool  snap_start() const { return snap_start_button.get_active(); }
+	bool  snap_end() const { return snap_end_button.get_active(); }
+	float strength() const;
+	Temporal::Beats threshold () const;
+	float swing () const;
 
 private:
 	PublicEditor& editor;
@@ -72,7 +72,7 @@ private:
 	static std::vector<std::string> grid_strings;
 	static std::vector<std::string> type_strings;
 
-	double grid_size_to_musical_time (const std::string&) const;
+	int grid_size_to_divisor (const std::string&) const;
 };
 
 #endif /* __ardour_gtk2_quantize_dialog_h_ */

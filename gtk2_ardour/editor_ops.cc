@@ -785,11 +785,11 @@ Editor::build_region_boundary_cache ()
 
 			switch (*p) {
 			case Start:
-				rpos = r->first_sample();
+				rpos = r->first();
 				break;
 
 			case End:
-				rpos = r->last_sample();
+				rpos = r->last();
 				break;
 
 			case SyncPoint:
@@ -5474,8 +5474,8 @@ Editor::quantize_regions (const RegionSelection& rs)
 	if (r == Gtk::RESPONSE_OK) {
 		Quantize quant (quantize_dialog->snap_start(),
 		                quantize_dialog->snap_end(),
-				quantize_dialog->start_grid_size(),
-		                quantize_dialog->end_grid_size(),
+				quantize_dialog->start_grid_divisor(),
+		                quantize_dialog->end_grid_divisor(),
 				quantize_dialog->strength(),
 		                quantize_dialog->swing(),
 		                quantize_dialog->threshold());

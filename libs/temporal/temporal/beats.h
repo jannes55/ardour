@@ -30,6 +30,8 @@
 #include "temporal/visibility.h"
 #include "temporal/types.h"
 
+namespace ARDOUR { class Variant; }
+
 namespace Temporal {
 
 /** Musical time in beats, which are widely assumed to be quarter-notes
@@ -231,7 +233,7 @@ public:
 		return Beats::ticks (ticks);
 	}
 
-	Beats snap_to(const Temporal::Beats& snap) const {
+	Beats snap_to (Temporal::Beats const & snap) const {
 		const double snap_time = snap.to_double();
 		return Beats(ceil(to_double() / snap_time) * snap_time);
 	}
@@ -346,7 +348,13 @@ public:
 
 	template<typename Number>
 	Beats operator/(Number factor) const {
-		return ticks ((_beats * PPQN + _ticks) / factor);
+		return ticks (((_beats * PPQN) + _ticks) / factor);
+	}
+
+	/* avoids calling ::to_double() to compute ratios of two Beat distances 
+	 */
+	double operator/ (Beats const & other) {
+		return (double) to_ticks() / (double) other.to_ticks();
 	}
 
 	Beats& operator+=(const Beats& b) {
@@ -363,7 +371,6 @@ public:
 		return *this;
 	}
 
-	double  to_double()              const { return (double)_beats + (_ticks / (double)PPQN); }
 	int64_t to_ticks()               const { return (int64_t)_beats * PPQN + _ticks; }
 	int64_t to_ticks(uint32_t ppqn)  const { return (int64_t)_beats * ppqn + (_ticks * ppqn / PPQN); }
 
@@ -378,6 +385,12 @@ public:
 private:
 	int32_t _beats;
 	int32_t _ticks;
+
+	/* almost nobody should ever be allowed to use this method */
+	friend class TempoMetric;
+	friend class ARDOUR::Variant;
+
+	double  to_double()              const { return (double)_beats + (_ticks / (double)PPQN); }
 };
 
 /*

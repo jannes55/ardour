@@ -110,7 +110,6 @@ public:
 		case FLOAT:  return _float;
 		case INT:    return _int;
 		case LONG:   return _long;
-		case BEATS:  return _beats.to_double();
 		default:     return 0.0;
 		}
 	}

@@ -147,7 +147,7 @@ public:
 		typedef const Note<Time>* value_type;
 		inline bool operator()(const boost::shared_ptr< const Note<Time> > a,
 		                       const boost::shared_ptr< const Note<Time> > b) const {
-			return a->end_time().to_double() > b->end_time().to_double();
+			return a->end_time() > b->end_time();
 		}
 	};
 

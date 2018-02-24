@@ -54,6 +54,16 @@ const char* Session::vst_can_do_strings[] = {
 };
 const int Session::vst_can_do_string_count = sizeof (vst_can_do_strings) / sizeof (char*);
 
+/* this used to be computed by Temporal::Beats::to_double() but that
+ * method has been hidden as of February 2017 to prevent inadvertent
+ * use of floating point musical time.
+ */
+inline static double
+beats_to_double (Temporal::Beats const & b)
+{
+	return (double) b.get_beats() + (b.get_ticks() / (double) Temporal::ticks_per_beat);
+}
+
 intptr_t Session::vst_callback (
 	AEffect* effect,
 	int32_t opcode,
@@ -200,12 +210,13 @@ intptr_t Session::vst_callback (
 					/* quarter note at sample position (not rounded to note subdivision) */
 					Temporal::Beats ppqPos = session->tempo_map().quarter_note_at (now);
 					if (value & (kVstPpqPosValid)) {
-						timeinfo->ppqPos = ppqPos.to_double();
+						timeinfo->ppqPos = beats_to_double (ppqPos);
 						newflags |= kVstPpqPosValid;
 					}
 
 					if (value & (kVstBarsValid)) {
-						timeinfo->barStartPos = ppqBar.to_double();
+						/* see comment above */
+						timeinfo->barStartPos = beats_to_double (ppqBar);
 						newflags |= kVstBarsValid;
 					}
 
@@ -260,8 +271,8 @@ intptr_t Session::vst_callback (
 				Location * looploc = session->locations ()->auto_loop_location ();
 				if (looploc) {
 					try {
-						timeinfo->cycleStartPos = session->tempo_map ().quarter_note_at (looploc->start_sample ()).to_double();
-						timeinfo->cycleEndPos = session->tempo_map ().quarter_note_at (looploc->end_sample ()).to_double();
+						timeinfo->cycleStartPos = beats_to_double (session->tempo_map ().quarter_note_at (looploc->start_sample ()));
+						timeinfo->cycleEndPos = beats_to_double (session->tempo_map ().quarter_note_at (looploc->end_sample ()));
 						newflags |= kVstCyclePosValid;
 					} catch (...) { }
 				}

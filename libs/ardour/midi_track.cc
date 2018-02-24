@@ -384,17 +384,20 @@ MidiTrack::non_realtime_locate (samplepos_t pos)
 		return;
 	}
 
-	/* Update track controllers based on its "automation". */
-	const samplepos_t origin = region->position_sample() - region->start_sample();
-	BeatsSamplesConverter bfc(_session.tempo_map(), origin);
+	/* Update each track control based on its "automation". */
+
+	const timepos_t pos_beats = timepos_t (region->source_position().distance (pos).beats ()); /* relative to source start */
+
 	for (Controls::const_iterator c = _controls.begin(); c != _controls.end(); ++c) {
+
 		boost::shared_ptr<MidiTrack::MidiControl> tcontrol;
 		boost::shared_ptr<Evoral::Control>        rcontrol;
+
 		if ((tcontrol = boost::dynamic_pointer_cast<MidiTrack::MidiControl>(c->second)) &&
+
 		    (rcontrol = region->control(tcontrol->parameter()))) {
-			const Temporal::Beats pos_beats = bfc.from(pos - origin);
 			if (rcontrol->list()->size() > 0) {
-				tcontrol->set_value(rcontrol->list()->eval(pos_beats.to_double()), Controllable::NoGroup);
+				tcontrol->set_value (rcontrol->list()->eval (pos_beats), Controllable::NoGroup);
 			}
 		}
 	}
