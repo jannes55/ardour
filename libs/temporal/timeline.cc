@@ -26,9 +26,11 @@
 #include "pbd/compose.h"
 #include "pbd/i18n.h"
 
+#include "temporal/debug.h"
 #include "temporal/timeline.h"
 #include "temporal/tempo.h"
 
+using namespace PBD;
 using namespace Temporal;
 
 timecnt_t timecnt_t::_max_timecnt (max_samplepos, timepos_t());
@@ -376,8 +378,10 @@ timepos_t::sample () const
 	case AudioTime:
 		break;
 	case BeatTime:
+		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to beats\n");
 		update_audio_and_bbt_times ();
 	case BarTime:
+		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to bbt\n");
 		update_audio_and_beat_times ();
 		break;
 	}
@@ -390,6 +394,7 @@ timepos_t::beats () const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
+		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to beats\n");
 		update_music_times ();
 		break;
 	case BeatTime:
@@ -407,9 +412,11 @@ timepos_t::bbt() const
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
+		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to bbt\n");
 		update_music_times ();
 		break;
 	case BeatTime:
+		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert beats to bbt\n");
 		update_audio_and_bbt_times ();
 		break;
 	case BarTime:
