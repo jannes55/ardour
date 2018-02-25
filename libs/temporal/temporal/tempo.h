@@ -578,6 +578,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	samplepos_t   sample_at_locked (Beats const &) const;
 	samplepos_t   sample_at_locked (BBT_Time const &) const;
 
+	void maybe_rebuild();
 	void rebuild_locked (superclock_t limit);
 	void dump_locked (std::ostream&);
 

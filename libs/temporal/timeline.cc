@@ -33,6 +33,38 @@
 using namespace PBD;
 using namespace Temporal;
 
+struct TemporalStatistics
+{
+	int64_t audio_to_beats;
+	int64_t audio_to_bars;
+	int64_t beats_to_audio;
+	int64_t beats_to_bars;
+	int64_t bars_to_audio;
+	int64_t bars_to_beats;
+
+	TemporalStatistics ()
+		: audio_to_beats (0)
+		, audio_to_bars (0)
+		, beats_to_audio (0)
+		, beats_to_bars (0)
+		, bars_to_audio (0)
+		, bars_to_beats (0)
+	{}
+
+	void dump (std::ostream & str) {
+		str << "TemporalStatistics\n"
+		    << "Audio => Beats " << audio_to_beats
+		    << "Audio => Bars " << audio_to_bars
+		    << "Beats => Audio " << beats_to_audio
+		    << "Beats => Bars " << beats_to_bars
+		    << "Bars => Audio " << bars_to_audio
+		    << "Bars => Beats " << bars_to_beats
+		    << std::endl;
+	}
+};
+
+static TemporalStatistics stats;
+
 timecnt_t timecnt_t::_max_timecnt (max_samplepos, timepos_t());
 TempoMap* timecnt_t::_tempo_map = 0;
 
@@ -379,9 +411,11 @@ timepos_t::sample () const
 		break;
 	case BeatTime:
 		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to beats\n");
+		stats.beats_to_audio++;
 		update_audio_and_bbt_times ();
 	case BarTime:
 		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to bbt\n");
+		stats.bars_to_audio++;
 		update_audio_and_beat_times ();
 		break;
 	}
@@ -395,11 +429,13 @@ timepos_t::beats () const
 	switch (_lock_status.style()) {
 	case AudioTime:
 		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to beats\n");
+		stats.audio_to_beats++;
 		update_music_times ();
 		break;
 	case BeatTime:
 		break;
 	case BarTime:
+		stats.bars_to_beats++;
 		update_audio_and_beat_times ();
 		break;
 	}
@@ -413,10 +449,12 @@ timepos_t::bbt() const
 	switch (_lock_status.style()) {
 	case AudioTime:
 		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert audio to bbt\n");
+		stats.audio_to_bars++;
 		update_music_times ();
 		break;
 	case BeatTime:
 		DEBUG_TRACE (DEBUG::TemporalDomainConvert, "convert beats to bbt\n");
+		stats.beats_to_bars++;
 		update_audio_and_bbt_times ();
 		break;
 	case BarTime:

@@ -17,9 +17,12 @@
 */
 
 #include "pbd/i18n.h"
+#include "pbd/compose.h"
 
+#include "temporal/debug.h"
 #include "temporal/tempo.h"
 
+using namespace PBD;
 using namespace Temporal;
 using std::cerr;
 using std::cout;
@@ -224,7 +227,7 @@ TempoMetric::superclocks_per_bar (samplecnt_t sr) const
 /*
 Ramp Overview
 
-In these notes, we have two units that are reciprocally related: T and S. 
+In these notes, we have two units that are reciprocally related: T and S.
 
    T = 1/S
 
@@ -490,7 +493,17 @@ TempoMap::~TempoMap()
 void
 TempoMap::set_dirty (bool yn)
 {
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("tempo map @ %1 dirty set to %2\n", this, yn));
+	cerr << "TM dirty ? " << yn << endl;
 	_dirty = yn;
+}
+
+void
+TempoMap::maybe_rebuild ()
+{
+	if (_dirty && !_points.empty()) {
+		rebuild (_points.back().sclock());
+	}
 }
 
 Meter const &
@@ -574,6 +587,7 @@ TempoMap::tempo_at (Temporal::BBT_Time const & bbt) const
 void
 TempoMap::full_rebuild ()
 {
+	assert (!_points.empty());
 	rebuild (_points.back().sclock());
 }
 
@@ -581,6 +595,8 @@ void
 TempoMap::rebuild (superclock_t limit)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
+
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("rebuild tempo map to %1\n", limit));
 
 	/* step one: remove all implicit points after a dirty explicit point */
 
@@ -611,6 +627,8 @@ TempoMap::rebuild (superclock_t limit)
 
 		point = next;
 	}
+
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("rebuild: implicit points removed, leaves %1\n", _points.size()));
 
 	/* compute C-by-quarters for all ramped sections, because we need it shortly */
 
@@ -737,8 +755,10 @@ TempoMap::rebuild (superclock_t limit)
 		prev = point;
 		point = next;
 	}
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("rebuild: completed, %1 points\n", _points.size()));
+	dump_locked (cerr);
 
-	//_update_generation++;
+	_generation++;
 	Changed (first_dirty, _points.back().sclock()); /* EMIT SIGNAL */
 }
 
@@ -835,6 +855,7 @@ TempoMap::set_tempo_and_meter (Tempo const & tempo, Meter const & meter, samplep
 	}
 
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, tempo, meter, sc, qn, bbt, ramp));
+
 	set_dirty (true);
 
 	return true;
@@ -857,6 +878,8 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 	assert (!_points.empty());
 
 	superclock_t sc = S2Sc (s);
+
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("Set tempo @ %1 to %2, ramp = %3\n", s, t, ramp));
 
 	/* special case: first map entry is later than the new point */
 
@@ -947,6 +970,8 @@ TempoMap::set_tempo (Tempo const & t, samplepos_t s, bool ramp)
 	}
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, t, meter, sc, qn, bbt, ramp));
 
+	set_dirty (true);
+
 	return &*--i;
 }
 
@@ -971,6 +996,8 @@ TempoMapPoint*
 TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
+
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("Set tempo @ %1 to %2, ramp = %3\n", bbt, t, ramp));
 
 	/* tempo changes are required to be on-beat */
 
@@ -1006,6 +1033,8 @@ TempoMap::set_tempo (Tempo const & t, Temporal::BBT_Time const & bbt, bool ramp)
 
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitTempo, t, meter, 0, Temporal::Beats(), on_beat, ramp));
 
+	set_dirty (true);
+
 	return &*--i;
 }
 
@@ -1013,6 +1042,8 @@ TempoMapPoint*
 TempoMap::set_tempo (Tempo const & t, Temporal::Beats const & beats, bool ramp)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
+
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("Set tempo @ %1 to %2, ramp = %3\n", beats, t, ramp));
 
 	/* tempo changes are required to be on-beat */
 
@@ -1049,11 +1080,12 @@ TempoMap::set_tempo (Tempo const & t, Temporal::Beats const & beats, bool ramp)
 
 	_points.insert (i, p);
 
+	set_dirty (true);
+
 	/* i points after the newly insert point */
 
 	return &*--i;
 }
-
 
 void
 TempoMap::remove_tempo_at (TempoMapPoint const & p)
@@ -1087,6 +1119,8 @@ TempoMap::remove_tempo_at (TempoMapPoint const & p)
 	*((Tempo*) &(i->nonconst_metric())) = *((Tempo const *) &prev->metric());
 	/* make it inexplicit */
 	i->set_flags (TempoMapPoint::Flag (i->flags() & ~TempoMapPoint::ExplicitTempo));
+
+	set_dirty (true);
 }
 
 bool
@@ -1143,6 +1177,7 @@ TempoMap::set_meter (Meter const & m, Temporal::BBT_Time const & bbt)
 	++i;
 
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitMeter, tempo, m, sc, qn, measure_start, BeatTime));
+	set_dirty (true);
 	return true;
 }
 
@@ -1226,6 +1261,7 @@ TempoMap::set_meter (Meter const & m, samplepos_t s)
 	++i;
 
 	_points.insert (i, TempoMapPoint (this, TempoMapPoint::ExplicitMeter, tempo, m, sc, b, bbt, AudioTime));
+	set_dirty (true);
 	return true;
 }
 
@@ -1261,6 +1297,7 @@ TempoMap::remove_meter_at (TempoMapPoint const & p)
 	*((Meter*) &(i->nonconst_metric())) = *((Meter const *) &prev->metric());
 	/* make it implicit */
 	i->set_flags (TempoMapPoint::Flag (i->flags() & ~TempoMapPoint::ExplicitMeter));
+	set_dirty (true);
 }
 
 TempoMapPoints::iterator
@@ -1279,6 +1316,8 @@ TempoMap::iterator_at (superclock_t sc)
 	/* Construct an arbitrary TempoMapPoint. The only property we care about is it's superclock time,
 	   so other values used in the constructor are arbitrary and irrelevant.
 	*/
+
+	maybe_rebuild ();
 
 	TempoMetric const & metric (_points.front().metric());
 	const TempoMapPoint tp (this, TempoMapPoint::Flag (0), metric, metric, sc, Temporal::Beats(), Temporal::BBT_Time(), AudioTime);
@@ -1305,6 +1344,8 @@ TempoMap::iterator_at (Temporal::Beats const & qn)
 	if (_points.size() == 1) {
 		return _points.begin();
 	}
+
+	maybe_rebuild ();
 
 	/* Construct an arbitrary TempoMapPoint. The only property we care about is its quarters time,
 	   so other values used in the constructor are arbitrary and irrelevant.
@@ -1335,6 +1376,8 @@ TempoMap::iterator_at (Temporal::BBT_Time const & bbt)
 	if (_points.size() == 1) {
 		return _points.begin();
 	}
+
+	maybe_rebuild ();
 
 	/* Construct an arbitrary TempoMapPoint. The only property we care about is its bbt time,
 	   so other values used in the constructor are arbitrary and irrelevant.
@@ -1813,10 +1856,6 @@ TempoMap::sample_quarters_delta_as_samples (samplepos_t start, Temporal::Beats c
 int
 TempoMap::update_music_times (int generation, samplepos_t pos, Temporal::Beats & b, Temporal::BBT_Time & bbt, bool force)
 {
-	if (_dirty) {
-		full_rebuild ();
-	}
-
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
 
 	if (!force && (generation == _generation)) {
@@ -1835,10 +1874,6 @@ TempoMap::update_music_times (int generation, samplepos_t pos, Temporal::Beats &
 int
 TempoMap::update_samples_and_bbt_times (int generation, Temporal::Beats const & b, samplepos_t & pos, Temporal::BBT_Time & bbt, bool force)
 {
-	if (_dirty) {
-		full_rebuild ();
-	}
-
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
 
 	if (!force && (generation == _generation)) {
@@ -1856,10 +1891,6 @@ TempoMap::update_samples_and_bbt_times (int generation, Temporal::Beats const & 
 int
 TempoMap::update_samples_and_beat_times (int generation, Temporal::BBT_Time const & bbt, samplepos_t & pos, Temporal::Beats & b, bool force)
 {
-	if (_dirty) {
-		full_rebuild ();
-	}
-
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
 
 	if (!force && (generation == _generation)) {
