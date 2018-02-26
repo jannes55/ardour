@@ -21,16 +21,25 @@
 
 #include <ostream>
 #include <istream>
+#include <sstream>
 #include <stdint.h>
 #include <iomanip>
 #include <exception>
 #include <cmath>
 #include <limits>
+#include <cstdio>
+
+#include "pbd/failed_constructor.h"
+#include "pbd/string_convert.h"
 
 #include "temporal/visibility.h"
 #include "temporal/types.h"
 
 namespace Temporal {
+
+struct IllegalBBTTimeException : public std::exception {
+	virtual const char* what() const throw() { return "illegal BBT time (bars or beats were zero, or ticks was too large)"; }
+};
 
 struct BBT_Offset;
 
@@ -48,12 +57,12 @@ struct LIBTEMPORAL_API BBT_Time
 	bool is_bar() const { return beats == 1 && ticks == 0; }
 	bool is_beat() const { return ticks == 0; }
 
-	struct IllegalBBTTimeException : public std::exception {
-		virtual const char* what() const throw() { return "illegal BBT time (bars or beats were zero)"; }
-	};
-
 	BBT_Time () : bars (1), beats (1), ticks (0) {}
-	BBT_Time (int32_t ba, uint32_t be, uint32_t t) : bars (ba), beats (be), ticks (t) { if (!bars || !beats) { throw IllegalBBTTimeException(); } }
+	BBT_Time (int32_t ba, uint32_t be, uint32_t t) : bars (ba), beats (be), ticks (t) {
+		if (!bars || !beats || (ticks >= ticks_per_beat)) {
+			throw IllegalBBTTimeException();
+		}
+	}
 
 	bool operator< (const BBT_Time& other) const {
 		return bars < other.bars ||
@@ -278,7 +287,6 @@ BBT_Time::operator!= (const BBT_Offset& other) const
 
 } /* end of namespace Temporal */
 
-
 /* Putting these into std:: seems wrong, but g++ is unable to find them
  * otherwise
  */
@@ -325,5 +333,26 @@ struct numeric_limits<Temporal::BBT_Offset> {
 
 
 } /* end of namespace std */
+
+namespace PBD {
+
+template<>
+inline bool to_string (Temporal::BBT_Time val, std::string & str)
+{
+	std::ostringstream ostr;
+	ostr << val;
+	str = ostr.str();
+	return true;
+}
+
+template<>
+inline bool string_to (std::string const & str, Temporal::BBT_Time & val)
+{
+	std::istringstream istr (str);
+	istr >> val;
+	return (bool) istr;
+}
+
+} /* end namespace PBD */
 
 #endif /* __timecode_bbt_time_h__ */

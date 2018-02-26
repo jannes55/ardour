@@ -27,6 +27,10 @@
 #include <iostream>
 #include <limits>
 
+#include "pbd/compose.h"
+#include "pbd/failed_constructor.h"
+#include "pbd/string_convert.h"
+
 #include "temporal/visibility.h"
 #include "temporal/types.h"
 
@@ -351,7 +355,7 @@ public:
 		return ticks (((_beats * PPQN) + _ticks) / factor);
 	}
 
-	/* avoids calling ::to_double() to compute ratios of two Beat distances 
+	/* avoids calling ::to_double() to compute ratios of two Beat distances
 	 */
 	double operator/ (Beats const & other) {
 		return (double) to_ticks() / (double) other.to_ticks();
@@ -404,19 +408,19 @@ private:
 */
 
 inline std::ostream&
-operator<<(std::ostream& os, const Beats& t)
+operator<<(std::ostream& ostr, const Beats& b)
 {
-	os << t.get_beats() << '.' << t.get_ticks();
-	return os;
+	return ostr << b.get_beats() << ':' << b.get_ticks();
 }
 
 inline std::istream&
-operator>>(std::istream& is, Beats& t)
+operator>>(std::istream& istr, Beats& b)
 {
-	double beats;
-	is >> beats;
-	t = Beats(beats);
-	return is;
+	int32_t beats, ticks;
+	char d; /* delimiter, whatever it is */
+	istr >> beats >> d >> ticks;
+	b = Beats (beats, ticks);
+	return istr;
 }
 
 } // namespace Evoral
@@ -425,7 +429,25 @@ namespace PBD {
 	namespace DEBUG {
 		LIBTEMPORAL_API extern uint64_t Beats;
 	}
+
+template<>
+inline bool to_string (Temporal::Beats val, std::string & str)
+{
+	std::ostringstream ostr;
+	ostr << val;
+	str = ostr.str();
+	return true;
 }
+
+template<>
+inline bool string_to (std::string const & str, Temporal::Beats & val)
+{
+	std::istringstream istr (str);
+	istr >> val;
+	return (bool) istr;
+}
+
+} /* end namespace PBD */
 
 namespace std {
 	template<>

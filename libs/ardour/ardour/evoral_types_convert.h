@@ -31,42 +31,6 @@ namespace PBD {
 
 DEFINE_ENUM_CONVERT(Evoral::ControlList::InterpolationStyle)
 
-template <>
-inline bool to_string (Temporal::Beats beats, std::string& str)
-{
-	std::stringstream sstr;
-	sstr << beats;
-	str = sstr.str ();
-	return true;
-}
-
-template <>
-inline bool string_to (const std::string& str, Temporal::Beats& beats)
-{
-	double tmp;
-	if (!string_to_double (str, tmp)) {
-		return false;
-	}
-	beats = Temporal::Beats(tmp);
-	return true;
-}
-
-template <>
-inline std::string to_string (Temporal::Beats beats)
-{
-	std::string tmp;
-	double_to_string (beats, tmp);
-	return tmp;
-}
-
-template <>
-inline Temporal::Beats string_to (const std::string& str)
-{
-	double tmp;
-	string_to_double (str, tmp);
-	return Temporal::Beats (tmp);
-}
-
 } // namespace PBD
 
 #endif // ARDOUR_EVORAL_TYPES_CONVERT_H

@@ -383,7 +383,7 @@ class LIBTEMPORAL_API timepos_t {
  * certain distance beyond some arbitrary (specified) origin. So, a timepos_t
  * of "3 beats" always means "3 beats measured from the timeline origin". A
  * timecnt_t of "3 beats" always come with a position, and so is really "3
- * beats after <position>". 
+ * beats after <position>".
  *
  * The ambiguity surrounding operator-() that affects timepos_t does not exist
  * for timecnt_t: all uses of operator-() are intended to compute the result of
@@ -822,9 +822,6 @@ inline static bool operator>= (Temporal::samplepos_t s, Temporal::timecnt_t cons
 inline static bool operator>= (Temporal::Beats const & b, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BeatTime); return b >= t.beats(); }
 inline static bool operator>= (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BarTime); return bbt >= t.bbt(); }
 
-
-
-
 namespace std {
 	template<>
 	struct numeric_limits<Temporal::timepos_t> {
@@ -858,6 +855,5 @@ namespace std {
 
 	};
 }
-
 
 #endif /* __libtemporal_timeline_h__ */

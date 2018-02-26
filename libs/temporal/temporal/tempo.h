@@ -61,7 +61,7 @@ class LIBTEMPORAL_API Tempo {
 	 * @param npm Note Types per minute
 	 * @param note_type Note Type (default `4': quarter note)
 	 */
-	Tempo (double npm, int note_type = 4) 
+	Tempo (double npm, int note_type = 4)
 		: _superclocks_per_note_type (double_npm_to_sc (npm))
 		, _end_superclocks_per_note_type (double_npm_to_sc (npm))
 		, _note_type (note_type)
@@ -265,7 +265,7 @@ class LIBTEMPORAL_API TempoMapPoint
 		ExplicitPosition = 0x4,
 	};
 
-	TempoMapPoint (XMLNode const &);
+	TempoMapPoint (XMLNode const &, TempoMap*);
 	TempoMapPoint (TempoMap* map, Flag f, Tempo const& t, Meter const& m, superclock_t sc, Beats const & q, BBT_Time const & bbt, bool ramp = false)
 		: _flags (f), _explicit (t, m, ramp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _floating (false), _map (map) {}
 	TempoMapPoint (TempoMapPoint const & tmp, superclock_t sc, Beats const & q, BBT_Time const & bbt)
@@ -592,6 +592,8 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	samplepos_t   sample_at_locked (Beats const &) const;
 	samplepos_t   sample_at_locked (BBT_Time const &) const;
 
+	int set_points_from_state (XMLNode const &);
+
 	void maybe_rebuild();
 	void rebuild_locked (superclock_t limit);
 	void dump_locked (std::ostream&);
@@ -608,13 +610,13 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 namespace PBD {
 DEFINE_ENUM_CONVERT(Temporal::Tempo::Type);
 DEFINE_ENUM_CONVERT(Temporal::LockStyle);
-}
+} /* namespace PBD */
 
 
 namespace std {
-std::ostream& operator<<(std::ostream&, Temporal::TempoMapPoint const &);
-std::ostream& operator<<(std::ostream&, Temporal::Tempo const &);
-std::ostream& operator<<(std::ostream&, Temporal::Meter const &);
+std::ostream& operator<<(std::ostream& str, Temporal::TempoMapPoint const &b);
+std::ostream& operator<<(std::ostream& str, Temporal::Tempo const & t);
+std::ostream& operator<<(std::ostream& str, Temporal::Meter const & m);
 }
 
 #endif /* __temporal_tempo_h__ */
