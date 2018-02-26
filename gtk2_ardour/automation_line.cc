@@ -482,9 +482,9 @@ AutomationLine::ContiguousControlPoints::compute_x_bounds (PublicEditor& e)
 			before_x = line.nth (front()->view_index() - 1)->get_x();
 
 			const samplepos_t pos = e.pixel_to_sample(before_x);
-			const Meter& meter = map.meter_at (pos);
-			const samplecnt_t len = ceil (meter.samples_per_bar (map.tempo_at (pos), e.session()->sample_rate())
-			                              / (Temporal::ticks_per_beat * meter.divisions_per_bar()) );
+			TempoMetric const & tempometric = map.metric_at (pos);
+			const samplecnt_t len = ceil (tempometric.samples_per_bar (e.session()->sample_rate())
+			                              / (Temporal::ticks_per_beat * tempometric.divisions_per_bar()));
 			const double one_tick_in_pixels = e.sample_to_pixel_unrounded (len);
 
 			before_x += one_tick_in_pixels;
@@ -498,9 +498,9 @@ AutomationLine::ContiguousControlPoints::compute_x_bounds (PublicEditor& e)
 			after_x = line.nth (back()->view_index() + 1)->get_x();
 
 			const samplepos_t pos = e.pixel_to_sample(after_x);
-			TempoMapPoint const & point = map.const_point_at (pos);
-			const samplecnt_t len = ceil (point.metric().samples_per_bar (point.metric(), e.session()->sample_rate())
-			                              / (Temporal::ticks_per_beat * point.metric().divisions_per_bar()));
+			TempoMetric const & tempometric = map.metric_at (pos);
+			const samplecnt_t len = ceil (tempometric.samples_per_bar (e.session()->sample_rate())
+			                              / (Temporal::ticks_per_beat * tempometric.divisions_per_bar()));
 			const double one_tick_in_pixels = e.sample_to_pixel_unrounded (len);
 
 			after_x -= one_tick_in_pixels;

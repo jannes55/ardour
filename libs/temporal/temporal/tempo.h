@@ -167,9 +167,6 @@ class LIBTEMPORAL_API Meter {
 
 	Beats to_quarters (BBT_Offset const &) const;
 
-	double samples_per_grid (Tempo const &, samplecnt_t sr) const;
-	double samples_per_bar (Tempo const &, samplecnt_t sr) const;
-
 	XMLNode& get_state () const;
 
   protected:
@@ -201,6 +198,9 @@ class LIBTEMPORAL_API TempoMetric : public Tempo, public Meter {
 
 	superclock_t superclock_at_qn (Beats const & qn) const;
 	superclock_t superclock_per_note_type_at_superclock (superclock_t) const;
+
+	/* technically this is returning samplecnt_t but that's not available here */
+	superclock_t samples_per_bar (samplecnt_t sr) const;
 
   private:
 	double _c_per_quarter;
@@ -448,6 +448,10 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	Tempo const & tempo_at (Beats const &b) const;
 	Tempo const & tempo_at (BBT_Time const & bbt) const;
 	Tempo const & tempo_at (timepos_t const & t) const;
+
+	TempoMetric const & metric_at (samplepos_t sc) const { return  const_point_at (sc).metric(); }
+	TempoMetric const & metric_at (Beats const &b) const { return const_point_at (b).metric(); }
+	TempoMetric const & metric_at (BBT_Time const & bbt) const {return const_point_at (bbt).metric(); }
 
 	TempoMapPoint const * previous_tempo (TempoMapPoint const &) const;
 

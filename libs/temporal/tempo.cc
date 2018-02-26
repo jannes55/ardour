@@ -93,25 +93,6 @@ Meter::Meter (XMLNode const & node)
 	}
 }
 
-double
-Meter::samples_per_grid (const Tempo& tempo, samplecnt_t sr) const
-{
-	/* This is tempo- and meter-sensitive. The number it returns
-	   is based on the interval between any two divisions defined by this
-	   Meter at the given Tempo.
-
-	   The return value IS NOT interpretable in terms of "beats".
-	*/
-
-	return (60.0 * sr) / (tempo.note_types_per_minute() * (_note_value / tempo.note_type()));
-}
-
-double
-Meter::samples_per_bar (const Tempo& tempo, samplecnt_t sr) const
-{
-	return samples_per_grid (tempo, sr) * _divisions_per_bar;
-}
-
 XMLNode&
 Meter::get_state () const
 {
@@ -277,6 +258,12 @@ superclock_t
 TempoMetric::superclocks_per_bar (samplecnt_t sr) const
 {
 	return superclocks_per_grid (sr) * _divisions_per_bar;
+}
+
+superclock_t
+TempoMetric::samples_per_bar (samplecnt_t sr) const
+{
+	return superclock_to_samples (superclocks_per_bar (sr), sr);
 }
 
 /*

@@ -2215,8 +2215,8 @@ Session::preroll_samples (samplepos_t pos) const
 {
 	const float pr = Config->get_preroll_seconds();
 	if (pos >= 0 && pr < 0) {
-		Temporal::TempoMapPoint const & tmp (_tempo_map->const_point_at (pos));
-		return tmp.metric().samples_per_bar (tmp.metric(), sample_rate()) * -pr;
+		Temporal::TempoMetric const & metric (_tempo_map->metric_at (pos));
+		return metric.samples_per_bar (sample_rate()) * -pr;
 	}
 	if (pr < 0) {
 		return 0;
