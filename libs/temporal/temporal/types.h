@@ -73,6 +73,8 @@ enum RoundMode {
 	RoundUpMaybe    = 2    ///< Round up only if necessary
 };
 
+extern void setup_enum_writer ();
+
 }
 
 #endif /* __libtemporal_types_h__ */

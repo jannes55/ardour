@@ -466,6 +466,7 @@ ARDOUR::init (bool use_windows_vst, bool try_optimization, const char* localedir
 	Stateful::current_state_version = CURRENT_SESSION_FILE_VERSION;
 
 	ARDOUR::setup_enum_writer ();
+	Temporal::setup_enum_writer ();
 
 	// allow ardour the absolute maximum number of open files
 	lotsa_files_please ();

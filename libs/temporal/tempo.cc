@@ -18,6 +18,8 @@
 
 #include "pbd/i18n.h"
 #include "pbd/compose.h"
+#include "pbd/enumwriter.h"
+#include "pbd/failed_constructor.h"
 
 #include "temporal/debug.h"
 #include "temporal/tempo.h"
@@ -28,6 +30,29 @@ using std::cerr;
 using std::cout;
 using std::endl;
 using Temporal::superclock_t;
+
+std::string Tempo::xml_node_name = X_("Tempo");
+std::string Meter::xml_node_name = X_("Meter");
+
+Tempo::Tempo (XMLNode const & node)
+{
+	assert (node.name() == xml_node_name);
+	if (!node.get_property (X_("scpnt->start"), _superclocks_per_note_type)) {
+		throw failed_constructor ();
+	}
+	if (!node.get_property (X_("scpnt->end"), _end_superclocks_per_note_type)) {
+		throw failed_constructor ();
+	}
+	if (!node.get_property (X_("note-type"), _note_type)) {
+		throw failed_constructor ();
+	}
+	if (!node.get_property (X_("type"), _type)) {
+		throw failed_constructor ();
+	}
+	if (!node.get_property (X_("active"), _active)) {
+		throw failed_constructor ();
+	}
+}
 
 bool
 Tempo::set_ramped (bool)
@@ -43,8 +68,34 @@ Tempo::set_clamped (bool)
 	return true;
 }
 
+XMLNode&
+Tempo::get_state () const
+{
+	XMLNode* node = new XMLNode (xml_node_name);
+
+	node->set_property (X_("scpnt-start"), superclocks_per_note_type());
+	node->set_property (X_("scpnt-end"), end_superclocks_per_note_type());
+	node->set_property (X_("note-type"), note_type());
+	node->set_property (X_("type"), type());
+	node->set_property (X_("active"), active());
+
+	return *node;
+}
+
 /* overloaded operator* that avoids floating point math when multiplying a superclock position by a number of quarter notes */
 superclock_t operator*(superclock_t sc, Temporal::Beats const & b) { return (sc * ((b.get_beats() * Temporal::ticks_per_beat) + b.get_ticks())) / Temporal::ticks_per_beat; }
+
+
+Meter::Meter (XMLNode const & node)
+{
+	assert (node.name() == xml_node_name);
+	if (!node.get_property (X_("note-value"), _note_value)) {
+		throw failed_constructor ();
+	}
+	if (!node.get_property (X_("divisions-per-bar"), _divisions_per_bar)) {
+		throw failed_constructor ();
+	}
+}
 
 double
 Meter::samples_per_grid (const Tempo& tempo, samplecnt_t sr) const
@@ -65,6 +116,14 @@ Meter::samples_per_bar (const Tempo& tempo, samplecnt_t sr) const
 	return samples_per_grid (tempo, sr) * _divisions_per_bar;
 }
 
+XMLNode&
+Meter::get_state () const
+{
+	XMLNode* node = new XMLNode (xml_node_name);
+	node->set_property (X_("note-value"), note_value());
+	node->set_property (X_("divisions-per-bar"), divisions_per_bar());
+	return *node;
+}
 
 Temporal::BBT_Time
 Meter::bbt_add (Temporal::BBT_Time const & bbt, Temporal::BBT_Offset const & add) const
@@ -372,6 +431,53 @@ TempoMetric::superclock_at_qn (Temporal::Beats const & qn) const
 	}
 
 	return llrint (superclocks_per_quarter_note() * (log1p (_c_per_quarter * qn.to_double()) / _c_per_quarter));
+}
+
+TempoMapPoint::TempoMapPoint (XMLNode const &node)
+{
+	XMLNodeList const & children = node.children();
+
+	if (node.get_property (X_("sclock"), _sclock)) {
+		throw failed_constructor();
+	}
+
+	if (node.get_property (X_("beats"), _quarters)) {
+		throw failed_constructor();
+	}
+
+	if (node.get_property (X_("bbt"), _bbt)) {
+		throw failed_constructor();
+	}
+
+	for (XMLNodeList::const_iterator i = children.begin(); i != children.end(); ++i) {
+		if ((*i)->name() == Tempo::xml_node_name) {
+			*((Tempo *) &metric()) = Tempo (**i);
+		} else if ((*i)->name() == Meter::xml_node_name) {
+			*((Meter *) &metric()) = Meter (**i);
+		}
+	}
+}
+
+XMLNode&
+TempoMapPoint::get_state () const
+{
+	XMLNode* node = new XMLNode (X_("TempoMapPoint"));
+
+	node->set_property (X_("sclock"), _sclock);
+	node->set_property (X_("beats"), _quarters);
+	node->set_property (X_("bbt"), _bbt);
+
+	if (is_explicit_tempo()) {
+		Tempo const & tempo (metric());
+		node->add_child_nocopy (tempo.get_state());
+	}
+
+	if (is_explicit_meter()) {
+		Meter const & meter (metric());
+		node->add_child_nocopy (meter.get_state ());
+	}
+
+	return *node;
 }
 
 timepos_t
@@ -1961,6 +2067,19 @@ XMLNode&
 TempoMap::get_state ()
 {
 	XMLNode* node = new XMLNode (X_("TempoMap"));
+
+	Glib::Threads::RWLock::ReaderLock lm (_lock);
+
+	//node->set_property (X_("time-domain"), enum_2_string (_time_domain));
+	node->set_property (X_("superclocks-per-second"), superclock_ticks_per_second);
+
+	XMLNode* children = new XMLNode (X_("Points"));
+	node->add_child_nocopy (*children);
+
+	for (TempoMapPoints::const_iterator p = _points.begin(); p != _points.end(); ++p) {
+		children->add_child_nocopy (p->get_state());
+	}
+
 	return *node;
 }
 

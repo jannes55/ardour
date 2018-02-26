@@ -27,6 +27,7 @@
 
 #include <glibmm/threads.h>
 
+#include "pbd/enum_convert.h"
 #include "pbd/signals.h"
 #include "pbd/statefuldestructible.h"
 
@@ -52,27 +53,31 @@ class LIBTEMPORAL_API Tempo {
 		Constant
 	};
 
+	static std::string xml_node_name;
+
+	Tempo (XMLNode const &);
+
 	/**
 	 * @param npm Note Types per minute
 	 * @param note_type Note Type (default `4': quarter note)
 	 */
-	Tempo (double npm, int note_type = 4) :
-		_superclocks_per_note_type (double_npm_to_sc (npm)),
-		_end_superclocks_per_note_type (double_npm_to_sc (npm)),
-		_note_type (note_type),
-		_active (true),
-		_locked_to_meter (false),
-		_clamped (false),
-		_type (Tempo::Constant) {}
+	Tempo (double npm, int note_type = 4) 
+		: _superclocks_per_note_type (double_npm_to_sc (npm))
+		, _end_superclocks_per_note_type (double_npm_to_sc (npm))
+		, _note_type (note_type)
+		, _active (true)
+		, _locked_to_meter (false)
+		, _clamped (false)
+		, _type (Tempo::Constant) {}
 
-	Tempo (double npm, double enpm, int note_type = 4) :
-		_superclocks_per_note_type (double_npm_to_sc (npm)),
-		_end_superclocks_per_note_type (double_npm_to_sc (enpm)),
-		_note_type (note_type),
-		_active (true),
-		_locked_to_meter (false),
-		_clamped (false),
-		_type (npm != enpm ? Tempo::Ramped : Tempo::Constant) {}
+	Tempo (double npm, double enpm, int note_type = 4)
+		: _superclocks_per_note_type (double_npm_to_sc (npm))
+		, _end_superclocks_per_note_type (double_npm_to_sc (enpm))
+		, _note_type (note_type)
+		, _active (true)
+		, _locked_to_meter (false)
+		, _clamped (false)
+		, _type (npm != enpm ? Tempo::Ramped : Tempo::Constant) {}
 
 	/* these five methods should only be used to show and collect information to the user (for whom
 	 * bpm as a floating point number is the obvious representation)
@@ -111,10 +116,12 @@ class LIBTEMPORAL_API Tempo {
 	bool clamped() const { return _clamped; }
 	bool set_clamped (bool yn);
 
+	Type type() const { return _type; }
+
 	bool ramped () const { return _type != Constant; }
 	bool set_ramped (bool yn);
 
-	Type type() const { return _type; }
+	XMLNode& get_state () const;
 
   protected:
 	superclock_t _superclocks_per_note_type;
@@ -132,6 +139,10 @@ class LIBTEMPORAL_API Tempo {
 /** Meter, or time signature (subdivisions per bar, and which note type is a single subdivision). */
 class LIBTEMPORAL_API Meter {
   public:
+
+	static std::string xml_node_name;
+
+	Meter (XMLNode const &);
 	Meter (int8_t dpb, int8_t nv) : _note_value (nv), _divisions_per_bar (dpb) {}
 
 	int divisions_per_bar () const { return _divisions_per_bar; }
@@ -158,6 +169,8 @@ class LIBTEMPORAL_API Meter {
 
 	double samples_per_grid (Tempo const &, samplecnt_t sr) const;
 	double samples_per_bar (Tempo const &, samplecnt_t sr) const;
+
+	XMLNode& get_state () const;
 
   protected:
 	/** The type of "note" that a division represents.  For example, 4 is
@@ -252,6 +265,7 @@ class LIBTEMPORAL_API TempoMapPoint
 		ExplicitPosition = 0x4,
 	};
 
+	TempoMapPoint (XMLNode const &);
 	TempoMapPoint (TempoMap* map, Flag f, Tempo const& t, Meter const& m, superclock_t sc, Beats const & q, BBT_Time const & bbt, bool ramp = false)
 		: _flags (f), _explicit (t, m, ramp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _floating (false), _map (map) {}
 	TempoMapPoint (TempoMapPoint const & tmp, superclock_t sc, Beats const & q, BBT_Time const & bbt)
@@ -586,6 +600,16 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 };
 
 } /* end of namespace Temporal */
+
+#ifdef COMPILER_MSVC
+#pragma warning(disable:4101)
+#endif
+
+namespace PBD {
+DEFINE_ENUM_CONVERT(Temporal::Tempo::Type);
+DEFINE_ENUM_CONVERT(Temporal::LockStyle);
+}
+
 
 namespace std {
 std::ostream& operator<<(std::ostream&, Temporal::TempoMapPoint const &);
