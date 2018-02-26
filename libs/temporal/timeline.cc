@@ -941,7 +941,7 @@ timepos_t:: operator+= (samplepos_t s)
 		break;
 	}
 
-	_samplepos -= s;
+	_samplepos += s;
 	_lock_status.set_dirty (Dirty (BBTDirty|BeatsDirty));
 
 	return *this;
