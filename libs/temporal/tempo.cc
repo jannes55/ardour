@@ -82,10 +82,6 @@ Tempo::get_state () const
 	return *node;
 }
 
-/* overloaded operator* that avoids floating point math when multiplying a superclock position by a number of quarter notes */
-superclock_t operator*(superclock_t sc, Temporal::Beats const & b) { return (sc * ((b.get_beats() * Temporal::ticks_per_beat) + b.get_ticks())) / Temporal::ticks_per_beat; }
-
-
 Meter::Meter (XMLNode const & node)
 {
 	assert (node.name() == xml_node_name);
