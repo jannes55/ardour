@@ -657,7 +657,7 @@ Location::set_state (const XMLNode& node, int version)
 }
 
 void
-Location::set_position_lock_style (LockStyle ps)
+Location::set_position_lock_style (TimeDomain ps)
 {
 	if (_start.lock_style() == ps) {
 		return;
@@ -666,7 +666,7 @@ Location::set_position_lock_style (LockStyle ps)
 	_start.set_lock_style (ps);
 
 	position_lock_style_changed (this); /* EMIT SIGNAL */
-	LockStyleChanged (); /* EMIT SIGNAL */
+	TimeDomainChanged (); /* EMIT SIGNAL */
 }
 
 void

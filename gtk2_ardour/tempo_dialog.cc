@@ -77,7 +77,7 @@ TempoDialog::TempoDialog (TempoMap& map, Temporal::TempoMapPoint const & point, 
 }
 
 void
-TempoDialog::init (const Temporal::BBT_Time& when, double bpm, double end_bpm, double note_type, Tempo::Type type, bool initial, Temporal::LockStyle style)
+TempoDialog::init (const Temporal::BBT_Time& when, double bpm, double end_bpm, double note_type, Tempo::Type type, bool initial, Temporal::TimeDomain style)
 {
 	vector<string> strings;
 	NoteTypes::iterator x;
@@ -153,7 +153,7 @@ TempoDialog::init (const Temporal::BBT_Time& when, double bpm, double end_bpm, d
 	lock_styles.insert (make_pair (_("audio"), AudioTime));
 	strings.push_back (_("audio"));
 	set_popdown_strings (lock_style, strings);
-	LockStyles::iterator ls;
+	TimeDomains::iterator ls;
 	for (ls = lock_styles.begin(); ls != lock_styles.end(); ++ls) {
 		if (ls->second == style) {
 			lock_style.set_active_text (ls->first);
@@ -374,10 +374,10 @@ TempoDialog::get_tempo_type ()
 	return x->second;
 }
 
-Temporal::LockStyle
+Temporal::TimeDomain
 TempoDialog::get_lock_style ()
 {
-	LockStyles::iterator x = lock_styles.find (lock_style.get_active_text());
+	TimeDomains::iterator x = lock_styles.find (lock_style.get_active_text());
 
 	if (x == lock_styles.end()) {
 		error << string_compose(_("incomprehensible lock style (%1)"), lock_style.get_active_text()) << endmsg;
@@ -494,7 +494,7 @@ MeterDialog::MeterDialog (TempoMap& map, TempoMapPoint const & point, const stri
 }
 
 void
-MeterDialog::init (const Temporal::BBT_Time& when, double bpb, double divisor, bool initial, Temporal::LockStyle style)
+MeterDialog::init (const Temporal::BBT_Time& when, double bpb, double divisor, bool initial, Temporal::TimeDomain style)
 {
 	char buf[64];
 	vector<string> strings;
@@ -544,7 +544,7 @@ MeterDialog::init (const Temporal::BBT_Time& when, double bpb, double divisor, b
 	lock_styles.insert (make_pair (_("audio"), AudioTime));
 	strings.push_back (_("audio"));
 	set_popdown_strings (lock_style, strings);
-	LockStyles::iterator ls;
+	TimeDomains::iterator ls;
 	for (ls = lock_styles.begin(); ls != lock_styles.end(); ++ls) {
 		if (ls->second == style) {
 			lock_style.set_active_text (ls->first);
@@ -702,10 +702,10 @@ MeterDialog::get_note_type ()
 	return x->second;
 }
 
-Temporal::LockStyle
+Temporal::TimeDomain
 MeterDialog::get_lock_style ()
 {
-	LockStyles::iterator x = lock_styles.find (lock_style.get_active_text());
+	TimeDomains::iterator x = lock_styles.find (lock_style.get_active_text());
 
 	if (x == lock_styles.end()) {
 		error << string_compose(_("incomprehensible meter lock style (%1)"), lock_style.get_active_text()) << endmsg;

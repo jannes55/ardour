@@ -45,18 +45,18 @@ class LIBTEMPORAL_API PositionLockStatus
 {
   public:
 	PositionLockStatus () : _style (Temporal::AudioTime), _dirty (Temporal::Dirty (0)) {}
-	PositionLockStatus (Temporal::LockStyle ls) : _style (ls), _dirty (Temporal::Dirty (0)) {}
-	PositionLockStatus (Temporal::LockStyle ls, Temporal::Dirty d) : _style (ls), _dirty (Temporal::Dirty (d)) {}
+	PositionLockStatus (Temporal::TimeDomain ls) : _style (ls), _dirty (Temporal::Dirty (0)) {}
+	PositionLockStatus (Temporal::TimeDomain ls, Temporal::Dirty d) : _style (ls), _dirty (Temporal::Dirty (d)) {}
 
-	Temporal::LockStyle style() const { return _style; }
+	Temporal::TimeDomain style() const { return _style; }
 	Temporal::Dirty dirty() const { return _dirty; }
 
 	void set_dirty (Temporal::Dirty d) { _dirty = d; }
-	void set_style (Temporal::LockStyle s) { _style = s; }
+	void set_style (Temporal::TimeDomain s) { _style = s; }
 	void clear_dirty () { _dirty = Temporal::Dirty (0); }
 
   private:
-	Temporal::LockStyle _style : 4;
+	Temporal::TimeDomain _style : 4;
 	Temporal::Dirty     _dirty : 4;
 };
 
@@ -81,8 +81,8 @@ class LIBTEMPORAL_API timepos_t {
 	Temporal::BBT_Time     bbt() const;
 
 	PositionLockStatus  lock_status() const { return _lock_status; }
-	Temporal::LockStyle lock_style() const { return _lock_status.style(); }
-	void set_lock_style (Temporal::LockStyle);
+	Temporal::TimeDomain lock_style() const { return _lock_status.style(); }
+	void set_lock_style (Temporal::TimeDomain);
 
 	/* return a timepos_t that is the next (later) possible position given
 	 * this one
@@ -437,7 +437,7 @@ class LIBTEMPORAL_API timecnt_t {
 
 	timecnt_t abs() const;
 
-	Temporal::LockStyle    style()   const { return _style; }
+	Temporal::TimeDomain    style()   const { return _style; }
 
 	samplepos_t            samples() const { switch (_style) { case Temporal::AudioTime: return _samples; default: break; } return compute_samples (); }
 	Temporal::Beats        beats  () const { switch (_style) { case Temporal::BeatTime: return _beats; default: break; } return compute_beats (); }
@@ -681,7 +681,7 @@ class LIBTEMPORAL_API timecnt_t {
 	static void set_tempo_map (TempoMap& tm) { _tempo_map = &tm; }
 
   private:
-	Temporal::LockStyle _style;
+	Temporal::TimeDomain _style;
 	union {
 		sampleoffset_t       _samples;
 		Temporal::Beats      _beats;

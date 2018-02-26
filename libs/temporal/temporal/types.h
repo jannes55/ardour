@@ -51,7 +51,7 @@ static const samplecnt_t max_samplecnt = INT64_MAX;
 
 static const int32_t ticks_per_beat = 1920;
 
-enum LockStyle {
+enum TimeDomain {
 	/* simple ordinals, since these are mutually exclusive */
 	AudioTime = 0,
 	BeatTime = 1,

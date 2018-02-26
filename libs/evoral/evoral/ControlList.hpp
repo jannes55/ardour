@@ -109,14 +109,14 @@ public:
 	typedef EventList::const_iterator const_iterator;
 	typedef EventList::const_reverse_iterator const_reverse_iterator;
 
-	ControlList (const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle);
+	ControlList (const Parameter& id, const ParameterDescriptor& desc, Temporal::TimeDomain);
 	ControlList (const ControlList&, Temporal::timepos_t const & start, Temporal::timepos_t const & end);
 	ControlList (const ControlList&);
 	virtual ~ControlList();
 
-	Temporal::LockStyle time_style() const { return _time_style; }
+	Temporal::TimeDomain time_style() const { return _time_style; }
 
-	virtual boost::shared_ptr<ControlList> create(const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle);
+	virtual boost::shared_ptr<ControlList> create(const Parameter& id, const ParameterDescriptor& desc, Temporal::TimeDomain);
 
 	void dump (std::ostream&);
 
@@ -438,7 +438,7 @@ public:
 	int8_t                _frozen;
 	bool                  _changed_when_thawed;
 	bool                  _sort_pending;
-	Temporal::LockStyle   _time_style;
+	Temporal::TimeDomain   _time_style;
 
 	Curve* _curve;
 

@@ -140,7 +140,7 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 	PBD::Signal0<void> StartChanged;
 	PBD::Signal0<void> FlagsChanged;
 	PBD::Signal0<void> LockChanged;
-	PBD::Signal0<void> LockStyleChanged;
+	PBD::Signal0<void> TimeDomainChanged;
 
 	/* CD Track / CD-Text info */
 
@@ -150,8 +150,8 @@ class LIBARDOUR_API Location : public SessionHandleRef, public PBD::StatefulDest
 	XMLNode& get_state (void);
 	int set_state (const XMLNode&, int version);
 
-	Temporal::LockStyle position_lock_style() const { return _start.lock_style(); }
-	void set_position_lock_style (Temporal::LockStyle ps);
+	Temporal::TimeDomain position_lock_style() const { return _start.lock_style(); }
+	void set_position_lock_style (Temporal::TimeDomain ps);
 
 	static PBD::Signal0<void> scene_changed; /* for use by backend scene change management, class level */
         PBD::Signal0<void> SceneChangeChanged;   /* for use by objects interested in this object */

@@ -487,7 +487,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	samplecnt_t samples_per_quarter_note_at (samplepos_t) const;
 
-	Temporal::timecnt_t full_duration_at (Temporal::timepos_t const &, Temporal::timecnt_t const & duration, Temporal::LockStyle domain) const;
+	Temporal::timecnt_t full_duration_at (Temporal::timepos_t const &, Temporal::timecnt_t const & duration, Temporal::TimeDomain domain) const;
 
 	BBT_Time bbt_walk (BBT_Time const &, BBT_Offset const &) const;
 
@@ -499,8 +499,8 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	TempoMapPoint const & const_point_after (Beats const & b) const;
 	TempoMapPoint const & const_point_after (BBT_Time const & bbt) const;
 
-	LockStyle time_domain() const { return _time_domain; }
-	void set_time_domain (LockStyle td);
+	TimeDomain time_domain() const { return _time_domain; }
+	void set_time_domain (TimeDomain td);
 
 	/* If resolution == Beats() (i.e. zero), then the grid that is
 	   returned will contain a mixture of implicit and explicit points,
@@ -545,7 +545,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	mutable Glib::Threads::RWLock _lock;
 	bool                          _dirty;
 	int                           _generation;
-	LockStyle                     _time_domain;
+	TimeDomain                     _time_domain;
 
 	/* these return an iterator that refers to the TempoMapPoint at or most immediately preceding the given position.
 	 *
@@ -609,7 +609,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 namespace PBD {
 DEFINE_ENUM_CONVERT(Temporal::Tempo::Type);
-DEFINE_ENUM_CONVERT(Temporal::LockStyle);
+DEFINE_ENUM_CONVERT(Temporal::TimeDomain);
 } /* namespace PBD */
 
 

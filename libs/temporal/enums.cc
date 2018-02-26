@@ -34,7 +34,7 @@ Temporal::setup_enum_writer ()
 	std::vector<int> i;
 	std::vector<std::string> s;
 
-	LockStyle _LockStyle;
+	TimeDomain _TimeDomain;
 	Tempo::Type _Tempo_Type;
 
 #define REGISTER(e) enum_writer.register_distinct (typeid(e).name(), i, s); i.clear(); s.clear()
@@ -45,7 +45,7 @@ Temporal::setup_enum_writer ()
 	REGISTER_ENUM (AudioTime);
 	REGISTER_ENUM (BeatTime);
 	REGISTER_ENUM (BarTime);
-	REGISTER (_LockStyle);
+	REGISTER (_TimeDomain);
 
 	REGISTER_CLASS_ENUM(Tempo, Ramped);
 	REGISTER_CLASS_ENUM(Tempo, Constant);

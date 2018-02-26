@@ -193,7 +193,7 @@ class LIBARDOUR_API TempoMapPoint
 		ExplicitMeter = 0x2,
 	};
 
-	TempoMapPoint (Flag f, Tempo const& t, Meter const& m, superclock_t sc, Temporal::Beats const & q, Temporal::BBT_Time const & bbt, Temporal::LockStyle psl, bool ramp = false)
+	TempoMapPoint (Flag f, Tempo const& t, Meter const& m, superclock_t sc, Temporal::Beats const & q, Temporal::BBT_Time const & bbt, Temporal::TimeDomain psl, bool ramp = false)
 		: _flags (f), _explicit (t, m, psl, ramp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _map (0) {}
 	TempoMapPoint (TempoMapPoint const & tmp, superclock_t sc, Temporal::Beats const & q, Temporal::BBT_Time const & bbt)
 		: _flags (Flag (0)), _reference (&tmp), _sclock (sc), _quarters (q), _bbt (bbt), _dirty (true), _map (0) {}
@@ -223,7 +223,7 @@ class LIBARDOUR_API TempoMapPoint
 	Temporal::BBT_Time  const & bbt() const { return _bbt; }
 	bool                ramped() const      { return metric().ramped(); }
 	TempoMetric const & metric() const      { return is_explicit() ? _explicit.metric : _reference->metric(); }
-	Temporal::LockStyle   lock_style() const  { return is_explicit() ? _explicit.lock_style : _reference->lock_style(); }
+	Temporal::TimeDomain   lock_style() const  { return is_explicit() ? _explicit.lock_style : _reference->lock_style(); }
 
 	void compute_c_superclock (samplecnt_t sr, superclock_t end_superclocks_per_note_type, superclock_t duration) { if (is_explicit()) { _explicit.metric.compute_c_superclock (sr, end_superclocks_per_note_type, duration); } }
 	void compute_c_quarters (samplecnt_t sr, superclock_t end_superclocks_per_note_type, Temporal::Beats const & duration) { if (is_explicit()) { _explicit.metric.compute_c_quarters (sr, end_superclocks_per_note_type, duration); } }
@@ -236,7 +236,7 @@ class LIBARDOUR_API TempoMapPoint
 	void set_quarters (Temporal::Beats const & q) { if (is_explicit()) { _quarters = q; _dirty = true;  } }
 	void set_bbt (Temporal::BBT_Time const & bbt) {  if (is_explicit()) { _bbt = bbt; _dirty = true;  } }
 	void set_dirty (bool yn);
-	void set_lock_style (Temporal::LockStyle psl) {  if (is_explicit()) { _explicit.lock_style = psl; _dirty = true; } }
+	void set_lock_style (Temporal::TimeDomain psl) {  if (is_explicit()) { _explicit.lock_style = psl; _dirty = true; } }
 
 	void make_explicit (Flag f) {
 		_flags = Flag (_flags|f);
@@ -279,10 +279,10 @@ class LIBARDOUR_API TempoMapPoint
 
   private:
 	struct ExplicitInfo {
-		ExplicitInfo (Tempo const & t, Meter const & m, Temporal::LockStyle psl, bool ramp) : metric (t, m, ramp), lock_style (psl) {}
+		ExplicitInfo (Tempo const & t, Meter const & m, Temporal::TimeDomain psl, bool ramp) : metric (t, m, ramp), lock_style (psl) {}
 
 		TempoMetric       metric;
-		Temporal::LockStyle lock_style;
+		Temporal::TimeDomain lock_style;
 	};
 
 	Flag                  _flags;

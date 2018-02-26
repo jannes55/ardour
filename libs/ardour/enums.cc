@@ -104,7 +104,7 @@ setup_enum_writer ()
 	Source::Flag _Source_Flag;
 	DiskIOProcessor::Flag _DiskIOProcessor_Flag;
 	Location::Flags _Location_Flags;
-	Temporal::LockStyle _Temporal_LockStyle;
+	Temporal::TimeDomain _Temporal_TimeDomain;
 	Track::FreezeState _Track_FreezeState;
 	AutomationList::InterpolationStyle _AutomationList_InterpolationStyle;
 	AnyTime::Type _AnyTime_Type;
@@ -686,7 +686,7 @@ setup_enum_writer ()
 	REGISTER_ENUM(AudioTime);
 	REGISTER_ENUM(BeatTime);
 	REGISTER_ENUM(BarTime);
-	REGISTER(_Temporal_LockStyle);
+	REGISTER(_Temporal_TimeDomain);
 
 	REGISTER_ENUM (Temporal::OverlapNone);
 	REGISTER_ENUM (Temporal::OverlapInternal);

@@ -2186,7 +2186,7 @@ TempoMap::bbt_duration_at (samplepos_t pos, const BBT_Time& bbt, int /* dir_igno
  */
 
 timecnt_t
-TempoMap::full_duration_at (timepos_t const & pos, timecnt_t const & duration, LockStyle domain) const
+TempoMap::full_duration_at (timepos_t const & pos, timecnt_t const & duration, TimeDomain domain) const
 {
 	timepos_t p (pos);
 

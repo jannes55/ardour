@@ -32,7 +32,7 @@
 namespace PBD {
 
 DEFINE_ENUM_CONVERT(Temporal::TimecodeFormat)
-DEFINE_ENUM_CONVERT(Temporal::LockStyle)
+DEFINE_ENUM_CONVERT(Temporal::TimeDomain)
 DEFINE_ENUM_CONVERT(Temporal::Dirty)
 
 } // namespace Temporal

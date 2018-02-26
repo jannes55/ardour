@@ -72,7 +72,7 @@ namespace ARDOUR {
 		PBD::PropertyDescriptor<timecnt_t> ancestral_length;
 		PBD::PropertyDescriptor<float> stretch;
 		PBD::PropertyDescriptor<float> shift;
-		PBD::PropertyDescriptor<Temporal::LockStyle> position_lock_style;
+		PBD::PropertyDescriptor<Temporal::TimeDomain> position_lock_style;
 		PBD::PropertyDescriptor<uint64_t> layering_index;
 	}
 }
@@ -526,7 +526,7 @@ Region::special_set_position (timepos_t const & pos)
 }
 
 void
-Region::set_position_lock_style (Temporal::LockStyle ps)
+Region::set_position_lock_style (Temporal::TimeDomain ps)
 {
 	if (_position.val().lock_style() != ps) {
 
@@ -1838,7 +1838,7 @@ Region::latest_possible_sample () const
 	return position_sample() + (minlen - start_sample()) - 1;
 }
 
-Temporal::LockStyle
+Temporal::TimeDomain
 Region::position_lock_style() const
 {
 	return _position.val().lock_style();

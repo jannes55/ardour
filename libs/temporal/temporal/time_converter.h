@@ -68,7 +68,7 @@ class LIBTEMPORAL_API DistanceMeasure
 	DistanceMeasure (TempoMap const & map, timepos_t const & o)
 		: _tempo_map (map), _origin (o) {}
 
-	timepos_t operator() (Temporal::timecnt_t const & duration, Temporal::LockStyle canonical_domain) const;
+	timepos_t operator() (Temporal::timecnt_t const & duration, Temporal::TimeDomain canonical_domain) const;
 	timepos_t origin() const { return _origin; }
 	void      set_origin (timepos_t const &);
 

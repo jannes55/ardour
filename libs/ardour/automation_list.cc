@@ -57,7 +57,7 @@ static void dumpit (const AutomationList& al, string prefix = "")
 	cerr << "\n";
 }
 #endif
-AutomationList::AutomationList (const Evoral::Parameter& id, const Evoral::ParameterDescriptor& desc, Temporal::LockStyle ts)
+AutomationList::AutomationList (const Evoral::Parameter& id, const Evoral::ParameterDescriptor& desc, Temporal::TimeDomain ts)
 	: ControlList(id, desc, ts)
 	, _before (0)
 {
@@ -71,7 +71,7 @@ AutomationList::AutomationList (const Evoral::Parameter& id, const Evoral::Param
 	AutomationListCreated(this);
 }
 
-AutomationList::AutomationList (const Evoral::Parameter& id, Temporal::LockStyle ts)
+AutomationList::AutomationList (const Evoral::Parameter& id, Temporal::TimeDomain ts)
 	: ControlList(id, ARDOUR::ParameterDescriptor(id), ts)
 	, _before (0)
 {
@@ -143,7 +143,7 @@ AutomationList::~AutomationList()
 boost::shared_ptr<Evoral::ControlList>
 AutomationList::create(const Evoral::Parameter&           id,
                        const Evoral::ParameterDescriptor& desc,
-                       Temporal::LockStyle ts)
+                       Temporal::TimeDomain ts)
 {
 	return boost::shared_ptr<Evoral::ControlList>(new AutomationList(id, desc, ts));
 }

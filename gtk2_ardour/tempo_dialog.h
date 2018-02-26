@@ -46,10 +46,10 @@ public:
 	double get_note_type ();
 	bool   get_bbt_time (Temporal::BBT_Time&);
 	Temporal::Tempo::Type get_tempo_type ();
-	Temporal::LockStyle   get_lock_style ();
+	Temporal::TimeDomain   get_lock_style ();
 
 private:
-	void init (const Temporal::BBT_Time& start, double bpm, double end_bpm, double note_type, Temporal::Tempo::Type type, bool movable, Temporal::LockStyle style);
+	void init (const Temporal::BBT_Time& start, double bpm, double end_bpm, double note_type, Temporal::Tempo::Type type, bool movable, Temporal::TimeDomain style);
 	bool is_user_input_valid() const;
 	void bpm_changed ();
 	bool bpm_button_press (GdkEventButton* );
@@ -70,8 +70,8 @@ private:
 	typedef std::map<std::string, Temporal::Tempo::Type> TempoTypes;
 	TempoTypes tempo_types;
 
-	typedef std::map<std::string, Temporal::LockStyle> LockStyles;
-	LockStyles lock_styles;
+	typedef std::map<std::string, Temporal::TimeDomain> TimeDomains;
+	TimeDomains lock_styles;
 
 	bool tapped;      // whether the tap-tempo button has been clicked
 	double sum_x, sum_xx, sum_xy, sum_y;
@@ -107,11 +107,11 @@ public:
 
 	double get_bpb ();
 	double get_note_type ();
-	Temporal::LockStyle get_lock_style ();
+	Temporal::TimeDomain get_lock_style ();
 	bool   get_bbt_time (Temporal::BBT_Time&);
 
 private:
-	void init (const Temporal::BBT_Time&, double, double, bool, Temporal::LockStyle style);
+	void init (const Temporal::BBT_Time&, double, double, bool, Temporal::TimeDomain style);
 	bool is_user_input_valid() const;
 	bool entry_key_press (GdkEventKey* );
 	bool entry_key_release (GdkEventKey* );
@@ -121,8 +121,8 @@ private:
 	typedef std::map<std::string,float> NoteTypes;
 	NoteTypes note_types;
 
-	typedef std::map<std::string, Temporal::LockStyle> LockStyles;
-	LockStyles lock_styles;
+	typedef std::map<std::string, Temporal::TimeDomain> TimeDomains;
+	TimeDomains lock_styles;
 
 	Gtk::Entry   bpb_entry;
 	Gtk::ComboBoxText note_type;

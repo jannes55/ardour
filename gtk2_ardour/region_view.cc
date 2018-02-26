@@ -965,13 +965,13 @@ RegionView::snap_region_time_to_region_time (timepos_t const & x, bool ensure_sn
 }
 
 timecnt_t
-RegionView::region_relative_distance (timecnt_t const & duration, Temporal::LockStyle domain)
+RegionView::region_relative_distance (timecnt_t const & duration, Temporal::TimeDomain domain)
 {
 	return _region->session().tempo_map().full_duration_at (_region->position(), duration, domain);
 }
 
 timecnt_t
-RegionView::source_relative_distance (timecnt_t const & duration, Temporal::LockStyle domain)
+RegionView::source_relative_distance (timecnt_t const & duration, Temporal::TimeDomain domain)
 {
 	return _region->session().tempo_map().full_duration_at (_region->source_position(), duration, domain);
 }

@@ -1087,7 +1087,7 @@ timepos_t::string_to (std::string const & str)
 }
 
 void
-timepos_t::set_lock_style (LockStyle ls)
+timepos_t::set_lock_style (TimeDomain ls)
 {
 	switch (_lock_status.style()) {
 	case AudioTime:

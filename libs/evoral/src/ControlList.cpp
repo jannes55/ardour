@@ -56,7 +56,7 @@ inline bool event_time_less_than (ControlEvent* a, ControlEvent* b)
 	return a->when < b->when;
 }
 
-ControlList::ControlList (const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle ts)
+ControlList::ControlList (const Parameter& id, const ParameterDescriptor& desc, Temporal::TimeDomain ts)
 	: _parameter(id)
 	, _desc(desc)
 	, _interpolation (default_interpolation ())
@@ -144,7 +144,7 @@ ControlList::~ControlList()
 }
 
 boost::shared_ptr<ControlList>
-ControlList::create(const Parameter& id, const ParameterDescriptor& desc, Temporal::LockStyle time_style)
+ControlList::create(const Parameter& id, const ParameterDescriptor& desc, Temporal::TimeDomain time_style)
 {
 	return boost::shared_ptr<ControlList>(new ControlList(id, desc, time_style));
 }

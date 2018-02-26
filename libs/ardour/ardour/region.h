@@ -69,7 +69,7 @@ namespace Properties {
 	LIBARDOUR_API extern PBD::PropertyDescriptor<timecnt_t>         ancestral_length;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<float>             stretch;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<float>             shift;
-	LIBARDOUR_API extern PBD::PropertyDescriptor<Temporal::LockStyle> position_lock_style;
+	LIBARDOUR_API extern PBD::PropertyDescriptor<Temporal::TimeDomain> position_lock_style;
 	LIBARDOUR_API extern PBD::PropertyDescriptor<uint64_t>          layering_index;
 };
 
@@ -200,8 +200,8 @@ public:
 
 	Trimmable::CanTrim can_trim () const;
 
-	Temporal::LockStyle position_lock_style () const;
-	void set_position_lock_style (Temporal::LockStyle ps);
+	Temporal::TimeDomain position_lock_style () const;
+	void set_position_lock_style (Temporal::TimeDomain ps);
 	void recompute_position_from_lock_style ();
 
 	void suspend_property_changes ();
