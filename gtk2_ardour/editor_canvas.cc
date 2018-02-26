@@ -620,14 +620,15 @@ Editor::session_gui_extents ( bool use_extra ) const
 		samplecnt_t const extra = UIConfiguration::instance().get_extra_ui_extents_time() * 60 * _session->nominal_sample_rate();
 		session_extent_end += extra;
 		session_extent_start.shift_earlier (extra);
+		cerr << "shifted to " << session_extent_start << " .. " << session_extent_end << endl;
 	}
 
 	//range-check
-	if (session_extent_end > max_samplepos) {
-		session_extent_end = max_samplepos;
+	if (session_extent_end > std::numeric_limits<timepos_t>::max()) {
+		session_extent_end = std::numeric_limits<timepos_t>::max();
 	}
-	if (session_extent_start < 0) {
-		session_extent_start = 0;
+	if (session_extent_start < std::numeric_limits<timepos_t>::min()) {
+		session_extent_start = std::numeric_limits<timepos_t>::min();
 	}
 
 	return std::pair <timepos_t,timepos_t>  (session_extent_start, session_extent_end);
