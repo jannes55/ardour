@@ -620,7 +620,6 @@ Editor::session_gui_extents ( bool use_extra ) const
 		samplecnt_t const extra = UIConfiguration::instance().get_extra_ui_extents_time() * 60 * _session->nominal_sample_rate();
 		session_extent_end += extra;
 		session_extent_start.shift_earlier (extra);
-		cerr << "shifted to " << session_extent_start << " .. " << session_extent_end << endl;
 	}
 
 	//range-check
