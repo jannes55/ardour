@@ -214,8 +214,8 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 		   first, trim to the range we are reading...
 		*/
 		Temporal::Range rrange = ar->range ();
-		Temporal::Range region_range (max (rrange.from.sample(), start),
-		                              min (rrange.to.sample(), start + cnt - 1));
+		Temporal::Range region_range (max (rrange.start().sample(), start),
+		                              min (rrange.end().sample(), start + cnt - 1));
 
 		/* ... and then remove the bits that are already done */
 
@@ -234,9 +234,9 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 			if (ar->opaque ()) {
 				/* Cut this range down to just the body and mark it done */
 				Temporal::Range body = ar->body_range ();
-				if (body.from < d.to && body.to > d.from) {
-					d.from = max (d.from, body.from);
-					d.to = min (d.to, body.to);
+				if (body.start() < d.end() && body.end() > d.start()) {
+					d.set_start (max (d.start(), body.start()));
+					d.set_end (min (d.end(), body.end()));
 					done.add (d);
 				}
 			}
@@ -246,10 +246,10 @@ AudioPlaylist::read (Sample *buf, Sample *mixdown_buffer, float *gain_buffer, sa
 	/* Now go backwards through the to_do list doing the actual reads */
 	for (list<Segment>::reverse_iterator i = to_do.rbegin(); i != to_do.rend(); ++i) {
 		DEBUG_TRACE (DEBUG::AudioPlayback, string_compose ("\tPlaylist %1 read %2 @ %3 for %4, channel %5, buf @ %6 offset %7\n",
-								   name(), i->region->name(), i->range.from,
-		                                                   i->range.from.distance (i->range.to).increment(), (int) chan_n,
-		                                                   buf, i->range.from.sample() - start));
-		i->region->read_at (buf + i->range.from.sample() - start, mixdown_buffer, gain_buffer, i->range.from.sample(), i->range.to.sample() - i->range.from.sample() + 1, chan_n);
+		                                                   name(), i->region->name(), i->range.start(),
+		                                                   i->range.length(), (int) chan_n,
+		                                                   buf, i->range.start().sample() - start));
+		i->region->read_at (buf + i->range.start().sample() - start, mixdown_buffer, gain_buffer, i->range.start().sample(), i->range.end().sample() - i->range.start().sample() + 1, chan_n);
 	}
 
 	return cnt;

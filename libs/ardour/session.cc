@@ -1901,14 +1901,13 @@ Session::consolidate_skips (Location* loc)
                         continue;
                 }
 
-                switch (Temporal::coverage ((*l)->start_sample(), (*l)->end_sample(), loc->start_sample(), loc->end_sample())) {
+                switch (Temporal::coverage_exclusive_ends ((*l)->start_time(), (*l)->end_time(), loc->start_time(), loc->end_time())) {
                 case Temporal::OverlapInternal:
                 case Temporal::OverlapExternal:
                 case Temporal::OverlapStart:
                 case Temporal::OverlapEnd:
                         /* adjust new location to cover existing one */
-	                loc->set_sample (min (loc->start_sample(), (*l)->start_sample()),
-	                                 max (loc->end_sample(), (*l)->end_sample()));
+	                loc->set (min (loc->start_time(), (*l)->start_time()), max (loc->end_time(), (*l)->end_time()));
                         /* we don't need this one any more */
                         _locations->remove (*l);
                         /* the location has been deleted, so remove reference to it in our local list */
@@ -4715,7 +4714,7 @@ void
 Session::playlist_regions_extended (list<Temporal::Range> const & ranges)
 {
 	for (list<Temporal::Range>::const_iterator i = ranges.begin(); i != ranges.end(); ++i) {
-		maybe_update_session_range (i->from, i->to);
+		maybe_update_session_range (i->start(), i->end());
 	}
 }
 

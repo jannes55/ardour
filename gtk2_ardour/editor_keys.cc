@@ -73,7 +73,7 @@ Editor::keyboard_selection_begin (Editing::EditIgnoreOption ign)
 	if (_session) {
 
 		timepos_t start;
-		timepos_t end (selection->time.end()->to);
+		timepos_t end (selection->time.end()->end());
 		if ((_edit_point == EditAtPlayhead) && _session->transport_rolling()) {
 			start = _session->audible_sample();
 		} else {

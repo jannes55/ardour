@@ -1982,7 +1982,7 @@ Session::set_play_range (list<TimelineRange>& range, bool leave_rolling)
 			/* locating/stopping is subject to delays for declicking.
 			 */
 
-			samplepos_t requested_sample = i->to.sample();
+			samplepos_t requested_sample = i->end().sample();
 
 			if (requested_sample > current_block_size) {
 				requested_sample -= current_block_size;
@@ -1993,7 +1993,7 @@ Session::set_play_range (list<TimelineRange>& range, bool leave_rolling)
 			if (next == range.end()) {
 				ev = new SessionEvent (SessionEvent::RangeStop, SessionEvent::Add, requested_sample, 0, 0.0f);
 			} else {
-				ev = new SessionEvent (SessionEvent::RangeLocate, SessionEvent::Add, requested_sample, (*next).from.sample(), 0.0f);
+				ev = new SessionEvent (SessionEvent::RangeLocate, SessionEvent::Add, requested_sample, (*next).start().sample(), 0.0f);
 			}
 
 			merge_event (ev);
@@ -2003,7 +2003,7 @@ Session::set_play_range (list<TimelineRange>& range, bool leave_rolling)
 
 	} else if (sz == 1) {
 
-		ev = new SessionEvent (SessionEvent::RangeStop, SessionEvent::Add, range.front().to.sample(), 0, 0.0f);
+		ev = new SessionEvent (SessionEvent::RangeStop, SessionEvent::Add, range.front().end().sample(), 0, 0.0f);
 		merge_event (ev);
 
 	}
@@ -2014,7 +2014,7 @@ Session::set_play_range (list<TimelineRange>& range, bool leave_rolling)
 
 	/* now start rolling at the right place */
 
-	ev = new SessionEvent (SessionEvent::LocateRoll, SessionEvent::Add, SessionEvent::Immediate, range.front().from.sample(), 0.0f, false);
+	ev = new SessionEvent (SessionEvent::LocateRoll, SessionEvent::Add, SessionEvent::Immediate, range.front().end().sample(), 0.0f, false);
 	merge_event (ev);
 
 	DEBUG_TRACE (DEBUG::Transport, string_compose ("send TSC5 with speed = %1\n", _transport_speed));

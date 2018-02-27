@@ -197,7 +197,7 @@ Playlist::Playlist (boost::shared_ptr<const Playlist> other, timepos_t const & s
 {
 	RegionReadLock rlock2 (const_cast<Playlist*> (other.get()));
 
-	timepos_t end = (start + cnt).decrement();
+	timepos_t end = (start + cnt);
 
 	init (hide);
 
@@ -1145,11 +1145,11 @@ Playlist::cut_copy (boost::shared_ptr<Playlist> (Playlist::*pmf)(timepos_t const
 		return boost::shared_ptr<Playlist>();
 	}
 
-	start = ranges.front().from;
+	start = ranges.front().start();
 
 	for (list<TimelineRange>::iterator i = ranges.begin(); i != ranges.end(); ++i) {
 
-		pl = (this->*pmf)((*i).from, (*i).length(), result_is_hidden);
+		pl = (this->*pmf)((*i).start(), (*i).length(), result_is_hidden);
 
 		if (i == ranges.begin()) {
 			ret = pl;
@@ -1160,7 +1160,7 @@ Playlist::cut_copy (boost::shared_ptr<Playlist> (Playlist::*pmf)(timepos_t const
 			   chopped.
 			*/
 
-			ret->paste (pl, (*i).from.earlier (timecnt_t (start, start)), 1.0f);
+			ret->paste (pl, (*i).start().earlier (timecnt_t (start, start)), 1.0f);
 		}
 	}
 
@@ -1336,9 +1336,8 @@ Playlist::duplicate_until (boost::shared_ptr<Region> region, timepos_t & positio
 void
 Playlist::duplicate_range (TimelineRange& range, float times)
 {
-	boost::shared_ptr<Playlist> pl = copy (range.from, range.length(), true);
-	const timecnt_t offset = range.from.distance (range.to);
-	paste (pl, range.from + offset, times);
+	boost::shared_ptr<Playlist> pl = copy (range.start(), range.length(), true);
+	paste (pl, range.end(), times);
 }
 
 void
@@ -1348,14 +1347,14 @@ Playlist::duplicate_ranges (std::list<TimelineRange>& ranges, float times)
 		return;
 	}
 
-	timepos_t min_pos = max_samplepos;
+	timepos_t min_pos = std::numeric_limits<timepos_t>::max();
 	timepos_t max_pos = 0;
 
 	for (std::list<TimelineRange>::const_iterator i = ranges.begin();
 	     i != ranges.end();
 	     ++i) {
-		min_pos = min (min_pos, (*i).from);
-		max_pos = max (max_pos, (*i).to);
+		min_pos = min (min_pos, (*i).start());
+		max_pos = max (max_pos, (*i).end());
 	}
 
 	timecnt_t offset = min_pos.distance (max_pos);
@@ -1364,8 +1363,8 @@ Playlist::duplicate_ranges (std::list<TimelineRange>& ranges, float times)
 	int itimes = (int) floor (times);
 	while (itimes--) {
 		for (list<TimelineRange>::iterator i = ranges.begin (); i != ranges.end (); ++i) {
-			boost::shared_ptr<Playlist> pl = copy ((*i).from, (*i).length (), true);
-			paste (pl, (*i).from + (offset * count), 1.0f);
+			boost::shared_ptr<Playlist> pl = copy ((*i).start(), (*i).length (), true);
+			paste (pl, (*i).start() + (offset * count), 1.0f);
 		}
 		++count;
 	}
@@ -1903,7 +1902,7 @@ Playlist::regions_with_start_within (Temporal::Range range)
 	boost::shared_ptr<RegionList> rlist (new RegionList);
 
 	for (RegionList::iterator i = regions.begin(); i != regions.end(); ++i) {
-		if ((*i)->position() >= range.from && (*i)->position() <= range.to) {
+		if ((*i)->position() >= range.start() && (*i)->position() < range.end()) {
 			rlist->push_back (*i);
 		}
 	}
@@ -1918,7 +1917,7 @@ Playlist::regions_with_end_within (Temporal::Range range)
 	boost::shared_ptr<RegionList> rlist (new RegionList);
 
 	for (RegionList::iterator i = regions.begin(); i != regions.end(); ++i) {
-		if ((*i)->last() >= range.from && (*i)->last() <= range.to) {
+		if ((*i)->last() >= range.start() && (*i)->last() < range.end()) {
 			rlist->push_back (*i);
 		}
 	}
@@ -3306,7 +3305,7 @@ Playlist::fade_range (list<TimelineRange>& ranges)
 		for (RegionList::const_iterator i = regions.begin(); i != regions.end(); ) {
 			RegionList::const_iterator tmpi = i;
 			++tmpi;
-			(*i)->fade_range ((*r).from.sample(), (*r).to.sample());
+			(*i)->fade_range ((*r).start().sample(), (*r).end().sample());
 			i = tmpi;
 		}
 		r = tmpr;
@@ -3400,9 +3399,9 @@ restart:
 			}
 
 			// XXX i->from can be > i->to - is this right? coverage() will return OverlapNone in this case
-			if (Temporal::coverage (i->from, i->to, j->from, j->to) != Temporal::OverlapNone) {
-				i->from = min (i->from, j->from);
-				i->to = max (i->to, j->to);
+			if (Temporal::coverage_exclusive_ends (i->start(), i->end(), j->start(), j->end()) != Temporal::OverlapNone) {
+				i->set_start (min (i->start(), j->start()));
+				i->set_end (max (i->end(), j->end()));
 				ranges.erase (j);
 				goto restart;
 			}

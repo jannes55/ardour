@@ -420,7 +420,7 @@ Editor::write_audio_range (AudioPlaylist& playlist, const ChanCount& count, list
 	for (list<TimelineRange>::iterator i = range.begin(); i != range.end();) {
 
 		nframes = (*i).length_samples();
-		pos = (*i).start_sample();
+		pos = (*i).start().sample();
 
 		while (nframes) {
 			samplepos_t this_time;
@@ -451,7 +451,7 @@ Editor::write_audio_range (AudioPlaylist& playlist, const ChanCount& count, list
 
 			/* fill gaps with silence */
 
-			nframes = (*tmp).start_sample() - (*i).end_sample();
+			nframes = (*tmp).start().sample() - (*i).end().sample();
 
 			while (nframes) {
 

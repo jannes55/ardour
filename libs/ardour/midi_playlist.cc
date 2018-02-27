@@ -132,7 +132,7 @@ MidiPlaylist::read (Evoral::EventSink<samplepos_t>& dst,
 	}
 
 	/* Find relevant regions that overlap [start..end] */
-	const timepos_t                          end = (start + dur).decrement();
+	const timepos_t                          end = (start + dur);
 	std::vector< boost::shared_ptr<Region> > regs;
 	std::vector< boost::shared_ptr<Region> > ended;
 	for (RegionList::iterator i = regions.begin(); i != regions.end(); ++i) {
@@ -196,8 +196,8 @@ MidiPlaylist::read (Evoral::EventSink<samplepos_t>& dst,
 		/* Read from region into target. */
 		DEBUG_TRACE (DEBUG::MidiPlaylistIO, string_compose ("read from %1 at %2 for %3 LR %4 .. %5\n",
 		                                                    mr->name(), start, dur, 
-		                                                    (loop_range ? loop_range->from : -1),
-		                                                    (loop_range ? loop_range->to : -1)));
+		                                                    (loop_range ? loop_range->start() : timepos_t()),
+		                                                    (loop_range ? loop_range->end() : timepos_t())));
 		mr->read_at (tgt, start, dur, loop_range, tracker->cursor, chan_n, _note_mode, &tracker->tracker, filter);
 		DEBUG_TRACE (DEBUG::MidiPlaylistIO,
 		             string_compose ("\tPost-read: %1 active notes\n", tracker->tracker.on()));

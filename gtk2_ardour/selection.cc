@@ -509,8 +509,8 @@ Selection::move_time (timecnt_t const & distance)
 	}
 
 	for (list<TimelineRange>::iterator i = time.begin(); i != time.end(); ++i) {
-		(*i).from += distance;
-		(*i).to += distance;
+		(*i).set_start ((*i).start() + distance);
+		(*i).set_end ((*i).end() + distance);
 	}
 
 	TimeChanged ();

@@ -1807,7 +1807,7 @@ Editor::loudness_analyze_range_selection ()
 
 	/* convert work to samples */
 
-	Temporal::DistanceMeasure dm (_session->tempo_map(), ts.begin()->from);
+	Temporal::DistanceMeasure dm (_session->tempo_map(), ts.begin()->start());
 	const samplecnt_t total_work_samples = dm (total_work, Temporal::AudioTime).sample();
 
 	SimpleProgressDialog spd (_("Range Loudness Analysis"), sigc::mem_fun (ag, &AnalysisGraph::cancel));

@@ -1146,8 +1146,8 @@ AutomationTimeAxisView::cut_copy_clear_one (AutomationLine& line, Selection& sel
 	XMLNode &before = alist->get_state();
 
 	/* convert time selection to automation list model coordinates */
-	timepos_t start = selection.time.front().from.earlier (line.distance_measure().origin());
-	timepos_t end = selection.time.front().to.earlier (line.distance_measure().origin());
+	timepos_t start = selection.time.front().start().earlier (line.distance_measure().origin());
+	timepos_t end = selection.time.front().end().earlier (line.distance_measure().origin());
 
 	switch (op) {
 	case Delete:

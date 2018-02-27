@@ -568,9 +568,9 @@ LuaBindings::common (lua_State* L)
 		.endClass ()
 
 		.beginClass <Temporal::Range> ("Range")
-		.addConstructor <void (*) (samplepos_t, samplepos_t)> ()
-		.addData ("from", &Temporal::Range::from)
-		.addData ("to", &Temporal::Range::to)
+		.addConstructor <void (*) (Temporal::timepos_t, Temporal::timepos_t)> ()
+		.addFunction ("start", &Temporal::Range::start)
+		.addFunction ("end", &Temporal::Range::end)
 		.endClass ()
 
 		.deriveWSPtrClass <Evoral::Sequence<Temporal::Beats>, Evoral::ControlSet> ("Sequence")

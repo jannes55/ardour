@@ -36,8 +36,9 @@ enum /*LIBTEMPORAL_API*/ OverlapType {
 	OverlapExternal   // overlap extends to (at least) begin+end
 };
 
+/** end position arguments are inclusive */
 template<typename T>
-/*LIBTEMPORAL_API*/ OverlapType coverage (T sa, T ea, T sb, T eb) {
+/*LIBTEMPORAL_API*/ OverlapType coverage_inclusive_ends (T sa, T ea, T sb, T eb) {
 	/* OverlapType returned reflects how the second (B)
 	 * range overlaps the first (A).
 	 *
@@ -128,6 +129,15 @@ template<typename T>
 	return OverlapNone;
 }
 
+/** end position arguments are inclusive */
+template<typename T>
+/*LIBTEMPORAL_API*/ OverlapType coverage_exclusive_ends (T sa, T eaE, T sb, T ebE)
+{
+	/* convert end positions to inclusive */
+	return coverage_inclusive_ends (sa, eaE.decrement(), sb, ebE.decrement());
+}
+
+
 class RangeList;
 
 class LIBTEMPORAL_API Range {
@@ -171,8 +181,9 @@ class LIBTEMPORAL_API Range {
 		return t;
 	}
 
+	/* end is exclusive */
 	OverlapType coverage (timepos_t const & s, timepos_t const & e) const {
-		return Temporal::coverage (_start, _end, s, e);
+		return Temporal::coverage_exclusive_ends (_start, _end, s, e);
 	}
 
   private:
@@ -215,7 +226,7 @@ public:
 					continue;
 				}
 
-				if (coverage (i->start(), i->end(), j->start(), j->end()) != OverlapNone) {
+				if (coverage_exclusive_ends (i->start(), i->end(), j->start(), j->end()) != OverlapNone) {
 					i->set_start (std::min (i->start(), j->start()));
 					i->set_end (std::max (i->end(), j->end()));
 					_list.erase (j);

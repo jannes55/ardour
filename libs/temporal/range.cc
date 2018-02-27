@@ -51,7 +51,7 @@ Range::subtract (RangeList & sub) const
 		/* Work on all parts of the current result using this range *i */
 		for (typename RangeList::List::const_iterator j = r.begin(); j != r.end(); ++j) {
 
-			switch (Temporal::coverage (j->start(), j->end(), i->start(), i->end())) {
+			switch (coverage_exclusive_ends (j->start(), j->end(), i->start(), i->end())) {
 			case OverlapNone:
 				/* The thing we're subtracting (*i) does not overlap this bit of the result (*j),
 				   so pass it through.

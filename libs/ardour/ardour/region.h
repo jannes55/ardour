@@ -217,7 +217,7 @@ public:
 	 *  OverlapExternal: the range overlaps all of this region.
 	 */
 	Temporal::OverlapType coverage (timepos_t const & start, timepos_t const & end) const {
-		return Temporal::coverage (_position.val(), last(), start, end);
+		return Temporal::coverage_exclusive_ends (_position.val(), last(), start, end);
 	}
 
 	bool equivalent (boost::shared_ptr<const Region>) const;

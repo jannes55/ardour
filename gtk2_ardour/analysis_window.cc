@@ -272,7 +272,7 @@ AnalysisWindow::analyze_data (Gtk::Button * /*button*/)
 								n = len - x;
 							}
 
-							n = pl->read (buf, mixbuf, gain, (*j).from.sample() + x, n, channel);
+							n = pl->read (buf, mixbuf, gain, (*j).start().sample() + x, n, channel);
 
 							if ( n < fft_graph.windowSize()) {
 								for (int j = n; j < fft_graph.windowSize(); j++) {

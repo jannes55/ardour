@@ -395,8 +395,7 @@ DiskWriter::run (BufferSet& bufs, samplepos_t start_sample, samplepos_t end_samp
 
 	if (nominally_recording || (re && was_recording && _session.get_record_enabled() && punch_in)) {
 
-		Temporal::OverlapType ot = Temporal::coverage (first_recordable_sample, last_recordable_sample, start_sample, end_sample);
-		// XXX should this be transport_sample + nframes - 1 ? coverage() expects its parameter ranges to include their end points
+		Temporal::OverlapType ot = Temporal::coverage_inclusive_ends (first_recordable_sample, last_recordable_sample-1, start_sample, end_sample-1);
 		// XXX also, first_recordable_sample & last_recordable_sample may both be == max_samplepos: coverage() will return OverlapNone in that case. Is thak OK?
 		calculate_record_range (ot, start_sample, nframes, rec_nframes, rec_offset);
 

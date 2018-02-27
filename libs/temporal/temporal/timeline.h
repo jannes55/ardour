@@ -454,7 +454,7 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t increment () const {
 		switch (_style) {
 		case Temporal::BeatTime:
-			return timecnt_t (_beats + Beats::beats (1), _position);
+			return timecnt_t (_beats + Beats (0, 1), _position);
 		case Temporal::AudioTime:
 			return timecnt_t (_samples < max_samplepos ? _samples + 1 : _samples, _position);
 		default:
@@ -468,7 +468,7 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t decrement () const {
 		switch (_style) {
 		case Temporal::BeatTime:
-			return timecnt_t (_beats - Beats::beats (1), _position); /* beats can go negative */
+			return timecnt_t (_beats - Beats (0, 1), _position); /* beats can go negative */
 		case Temporal::AudioTime:
 			return timecnt_t (_samples > 0 ? _samples - 1 : _samples, _position); /* samples cannot go negative */
 		default:

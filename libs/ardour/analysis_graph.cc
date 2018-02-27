@@ -115,7 +115,7 @@ AnalysisGraph::analyze_range (boost::shared_ptr<Route> route, boost::shared_ptr<
 		samplecnt_t x = 0;
 		while (x < j->length()) {
 			samplecnt_t const chunk = std::min (_max_chunksize, (*j).length_samples() - x);
-			samplecnt_t const start = (*j).from.sample();
+			samplecnt_t const start = (*j).start().sample();
 			samplecnt_t n = 0;
 			for (uint32_t channel = 0; channel < n_audio; ++channel) {
 				n = pl->read (_buf, _mixbuf, _gainbuf, start + x, chunk, channel);
@@ -136,11 +136,11 @@ AnalysisGraph::analyze_range (boost::shared_ptr<Route> route, boost::shared_ptr<
 
 		std::string name = string_compose (_("%1 (%2..%3)"), route->name(),
 				Temporal::timecode_format_sampletime (
-					(*j).from.sample(),
+					(*j).start().sample(),
 					_session->nominal_sample_rate(),
 					100, false),
 				Temporal::timecode_format_sampletime (
-					(*j).from.sample() + (*j).length_samples(),
+					(*j).start().sample() + (*j).length().samples(),
 					_session->nominal_sample_rate(),
 					100, false)
 				);
