@@ -393,7 +393,6 @@ TempoMetric::compute_c_superclock (samplecnt_t sr, superclock_t end_scpqn, super
 	}
 
 	_c_per_superclock = log ((double) superclocks_per_quarter_note () / end_scpqn) / superclock_duration;
-	cerr << "Compute C/sc as " << _c_per_superclock << endl;
 }
 void
 TempoMetric::compute_c_quarters (samplecnt_t sr, superclock_t end_scpqn, Temporal::Beats const & quarter_duration)
@@ -404,7 +403,6 @@ TempoMetric::compute_c_quarters (samplecnt_t sr, superclock_t end_scpqn, Tempora
 	}
 
 	_c_per_quarter = log (superclocks_per_quarter_note () / (double) end_scpqn) /  quarter_duration.to_double();
-	cerr << "Compute C/qn as " << _c_per_quarter << endl;
 }
 
 superclock_t
@@ -431,12 +429,10 @@ TempoMapPoint::TempoMapPoint (XMLNode const &node, TempoMap* map)
 	}
 
 	if (!node.get_property (X_("beats"), _quarters)) {
-		cerr << "bad quarters\n";
 		throw failed_constructor();
 	}
 
 	if (!node.get_property (X_("bbt"), _bbt)) {
-		cerr << "bad bbt\n";
 		throw failed_constructor();
 	}
 
@@ -587,7 +583,6 @@ void
 TempoMap::set_dirty (bool yn)
 {
 	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("tempo map @ %1 dirty set to %2\n", this, yn));
-	cerr << "TM dirty ? " << yn << endl;
 	_dirty = yn;
 }
 
@@ -685,11 +680,54 @@ TempoMap::full_rebuild ()
 }
 
 void
+TempoMap::extend (superclock_t limit)
+{
+	Glib::Threads::RWLock::WriterLock lm (_lock);
+
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("extend map to %1 from %2 with %3\n", limit, _points.back().sclock(), _points.size()));
+
+	TempoMapPoints::reverse_iterator p = _points.rbegin();
+
+	while (p != _points.rend() && p->is_implicit()) {
+		++p;
+	}
+
+	if (p == _points.rend()) {
+		/* shouldn't happen */
+		return;
+	}
+
+	/* iterator now points to the last explicit point (note: in many case,
+	 * this will be the first point in the map, and the only explicit one
+	 */
+
+	TempoMapPoint const & point (*p);
+	TempoMapPoint const & last_point (_points.back());
+
+	const Beats qn_step = (Temporal::Beats (1,0) * 4) / point.metric().note_value();
+	superclock_t sc = last_point.sclock();
+	Beats qn (last_point.quarters ());
+	BBT_Time bbt (last_point.bbt());
+
+	while (1) {
+		qn += qn_step;
+		sc += point.metric().superclocks_per_note_type();
+
+		if (sc >= limit) {
+			break;
+		}
+
+		bbt = point.metric().bbt_add (bbt, Temporal::BBT_Offset (0, 1, 0));
+		_points.push_back (TempoMapPoint (point, sc, qn, bbt));
+	}
+}
+
+void
 TempoMap::rebuild (superclock_t limit)
 {
 	Glib::Threads::RWLock::WriterLock lm (_lock);
 
-	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("rebuild tempo map to %1\n", limit));
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("rebuild tempo map to %1 from %2\n", limit, _points.back().sclock()));
 
 	/* step one: remove all implicit points after a dirty explicit point */
 
@@ -849,7 +887,6 @@ TempoMap::rebuild (superclock_t limit)
 		point = next;
 	}
 	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("rebuild: completed, %1 points\n", _points.size()));
-	dump_locked (cerr);
 
 	_generation++;
 	Changed (first_dirty, _points.back().sclock()); /* EMIT SIGNAL */
@@ -1819,44 +1856,41 @@ TempoMap::get_grid (TempoMapPoints& ret, samplepos_t s, samplepos_t e, Temporal:
 
 	TempoMapPoints::iterator p = iterator_at (start);
 
+	DEBUG_TRACE (DEBUG::TemporalMap, string_compose ("get grid between %1..%2 at resolution = %3; current end: %4\n",start, end, resolution, _points.back().sclock()));
+
+	/* extend as necessary to fill out to e */
+
+	if (e > _points.back().sample()) {
+		/* need to drop reader lock while we rebuild since that
+		   requires the writer lock.
+		*/
+		lm.release ();
+		extend (end);
+		lm.acquire ();
+	}
+
+	/* advance to the first point at or later than start (since by
+	 * definition, p may point at the point before start.
+	 */
+
 	while (p != _points.end() && p->sclock() < start) {
 		++p;
 	}
 
-	if (resolution == Temporal::Beats()) {
-		/* just hand over the points as-is */
-		while (p != _points.end() && p->sclock() < end) {
+	Temporal::Beats prev_beats;
+
+	while ((p != _points.end()) && (p->sclock() < end)) {
+
+		if (prev_beats) {
+			if ((p->quarters() - prev_beats) >= resolution) {
+				ret.push_back (*p); /* makes a copy */
+			}
+		} else {
 			ret.push_back (*p);
-			++p;
 		}
-		return;
-	}
 
-	superclock_t pos = p->sclock();
-	Temporal::Beats qpos;
-	TempoMapPoints::iterator nxt = p;
-	++nxt;
-
-	while ((p != _points.end()) && (pos < end)) {
-		/* recompute grid down to @param resolution level
-		 */
-
-		superclock_t sclock_delta = p->metric().superclock_at_qn (qpos);
-
-		ret.push_back (TempoMapPoint (this, TempoMapPoint::Flag (TempoMapPoint::ExplicitMeter|TempoMapPoint::ExplicitTempo),
-		                              p->metric(), p->metric(),
-		                              p->sclock() + sclock_delta,
-		                              p->quarters() + qpos,
-		                              p->metric().bbt_add (p->bbt(), Temporal::BBT_Offset (0, qpos.get_beats(), qpos.get_ticks())),
-		                              p->ramped()));
-
-		qpos += resolution;
-		pos += sclock_delta;
-
-		if (pos >= nxt->sclock()) {
-			p = nxt;
-			++nxt;
-		}
+		prev_beats = p->quarters ();
+		++p;
 	}
 }
 

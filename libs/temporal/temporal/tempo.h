@@ -535,6 +535,7 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 	};
 
 	void dump (std::ostream&);
+	void extend (superclock_t limit);
 	void rebuild (superclock_t limit);
 	void full_rebuild ();
 
