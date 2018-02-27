@@ -51,7 +51,7 @@ Range::subtract (RangeList & sub) const
 		/* Work on all parts of the current result using this range *i */
 		for (typename RangeList::List::const_iterator j = r.begin(); j != r.end(); ++j) {
 
-			switch (Temporal::coverage (j->from, j->to, i->from, i->to)) {
+			switch (Temporal::coverage (j->start(), j->end(), i->start(), i->end())) {
 			case OverlapNone:
 				/* The thing we're subtracting (*i) does not overlap this bit of the result (*j),
 				   so pass it through.
@@ -63,24 +63,24 @@ Range::subtract (RangeList & sub) const
 				   so we should end up with two bits of (*j) left over, from the start of (*j) to
 				   the start of (*i), and from the end of (*i) to the end of (*j).
 				*/
-				assert (j->from < i->from);
-				assert (j->to > i->to);
-				new_result.add (Range (j->from, i->from.decrement()));
-				new_result.add (Range (i->to + 1, j->to));
+				assert (j->start() < i->start());
+				assert (j->end() > i->end());
+				new_result.add (Range (j->start(), i->start()));
+				new_result.add (Range (i->end(), j->end()));
 				break;
 			case OverlapStart:
 				/* The bit we're subtracting (*i) overlaps the start of the bit of the result (*j),
 				 * so we keep only the part of of (*j) from after the end of (*i)
 				 */
-				assert (i->to < j->to);
-				new_result.add (Range (i->to + 1, j->to));
+				assert (i->end() < j->end());
+				new_result.add (Range (i->end(), j->end()));
 				break;
 			case OverlapEnd:
 				/* The bit we're subtracting (*i) overlaps the end of the bit of the result (*j),
 				 * so we keep only the part of of (*j) from before the start of (*i)
 				 */
-				assert (j->from < i->from);
-				new_result.add (Range (j->from, i->from.decrement ()));
+				assert (j->start() < i->start());
+				new_result.add (Range (j->start(), i->start()));
 				break;
 			case OverlapExternal:
 				/* total overlap of the bit we're subtracting with the result bit, so the
@@ -94,24 +94,4 @@ Range::subtract (RangeList & sub) const
 	}
 
 	return result;
-}
-
-samplepos_t
-Range::start_sample () const
-{
-	assert (from.lock_style() == Temporal::AudioTime);
-	return from.sample ();
-}
-
-samplepos_t
-Range::end_sample () const
-{
-	assert (from.lock_style() == Temporal::AudioTime);
-	return to.sample ();
-}
-
-samplecnt_t
-Range::length_samples () const
-{
-	return end_sample() - start_sample();
 }

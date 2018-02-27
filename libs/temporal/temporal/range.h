@@ -130,29 +130,34 @@ template<typename T>
 
 class RangeList;
 
-struct LIBTEMPORAL_API Range {
-	Range (timepos_t f, timepos_t t) : from (f), to (t) {}
-	timepos_t from; ///< start of the range
-	timepos_t to;   ///< end of the range (inclusive; lies after end of range)
-	bool empty() const { return from == to; }
-	timecnt_t length() const { return from.distance (to); }
+class LIBTEMPORAL_API Range {
+  public:
+	/* exclusive end semantics
+	 *
+	 * |--------------------------------------|
+	 * ^                                      ^
+	 * start                                  end
+	 * 0                                      10 => length = 10, last position inside range = 9
+	 * 1                                      11 => length = 10, last position inside range = 10
+	 * 0                                      1  => length = 1,  last position inside range = 0
+	 * 0                                      2  => length = 2,  last position inside range = 1
+	 * 32                                     48 => length = 16, last position inside range = 47
+	 */
+
+	Range (timepos_t const & s, timepos_t const & e) : _start (s), _end (e) {}
+	bool empty() const { return _start == _end; }
+	timecnt_t length() const { return _start.distance (_end); }
 
 	RangeList subtract (RangeList &) const;
 
-	/* helper APIs during the transition to timepos_t */
-	samplepos_t start_sample () const;
-	samplepos_t end_sample () const;
-	samplecnt_t length_samples() const;
+	void set_start (timepos_t s) { _start = s; }
+	void set_end (timepos_t e) { _end = e; }
 
-	void set_start (timepos_t s) { from = s; }
-	void set_end (timepos_t e) { to = e; }
-
-	timepos_t start() const { return from; }
-	timepos_t end() const   { return to.increment(); }
-	timepos_t last() const  { return to; }
+	timepos_t start() const { return _start; }
+	timepos_t end() const   { return _end; }
 
 	bool operator== (Range const & other) const {
-		return other.from == from && other.to == to;
+		return other._start == _start && other._end == _end;
 	}
 
 	/** for a T, return a mapping of it into the range (used for
@@ -160,16 +165,19 @@ struct LIBTEMPORAL_API Range {
 	 * this range, do nothing.
 	 */
 	timepos_t squish (timepos_t t) const {
-		if (t > to) {
-			t = from + (from.distance (t) % length());
+		if (t >= _end) {
+			t = _start + (_start.distance (t) % length());
 		}
 		return t;
 	}
 
 	OverlapType coverage (timepos_t const & s, timepos_t const & e) const {
-		return Temporal::coverage (from, to, s, e);
+		return Temporal::coverage (_start, _end, s, e);
 	}
 
+  private:
+	timepos_t _start; ///< start of the range
+	timepos_t _end;   ///< end of the range (exclusive, see above)
 };
 
 typedef Range TimeRange;
@@ -207,9 +215,9 @@ public:
 					continue;
 				}
 
-				if (coverage (i->from, i->to, j->from, j->to) != OverlapNone) {
-					i->from = std::min (i->from, j->from);
-					i->to = std::max (i->to, j->to);
+				if (coverage (i->start(), i->end(), j->start(), j->end()) != OverlapNone) {
+					i->set_start (std::min (i->start(), j->start()));
+					i->set_end (std::max (i->end(), j->end()));
 					_list.erase (j);
 					goto restart;
 				}
