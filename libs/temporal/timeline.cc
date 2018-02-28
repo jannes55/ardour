@@ -660,6 +660,8 @@ timepos_t::operator+ (Temporal::BBT_Offset const & bbt) const
 timecnt_t
 timepos_t::distance (timepos_t const & d) const
 {
+	BBT_Offset bbt_offset;
+
 	switch (_lock_status.style()) {
 	case AudioTime:
 		switch (d.lock_style()) {
@@ -669,8 +671,7 @@ timepos_t::distance (timepos_t const & d) const
 			update_music_times ();
 			return timecnt_t (d.beats() - _beats, *this);
 		case BarTime:
-#warning timepos_t::distance() for BBT time is wrong
-			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())), *this);
+			return timecnt_t (BBT_Offset (d.bbt().bars - _bbt.bars, d.bbt().beats - _bbt.beats, d.bbt().ticks - _bbt.ticks), *this);
 		}
 		break;
 	case BeatTime:
@@ -682,8 +683,7 @@ timepos_t::distance (timepos_t const & d) const
 			return timecnt_t (d.beats() - _beats, *this);
 		case BarTime:
 			update_music_times ();
-#warning timepos_t::distance() for BBT time is wrong here as well
-			return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())), *this);
+			return timecnt_t (BBT_Offset (d.bbt().bars - _bbt.bars, d.bbt().beats - _bbt.beats, d.bbt().ticks - _bbt.ticks), *this);
 		}
 		break;
 	case BarTime:
@@ -701,8 +701,7 @@ timepos_t::distance (timepos_t const & d) const
 		break;
 	}
 
-#warning timepos_t::distance() for BBT time is wrong here too
-	return timecnt_t (_tempo_map->bbt_walk (_bbt, -BBT_Offset (d.bbt())), *this);
+	return timecnt_t (BBT_Offset (d.bbt().bars - _bbt.bars, d.bbt().beats - _bbt.beats, d.bbt().ticks - _bbt.ticks), *this);
 }
 
 timecnt_t

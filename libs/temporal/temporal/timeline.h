@@ -398,7 +398,7 @@ class LIBTEMPORAL_API timecnt_t {
 	timecnt_t (timecnt_t const &, timepos_t const & pos);
 	timecnt_t (samplepos_t s, timepos_t const & pos) : _style (Temporal::AudioTime), _samples (s), _position (pos) {}
 	explicit timecnt_t (Temporal::Beats const & b, timepos_t const & pos) : _style (Temporal::BeatTime), _beats (b), _position (pos) {}
-	explicit timecnt_t (Temporal::BBT_Time const & bbt, timepos_t const & pos) : _style (Temporal::BarTime), _bbt (bbt), _position (pos) {}
+	explicit timecnt_t (Temporal::BBT_Offset const & bbt, timepos_t const & pos) : _style (Temporal::BarTime), _bbt (bbt), _position (pos) {}
 
 	/* provides a more compact form and faster execution for "timecnt_t > 0 */
 	bool positive() const {
