@@ -26,6 +26,7 @@
 #include <vector>
 #include <exception>
 #include <sstream>
+#include <typeinfo>
 
 #include "pbd/libpbd_visibility.h"
 
