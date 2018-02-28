@@ -669,7 +669,7 @@ timepos_t::distance (timepos_t const & d) const
 			update_music_times ();
 			return timecnt_t (d.beats() - _beats, *this);
 		case BarTime:
-			return timecnt_t (BBT_Offset (d.bbt()) - BBT_Offset (bbt()), *this);
+			return timecnt_t (BBT_Offset (d.bbt()) - BBT_Offset (_bbt), *this);
 		}
 		break;
 	case BeatTime:
@@ -681,7 +681,7 @@ timepos_t::distance (timepos_t const & d) const
 			return timecnt_t (d.beats() - _beats, *this);
 		case BarTime:
 			update_music_times ();
-			return timecnt_t (BBT_Offset (d.bbt()) - BBT_Offset (bbt()), *this);
+			return timecnt_t (BBT_Offset (d.bbt()) - BBT_Offset (_bbt), *this);
 		}
 		break;
 	case BarTime:
@@ -699,7 +699,7 @@ timepos_t::distance (timepos_t const & d) const
 		break;
 	}
 
-	return timecnt_t (BBT_Offset (d.bbt()) - BBT_Offset (bbt()), *this);
+	return timecnt_t (BBT_Offset (d.bbt()) - BBT_Offset (_bbt), *this);
 }
 
 timecnt_t
