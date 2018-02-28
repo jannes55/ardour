@@ -342,7 +342,7 @@ timepos_t::timepos_t (samplepos_t s)
 timepos_t::timepos_t (Temporal::Beats const & b)
 	: update_generation (-1)
 	, _lock_status (BeatTime, Dirty (SampleDirty|BBTDirty))
-	, _samplepos (b.to_ticks())
+	, _beats (b)
 {
 }
 
