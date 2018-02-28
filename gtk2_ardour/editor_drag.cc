@@ -678,8 +678,13 @@ boost::shared_ptr<Region>
 Drag::add_midi_region (MidiTimeAxisView* view, bool commit)
 {
 	if (_editor->session()) {
-#warning position for the arbitrary length is wrong and length may also be wrong (1 beat?)
-		return view->add_region (grab_sample(), timecnt_t (Temporal::Beats (1, 0), timepos_t()), commit);
+		/* convert from sample time (pixels) to beats */
+		const Temporal::Beats beat_position = timepos_t (grab_sample()).beats();
+		const Temporal::timepos_t pos (beat_position);
+		Temporal::TempoMetric const & m = _editor->session()->tempo_map().metric_at (beat_position);
+
+		/* 1 bar duration */
+		return view->add_region (pos, timecnt_t (Temporal::Beats (m.divisions_per_bar(), 0), pos), commit);
 	}
 
 	return boost::shared_ptr<Region>();
