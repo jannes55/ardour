@@ -45,6 +45,7 @@
 using namespace std;
 using namespace ARDOUR;
 using namespace PBD;
+using Temporal::Beats;
 
 namespace ARDOUR {
 	class Progress;
@@ -169,7 +170,7 @@ Region::register_properties ()
 	, _valid_transients (Properties::valid_transients, false) \
 	, _start (Properties::start, timecnt_t (s, timepos_t())) \
 	, _length (Properties::length, timecnt_t (l,s)) \
-	, _position (Properties::position, 0) \
+	, _position (Properties::position, _type == DataType::MIDI ? timepos_t (Beats()) : timepos_t (samplepos_t (0))) \
 	, _sync_position (Properties::sync_position, timecnt_t (s, timepos_t())) \
 	, _transient_user_start (0) \
 	, _transient_analysis_start (0) \
@@ -226,7 +227,7 @@ Region::Region (Session& s, timepos_t const & start, timecnt_t const & length, c
 	, _type(type)
 	, REGION_DEFAULT_STATE(start,length)
 	, _last_length (length)
-	, _last_position (0)
+	, _last_position (_type == DataType::MIDI ? timepos_t (Beats()) : timepos_t (samplepos_t (0)))
 	, _first_edit (EditChangesNothing)
 	, _layer (0)
 {
@@ -239,8 +240,9 @@ Region::Region (Session& s, timepos_t const & start, timecnt_t const & length, c
 Region::Region (const SourceList& srcs)
 	: SessionObject(srcs.front()->session(), "toBeRenamed")
 	, _type (srcs.front()->type())
-	, REGION_DEFAULT_STATE(timepos_t(), timecnt_t())
-	, _last_position (0)
+	, REGION_DEFAULT_STATE(_type == DataType::MIDI ? timepos_t (Beats()) : timepos_t (samplepos_t (0)),
+	                       _type == DataType::MIDI ? timecnt_t (Beats(), timepos_t (Beats())) : timecnt_t (samplepos_t (0), timepos_t (samplepos_t (0))))
+	, _last_position (_type == DataType::MIDI ? timepos_t (Beats()) : timepos_t (samplepos_t (0)))
 	, _first_edit (EditChangesNothing)
 	, _layer (0)
 {
