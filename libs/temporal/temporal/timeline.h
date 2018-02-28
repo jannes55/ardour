@@ -25,6 +25,8 @@
 #include <cassert>
 #include <limits>
 
+#include "pbd/enumwriter.h"
+
 #include "temporal/types.h"
 #include "temporal/beats.h"
 #include "temporal/bbt_time.h"
@@ -806,21 +808,24 @@ inline static bool operator>= (Temporal::samplepos_t s, Temporal::timepos_t cons
 inline static bool operator>= (Temporal::Beats const & b, Temporal::timepos_t const & t) { return b >= t.beats(); }
 inline static bool operator>= (Temporal::BBT_Time const & bbt, Temporal::timepos_t const & t) { return bbt >= t.bbt(); }
 
-inline static bool operator< (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::AudioTime); return s < t.samples(); }
-inline static bool operator< (Temporal::Beats const & b, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BeatTime); return b < t.beats(); }
-inline static bool operator< (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BarTime); return bbt < t.bbt(); }
+#undef TEMPORAL_DOMAIN_WARNING
+#define TEMPORAL_DOMAIN_WARNING(d) if (t.style() != (d)) std::cerr << "DOMAIN CONVERSION WARNING IN COMPARATOR with t.domain = " << enum_2_string (t.style()) << " not " << enum_2_string (d) << std::endl;
 
-inline static bool operator<= (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::AudioTime); return s <= t.samples(); }
-inline static bool operator<= (Temporal::Beats const & b, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BeatTime); return b <= t.beats(); }
-inline static bool operator<= (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BarTime); return bbt <= t.bbt(); }
+inline static bool operator< (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::AudioTime); return s < t.samples(); }
+inline static bool operator< (Temporal::Beats const & b, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BeatTime); return b < t.beats(); }
+inline static bool operator< (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BarTime); return bbt < t.bbt(); }
 
-inline static bool operator> (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::AudioTime); return s > t.samples(); }
-inline static bool operator> (Temporal::Beats const & b, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BeatTime); return b > t.beats(); }
-inline static bool operator> (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BarTime); return bbt > t.bbt(); }
+inline static bool operator<= (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::AudioTime); return s <= t.samples(); }
+inline static bool operator<= (Temporal::Beats const & b, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BeatTime); return b <= t.beats(); }
+inline static bool operator<= (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BarTime); return bbt <= t.bbt(); }
 
-inline static bool operator>= (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::AudioTime); return s >= t.samples(); }
-inline static bool operator>= (Temporal::Beats const & b, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BeatTime); return b >= t.beats(); }
-inline static bool operator>= (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { assert (t.style() == Temporal::BarTime); return bbt >= t.bbt(); }
+inline static bool operator> (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::AudioTime); return s > t.samples(); }
+inline static bool operator> (Temporal::Beats const & b, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BeatTime); return b > t.beats(); }
+inline static bool operator> (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BarTime); return bbt > t.bbt(); }
+
+inline static bool operator>= (Temporal::samplepos_t s, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::AudioTime); return s >= t.samples(); }
+inline static bool operator>= (Temporal::Beats const & b, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BeatTime); return b >= t.beats(); }
+inline static bool operator>= (Temporal::BBT_Time const & bbt, Temporal::timecnt_t const & t) { TEMPORAL_DOMAIN_WARNING (Temporal::BarTime); return bbt >= t.bbt(); }
 
 namespace std {
 	template<>
