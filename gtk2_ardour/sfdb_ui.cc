@@ -2085,6 +2085,8 @@ SoundFileOmega::do_something (int action)
 		break;
 	}
 
+	cerr << "Import will be at " << where << endl;
+
 	SrcQuality quality = get_src_quality();
 
 	_import_active = true;

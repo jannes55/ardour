@@ -985,6 +985,8 @@ Editor::finish_bringing_in_material (boost::shared_ptr<Region> region,
 				existing_track = get_nth_selected_audio_track (0);
 			} else if (mr) {
 				existing_track = get_nth_selected_midi_track (0);
+				/* force position to BeatTime */
+				pos = timepos_t (pos.beats ());
 			}
 
 			if (!existing_track) {
@@ -1036,6 +1038,8 @@ Editor::finish_bringing_in_material (boost::shared_ptr<Region> region,
 
 				// TODO set strict_io from preferences
 				existing_track = mt.front();
+				/* force position to BeatTime */
+				pos = timepos_t (pos.beats ());
 			}
 
 			if (!new_track_name.empty()) {
