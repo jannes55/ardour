@@ -108,6 +108,12 @@ public:
 		return Beats(ticks / ppqn, (ticks % ppqn) * PPQN / ppqn);
 	}
 
+	int64_t to_ticks()               const { return (int64_t)_beats * PPQN + _ticks; }
+	int64_t to_ticks(uint32_t ppqn)  const { return (int64_t)_beats * ppqn + (_ticks * ppqn / PPQN); }
+
+	int32_t get_beats() const { return _beats; }
+	int32_t get_ticks() const { return _ticks; }
+
 	Beats& operator=(double time) {
 		double       whole;
 		const double frac = modf(time, &whole);
@@ -355,6 +361,10 @@ public:
 		return ticks (((_beats * PPQN) + _ticks) / factor);
 	}
 
+	Beats operator% (Beats const & b) {
+		return Beats::ticks (to_ticks() % b.to_ticks());
+	}
+
 	/* avoids calling ::to_double() to compute ratios of two Beat distances
 	 */
 	double operator/ (Beats const & other) {
@@ -375,16 +385,10 @@ public:
 		return *this;
 	}
 
-	int64_t to_ticks()               const { return (int64_t)_beats * PPQN + _ticks; }
-	int64_t to_ticks(uint32_t ppqn)  const { return (int64_t)_beats * ppqn + (_ticks * ppqn / PPQN); }
-
-	int32_t get_beats() const { return _beats; }
-	int32_t get_ticks() const { return _ticks; }
-
 	bool operator!() const { return _beats == 0 && _ticks == 0; }
 	operator bool () const { return _beats != 0 || _ticks != 0; }
 
-	static Beats tick() { return Beats(0, 1); }
+	static Beats one_tick() { return Beats(0, 1); }
 
 private:
 	int32_t _beats;

@@ -1959,9 +1959,13 @@ TempoMap::sample_plus_quarters_as_samples (samplepos_t start, Temporal::Beats co
 	const Temporal::Beats start_qn = i->quarters_at (start);
 	const Temporal::Beats end_qn = start_qn + distance;
 
+	cerr << "SPQAS start " << start << " qns = " << start_qn <<  " end via " << distance << " = " << end_qn << endl;
+
 	TempoMapPoints::const_iterator e = const_iterator_at (end_qn);
 
-	return superclock_to_samples (e->metric().superclock_at_qn (end_qn - e->quarters()), _sample_rate);
+	cerr << "\t\tend iter @ " << e->sample() << " qn = " << e->quarters() << " diff = " << end_qn - e->quarters() << endl;
+
+	return superclock_to_samples (e->metric().superclock_at_qn (end_qn), _sample_rate);
 }
 
 Temporal::Beats
@@ -2203,24 +2207,31 @@ TempoMap::bbt_duration_at (samplepos_t pos, const BBT_Time& bbt, int /* dir_igno
  */
 
 timecnt_t
-TempoMap::full_duration_at (timepos_t const & pos, timecnt_t const & duration, TimeDomain domain) const
+TempoMap::full_duration_at (timepos_t const & pos, timecnt_t const & duration, TimeDomain return_domain) const
 {
 	timepos_t p (pos);
 
-	if (domain == duration.style()) {
+	if (return_domain == duration.style()) {
 		return duration;
 	}
 
-	switch (domain) {
+	switch (return_domain) {
 	case AudioTime:
 		switch (duration.style()) {
 		case AudioTime:
 			/*NOTREACHED*/
 			break;
 		case BeatTime:
-			p.update_audio_and_beat_times(); /* XXX optimize by just fetching beats */
+			switch (p.lock_style()) {
+			case BeatTime:
+				break;
+			case BarTime:
+				abort ();
+			case AudioTime:
+				p.update_audio_and_beat_times(); /* XXX optimize by just fetching beats */
+				break;
+			}
 			p += duration;
-			p.update_audio_and_beat_times(); /* XXX optimize by just fetching beats */
 			return timecnt_t (p.sample() - pos.sample(), pos);
 			break;
 		case BarTime:

@@ -736,7 +736,6 @@ timepos_t::distance (Temporal::Beats const & b) const
 		update_audio_and_beat_times ();
 		break;
 	}
-
 	return timecnt_t (b - _beats, *this);
 }
 
@@ -927,19 +926,24 @@ timepos_t::shift_earlier (Temporal::BBT_Offset const & bbt)
 timepos_t &
 timepos_t:: operator+= (samplepos_t s)
 {
+	/* do not switch time domains just because we added samples (AudioTime)
+	 */
+
 	switch (_lock_status.style()) {
 	case AudioTime:
+		_samplepos += s;
 		break;
 	case BeatTime:
-		update_audio_and_bbt_times ();
+		update_audio_and_bbt_times (); /* XXX optimize for just audio */
+		_samplepos += s;
+		update_music_times ();
 		break;
 	case BarTime:
-		update_audio_and_beat_times ();
+		update_audio_and_beat_times (); /* XXX optimize for just audio */
+		_samplepos += s;
+		update_music_times ();
 		break;
 	}
-
-	_samplepos += s;
-	_lock_status.set_dirty (Dirty (BBTDirty|BeatsDirty));
 
 	return *this;
 }
@@ -949,17 +953,19 @@ timepos_t::operator+=(Temporal::Beats const & b)
 {
 	switch (_lock_status.style()) {
 	case AudioTime:
-		update_music_times ();
+		update_music_times (); /* XXX optimize for just BBT */
+		_beats += b;
+		update_audio_and_bbt_times ();
 		break;
 	case BeatTime:
+		_beats += b;
 		break;
 	case BarTime:
-		update_audio_and_beat_times ();
+		update_audio_and_beat_times (); /* XXX optimize for just BBT */
+		_beats += b;
+		update_audio_and_bbt_times ();
 		break;
 	}
-
-	_beats += b;
-	_lock_status.set_dirty (Dirty (SampleDirty|BBTDirty));
 
 	return *this;
 }
