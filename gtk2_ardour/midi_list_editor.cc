@@ -301,10 +301,10 @@ MidiListEditor::scroll_event (GdkEventScroll* ev)
 						cmd->change (note, prop, (uint8_t) (note->velocity() + idelta));
 						break;
 					case MidiModel::NoteDiffCommand::Length:
-						if (note->length() + delta >= Temporal::Beats::tick()) {
+						if (note->length() + delta >= Temporal::Beats::one_tick()) {
 							cmd->change (note, prop, note->length() + delta);
 						} else {
-							cmd->change (note, prop, Temporal::Beats::tick());
+							cmd->change (note, prop, Temporal::Beats::one_tick());
 						}
 						break;
 					case MidiModel::NoteDiffCommand::Channel:
@@ -343,10 +343,10 @@ MidiListEditor::scroll_event (GdkEventScroll* ev)
 					cmd->change (note, prop, (uint8_t) (note->velocity() + idelta));
 					break;
 				case MidiModel::NoteDiffCommand::Length:
-					if (note->length() + delta >= Temporal::Beats::tick()) {
+					if (note->length() + delta >= Temporal::Beats::one_tick()) {
 						cmd->change (note, prop, note->length() + delta);
 					} else {
-						cmd->change (note, prop, Temporal::Beats::tick());
+						cmd->change (note, prop, Temporal::Beats::one_tick());
 					}
 					break;
 				case MidiModel::NoteDiffCommand::Channel:
