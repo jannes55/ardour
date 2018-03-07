@@ -242,6 +242,8 @@ DiskReader::run (BufferSet& bufs, samplepos_t start_sample, samplepos_t end_samp
 	sampleoffset_t disk_samples_to_consume;
 	MonitorState ms = _route->monitoring_state ();
 
+	DEBUG_TRACE (DEBUG::DiskIO, string_compose ("disk reader %6::run (%1, %2, %3, %4, %5)\n", start_sample, end_sample, speed, nframes, result_required, name()));
+
 	if (_active) {
 		if (!_pending_active) {
 			_active = false;
@@ -636,6 +638,8 @@ DiskReader::seek (samplepos_t sample, bool complete_refill)
 	boost::shared_ptr<ChannelList> c = channels.reader();
 
 	//sample = std::max ((samplecnt_t)0, sample -_session.worst_output_latency ());
+
+	DEBUG_TRACE (DEBUG::DiskIO, string_compose ("disk reader %3 seek to %1 complete refill? %2\n", sample, complete_refill, name()));
 
 	for (n = 0, chan = c->begin(); chan != c->end(); ++chan, ++n) {
 		(*chan)->buf->reset ();
@@ -1312,7 +1316,7 @@ DiskReader::get_midi_playback (MidiBuffer& dst, samplepos_t start_sample, sample
 			if (n_skipped > 0) {
 				warning << string_compose(_("MidiDiskstream %1: skipped %2 events, possible underflow"), id(), n_skipped) << endmsg;
 			}
-			DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("playback buffer read, from %1 to %2 (%3)", start_sample, end_sample, nframes));
+			DEBUG_TRACE (DEBUG::MidiDiskstreamIO, string_compose ("playback buffer read, from %1 to %2 (%3)\n", start_sample, end_sample, nframes));
 			events_read = _midi_buf->read (*target, start_sample, end_sample, Port::port_offset ());
 		}
 

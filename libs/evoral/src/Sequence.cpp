@@ -74,11 +74,11 @@ Sequence<Time>::const_iterator::const_iterator()
 
 /** @param force_discrete true to force ControlLists to use discrete evaluation, otherwise false to get them to use their configured mode */
 template<typename Time>
-Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&              seq,
-                                               Time                               t,
-                                               bool                               force_discrete,
-                                               const std::set<Evoral::Parameter>& filtered,
-                                               const std::set<WeakNotePtr>*       active_notes)
+Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&               seq,
+                                               Time                                t,
+                                               bool                                force_discrete,
+                                               const std::set<Evoral::Parameter>&  filtered,
+                                               std::set<WeakNotePtr> const *                 active_notes)
 	: _seq(&seq)
 	, _active_patch_change_message (0)
 	, _type(NIL)
@@ -99,8 +99,7 @@ Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&            
 
 	// Add currently active notes, if given
 	if (active_notes) {
-		for (typename std::set<WeakNotePtr>::const_iterator i = active_notes->begin();
-		     i != active_notes->end(); ++i) {
+		for (typename std::set<WeakNotePtr>::const_iterator i = active_notes->begin(); i != active_notes->end(); ++i) {
 			NotePtr note = i->lock();
 			if (note && note->time() <= t && note->end_time() > t) {
 				_active_notes.push(note);
@@ -110,7 +109,6 @@ Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&            
 
 	// Find first note which begins at or after t
 	_note_iter = seq.note_lower_bound(t);
-
 	// Find first sysex event at or after t
 	for (typename Sequence<Time>::SysExes::const_iterator i = seq.sysexes().begin();
 	     i != seq.sysexes().end(); ++i) {
@@ -212,13 +210,22 @@ Sequence<Time>::const_iterator::const_iterator(const Sequence<Time>&            
 
 template<typename Time>
 void
-Sequence<Time>::const_iterator::invalidate(std::set< boost::weak_ptr< Note<Time> > >* notes)
+Sequence<Time>::const_iterator::get_active_notes (std::set<WeakNotePtr>& active_notes) const
 {
-	while (!_active_notes.empty()) {
-		if (notes) {
-			notes->insert(_active_notes.top());
-		}
-		_active_notes.pop();
+	/* can't iterate over a std::priority_queue<> such as ActiveNotes */
+	ActiveNotes copy (_active_notes);
+	while (!copy.empty()) {
+		active_notes.insert (copy.top());
+		copy.pop ();
+	}
+}
+
+template<typename Time>
+void
+Sequence<Time>::const_iterator::invalidate(bool preserve_active_notes)
+{
+	if (!preserve_active_notes) {
+		_active_notes = ActiveNotes();
 	}
 	_type = NIL;
 	_is_end = true;
@@ -1402,12 +1409,26 @@ Sequence<Time>::control_list_marked_dirty ()
 
 template<typename Time>
 void
-Sequence<Time>::dump (ostream& str) const
+Sequence<Time>::dump (ostream& str, typename Sequence<Time>::const_iterator x, uint32_t limit) const
 {
-	typename Sequence<Time>::const_iterator i;
-	str << "+++ dump\n";
-	for (i = begin(); i != end(); ++i) {
+	typename Sequence<Time>::const_iterator i = begin();
+
+	if (x != end()) {
+		i = x;
+	}
+
+	str << "+++ dump";
+	if (i != end()) {
+		str << " from " << i->time();
+	}
+	str << endl;
+	for (; i != end() && (limit >= 0); ++i) {
 		str << *i << endl;
+		if (limit) {
+			if (--limit == 0) {
+				break;
+			}
+		}
 	}
 	str << "--- dump\n";
 }

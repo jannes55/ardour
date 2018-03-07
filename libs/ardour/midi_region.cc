@@ -167,8 +167,8 @@ MidiRegion::clone (boost::shared_ptr<MidiSource> newsrc) const
 
 int
 MidiRegion::read_at (Evoral::EventSink<samplepos_t>& out,
-                     timepos_t                       position,
-                     timecnt_t                       dur,
+                     Temporal::timepos_t const &     position,
+                     Temporal::timecnt_t const &     dur,
                      Temporal::Range*                loop_range,
                      MidiCursor&                     cursor,
                      uint32_t                        chan_n,
@@ -181,8 +181,8 @@ MidiRegion::read_at (Evoral::EventSink<samplepos_t>& out,
 
 int
 MidiRegion::master_read_at (MidiRingBuffer<samplepos_t>& out,
-                            timepos_t                    position,
-                            timecnt_t                    dur,
+                            timepos_t const &            position,
+                            timecnt_t const &            dur,
                             Temporal::Range*             loop_range,
                             MidiCursor&                  cursor,
                             uint32_t                     chan_n,
@@ -194,8 +194,8 @@ MidiRegion::master_read_at (MidiRingBuffer<samplepos_t>& out,
 int
 MidiRegion::_read_at (const SourceList&              /*srcs*/,
                       Evoral::EventSink<samplepos_t>& dst,
-                      timepos_t                       start,
-                      timecnt_t                       dur,
+                      timepos_t const &               start,
+                      timecnt_t const &               d,
                       Temporal::Range*                loop_range,
                       MidiCursor&                     cursor,
                       uint32_t                        chan_n,
@@ -203,6 +203,7 @@ MidiRegion::_read_at (const SourceList&              /*srcs*/,
                       MidiStateTracker*               tracker,
                       MidiChannelFilter*              filter) const
 {
+	timecnt_t dur (d);
 	timecnt_t internal_offset;
 	timecnt_t to_read;
 
@@ -238,15 +239,13 @@ MidiRegion::_read_at (const SourceList&              /*srcs*/,
 	src->set_note_mode(lm, mode);
 
 #if 0
-	cerr << "MR " << name () << " read @ " << position << " + " << to_read
+	cerr << "MR " << name () << " read @ " << position() << " + " << to_read
 	     << " dur was " << dur
-	     << " len " << _length
-	     << " l-io " << (_length - internal_offset)
-	     << " _position = " << _position
-	     << " _start = " << _start
+	     << " len " << length()
+	     << " l-io " << (length() - internal_offset)
+	     << " _position = " << position()
+	     << " _start = " << this->start()
 	     << " intoffset = " << internal_offset
-	     << " quarter_note = " << quarter_note()
-	     << " start_beat = " << _start_beats
 	     << endl;
 #endif
 

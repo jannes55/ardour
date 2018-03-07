@@ -48,6 +48,8 @@ MidiRingBuffer<T>::read (MidiBuffer& dst, samplepos_t start, samplepos_t end, sa
 	size_t            count = 0;
 	const size_t      prefix_size = sizeof(T) + sizeof(Evoral::EventType) + sizeof(uint32_t);
 
+	DEBUG_TRACE (DEBUG::MidiRingBuffer, string_compose ("read from midi buffer @ %1 into %2 start = %3 end = %4 offset = %5\n", this, &dst, start, end, offset));
+
 	while (this->read_space() >= prefix_size) {
 
 		uint8_t peekbuf[prefix_size];
@@ -244,10 +246,10 @@ MidiRingBuffer<T>::dump(ostream& str)
 		return;
 	}
 
+
 	str << this << ": Dump size = " << vec.len[0] + vec.len[1]
 	    << " r@ " << RingBufferNPT<uint8_t>::get_read_ptr()
 	    << " w@" << RingBufferNPT<uint8_t>::get_write_ptr() << endl;
-
 
 	uint8_t *buf = new uint8_t[vec.len[0] + vec.len[1]];
 	memcpy (buf, vec.buf[0], vec.len[0]);

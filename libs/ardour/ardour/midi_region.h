@@ -67,8 +67,8 @@ class LIBARDOUR_API MidiRegion : public Region
 	virtual samplecnt_t read (Sample*, samplepos_t /*pos*/, samplecnt_t /*cnt*/, int /*channel*/) const { return 0; }
 
 	int read_at (Evoral::EventSink<samplepos_t>& dst,
-	             timepos_t position,
-	             timecnt_t dur,
+	             timepos_t const & position,
+	             timecnt_t const & dur,
 	             Temporal::Range* loop_range,
 	             MidiCursor& cursor,
 	             uint32_t  chan_n = 0,
@@ -77,8 +77,8 @@ class LIBARDOUR_API MidiRegion : public Region
 	             MidiChannelFilter* filter = 0) const;
 
 	int master_read_at (MidiRingBuffer<samplepos_t>& dst,
-	                    timepos_t position,
-	                    timecnt_t dur,
+	                    timepos_t const & position,
+	                    timecnt_t const & dur,
 	                    Temporal::Range* loop_range,
 	                    MidiCursor& cursor,
 	                    uint32_t  chan_n = 0,
@@ -118,8 +118,8 @@ class LIBARDOUR_API MidiRegion : public Region
 	MidiRegion (boost::shared_ptr<const MidiRegion>, timecnt_t const & offset);
 
 	int _read_at (const SourceList&, Evoral::EventSink<samplepos_t>& dst,
-	              timepos_t position,
-	              timecnt_t dur,
+	              timepos_t const & position,
+	              timecnt_t const & dur,
 	              Temporal::Range* loop_range,
 	              MidiCursor& cursor,
 	              uint32_t chan_n = 0,

@@ -2131,10 +2131,7 @@ TempoMap::set_state (XMLNode const & node, int /*version*/)
 	superclock_t extent;
 	node.get_property (X_("extent"), extent);
 
-	cerr << "\n\n\nLet's rebuild out to " << extent << endl;
-
 	rebuild (extent);
-	dump (cerr);
 
 	return 0;
 }

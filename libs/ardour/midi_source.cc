@@ -162,9 +162,9 @@ MidiSource::invalidate (const Lock& lock)
 timecnt_t
 MidiSource::midi_read (const Lock&                        lm,
                        Evoral::EventSink<samplepos_t>&    dst,
-                       timepos_t                          source_start,
-                       timecnt_t                          start,
-                       timecnt_t                          cnt,
+                       timepos_t const &                  source_start,
+                       timecnt_t const &                  start,
+                       timecnt_t const &                  cnt,
                        Temporal::Range*                   loop_range,
                        MidiCursor&                        cursor,
                        MidiStateTracker*                  tracker,
@@ -179,12 +179,9 @@ MidiSource::midi_read (const Lock&                        lm,
 		return timecnt_t (read_unlocked (lm, dst, source_start, start, cnt, loop_range, tracker, filter), start.position());
 	}
 
-	// Find appropriate model iterator
-	Evoral::Sequence<Temporal::Beats>::const_iterator& i = cursor.iter;
-
 	const bool linear_read = cursor.last_read_end != 0 && start == cursor.last_read_end;
 
-	if (!linear_read || !i.valid()) {
+	if (!linear_read || !cursor.iter.valid()) {
 		/* Cached iterator is invalid, search for the first event past start.
 		   Note that multiple tracks can use a MidiSource simultaneously, so
 		   all playback state must be in parameters (the cursor) and must not
@@ -192,38 +189,44 @@ MidiSource::midi_read (const Lock&                        lm,
 		   See http://tracker.ardour.org/view.php?id=6541
 		*/
 		cursor.connect (Invalidated);
-		cursor.iter = _model->begin (start.beats(), false, filtered, &cursor.active_notes);
-		cursor.active_notes.clear ();
+		std::set<Evoral::Sequence<Temporal::Beats>::WeakNotePtr> active_notes;
+		cursor.iter.get_active_notes (active_notes);
+		cursor.iter = _model->begin (start.beats(), false, filtered, &active_notes);
 	}
 
 	cursor.last_read_end = start + cnt;
 
+	// Find appropriate model iterator
+	Evoral::Sequence<Temporal::Beats>::const_iterator& i = cursor.iter;
+
 	// Copy events in [start, start + cnt) into dst
 
-	samplepos_t source_start_sample = source_start.sample ();
+	const Temporal::Beats source_start_beats = source_start.beats();
+	const Temporal::Beats region_start_beats = start.beats();
+	const Temporal::Beats cnt_beats = cnt.beats ();
+
+	const Temporal::Beats end = source_start_beats + region_start_beats + cnt_beats;
+	const Temporal::Beats session_source_start = (source_start + start).beats();
 
 	for (; i != _model->end(); ++i) {
 
 		// Offset by source start to convert event time to session time
 
-		// XXX optimize this to avoid constantly looking up the
-		// tempo map point/iterator for source_start
+		const Temporal::Beats session_event_beats = source_start_beats + i->time();
 
-		samplepos_t time_samples = _session.tempo_map().sample_plus_quarters_as_samples (source_start_sample, i->time());
-
-		if (time_samples < start + timecnt_t (source_start, timepos_t())) {
+		if (session_event_beats < session_source_start) {
 			/* event too early */
-
+			DEBUG_TRACE (DEBUG::MidiSourceIO, string_compose ("%1: skip event, too early @ %2 for %3\n", _name, session_event_beats, session_source_start));
 			continue;
 
-		} else if (start + cnt + timecnt_t (source_start, timepos_t()) < time_samples) {
+		} else if (session_event_beats >= end) {
 
-			DEBUG_TRACE (DEBUG::MidiSourceIO,
-			             string_compose ("%1: reached end with event @ %2 vs. %3\n",
-			                             _name, time_samples, start+cnt));
+			DEBUG_TRACE (DEBUG::MidiSourceIO, string_compose ("%1: reached end (%2) with event @ %3\n", _name, end, session_event_beats));
 			break;
 
 		} else {
+
+			samplepos_t time_samples = timepos_t (session_event_beats).sample();
 
 			/* in range */
 
@@ -257,9 +260,7 @@ MidiSource::midi_read (const Lock&                        lm,
 #ifndef NDEBUG
 			if (DEBUG_ENABLED(DEBUG::MidiSourceIO)) {
 				DEBUG_STR_DECL(a);
-				DEBUG_STR_APPEND(a, string_compose ("%1 added event @ %2 sz %3 within %4 .. %5 ",
-				                                    _name, time_samples, i->size(),
-				                                    start + timecnt_t (source_start, timepos_t()), start + cnt + timecnt_t (source_start, timepos_t())));
+				DEBUG_STR_APPEND(a, string_compose ("%1 added event @ %2 (%3) sz %4 within %5 .. %6 ", _name, time_samples, session_event_beats, i->size(), source_start + start, end));
 				for (size_t n=0; n < i->size(); ++n) {
 					DEBUG_STR_APPEND(a,hex);
 					DEBUG_STR_APPEND(a,"0x");

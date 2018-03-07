@@ -45,12 +45,11 @@ struct MidiCursor : public boost::noncopyable {
 	}
 
 	void invalidate(bool preserve_notes) {
-		iter.invalidate(preserve_notes ? &active_notes : NULL);
+		iter.invalidate(preserve_notes);
 		last_read_end = 0;
 	}
 
 	Evoral::Sequence<Temporal::Beats>::const_iterator        iter;
-	std::set<Evoral::Sequence<Temporal::Beats>::WeakNotePtr> active_notes;
 	timepos_t                                                last_read_end;
 	PBD::ScopedConnectionList                                connections;
 };
