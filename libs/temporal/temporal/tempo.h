@@ -470,10 +470,12 @@ class LIBTEMPORAL_API TempoMap : public PBD::StatefulDestructible
 
 	samplepos_t sample_at (Beats const &) const;
 	samplepos_t sample_at (BBT_Time const &) const;
+	samplepos_t sample_at (timepos_t const &) const;
 
 	int update_music_times (int gen, samplepos_t, Beats & b, BBT_Time & bbt, bool force);
 	int update_samples_and_beat_times (int gen, BBT_Time const & bbt, samplepos_t & pos, Beats & b, bool force);
 	int update_samples_and_bbt_times (int gen, Beats const & b, samplepos_t & pos, BBT_Time & bbt, bool force);
+	void update_one_domain_from_another (timepos_t const & src, void* dst, TimeDomain) const;
 
 	/* ways to walk along the tempo map, measure distance between points,
 	 * etc.

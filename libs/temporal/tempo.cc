@@ -1616,6 +1616,20 @@ TempoMap::sample_at_locked (BBT_Time const & bbt) const
 }
 
 samplepos_t
+TempoMap::sample_at (timepos_t const & pos) const
+{
+	switch (pos.lock_style()) {
+	case BarTime:
+		return sample_at (pos.bbt());
+	case BeatTime:
+		return sample_at (pos.beats ());
+	case AudioTime:
+		break;
+	}
+	return pos.sample();
+}
+
+samplepos_t
 TempoMap::samplepos_plus_bbt (samplepos_t pos, BBT_Time op) const
 {
 	Glib::Threads::RWLock::ReaderLock lm (_lock);
@@ -1984,6 +1998,22 @@ TempoMap::sample_quarters_delta_as_samples (samplepos_t start, Temporal::Beats c
 	return sample_at_locked (start_qn + distance);
 }
 
+void
+TempoMap::update_one_domain_from_another (timepos_t const & src, void* dst, TimeDomain target_domain) const
+{
+	switch (target_domain) {
+	case AudioTime:
+		*((samplepos_t*) dst) = sample_at (src);
+		break;
+	case BeatTime:
+		*((Beats*) dst) = quarter_note_at (src);
+		break;
+	case BarTime:
+		*((BBT_Time*) dst) = bbt_at (src);
+		break;
+	}
+}
+
 int
 TempoMap::update_music_times (int generation, samplepos_t pos, Temporal::Beats & b, Temporal::BBT_Time & bbt, bool force)
 {
@@ -1995,7 +2025,7 @@ TempoMap::update_music_times (int generation, samplepos_t pos, Temporal::Beats &
 
 	TempoMapPoints::iterator i = iterator_at (pos);
 
-	const superclock_t sc = samples_to_superclock (pos, _sample_rate);
+	const superclock_t sc = S2Sc (pos);
 	b = i->quarters_at (sc);
 	bbt = i->bbt_at (sc);
 
