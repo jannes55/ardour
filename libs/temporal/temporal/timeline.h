@@ -271,16 +271,6 @@ class LIBTEMPORAL_API timepos_t {
 	timecnt_t distance (Temporal::Beats const &) const;
 	timecnt_t distance (Temporal::BBT_Offset const &) const;
 
-	/* this is a godawful hack to cover some cases where an endpoint is inclusive.
-	   Plan is to remove this, once Range uses an exclusive end.
-	*/
-
-	timecnt_t inclusive_delta (timecnt_t const & d) const;
-	timecnt_t inclusive_delta (timepos_t const & d) const;
-	timecnt_t inclusive_delta (samplepos_t d) const;
-	timecnt_t inclusive_delta (Temporal::Beats const & d) const;
-	timecnt_t inclusive_delta (Temporal::BBT_Offset const & d) const;
-
 	/* computes a new position value that is @param d earlier than this */
 
 	timepos_t earlier (timepos_t const & d) const; /* treat d as distance measured from timeline origin */
@@ -699,36 +689,6 @@ class LIBTEMPORAL_API timecnt_t {
 	Beats compute_beats () const;
 	BBT_Offset compute_bbt () const;
 };
-
-inline timecnt_t
-timepos_t::inclusive_delta (timecnt_t const & d) const
-{
-	return distance (d).increment();
-}
-
-inline timecnt_t
-timepos_t::inclusive_delta (timepos_t const & d) const
-{
-	return distance (d).increment();
-}
-
-inline timecnt_t
-timepos_t::inclusive_delta (samplepos_t d) const
-{
-	return distance (d).increment();
-}
-
-inline timecnt_t
-timepos_t::inclusive_delta (Temporal::Beats const & d) const
-{
-	return distance (d).increment();
-}
-
-inline timecnt_t
-timepos_t::inclusive_delta (Temporal::BBT_Offset const & d) const
-{
-	return distance (d).increment();
-}
 
 inline bool
 timepos_t::operator< (timecnt_t const & other) const

@@ -2974,7 +2974,7 @@ Editor::region_from_selection ()
 
 	TrackViewList tracks = get_tracks_for_range_action ();
 
-	timecnt_t selection_cnt = end.inclusive_delta (start);
+	timecnt_t selection_cnt = start.distance (end);
 
 	for (TrackSelection::iterator i = tracks.begin(); i != tracks.end(); ++i) {
 		boost::shared_ptr<Region> current;
@@ -3466,7 +3466,7 @@ Editor::region_fill_track ()
 
 	timepos_t const start = regions.start_time ();
 	timepos_t const end = regions.end_time ();
-	timecnt_t const gap = end.inclusive_delta (start);
+	timecnt_t const gap = start.distance (end);
 
 	begin_reversible_command (Operations::region_fill);
 
@@ -3481,7 +3481,7 @@ Editor::region_fill_track ()
 		latest_regionviews.clear ();
 		sigc::connection c = rtv->view()->RegionViewAdded.connect (sigc::mem_fun(*this, &Editor::collect_new_region_view));
 
-		timepos_t position = end + (r->position().inclusive_delta (start));
+		timepos_t position = end + (start.distance (r->position()));
 		playlist = (*i)->region()->playlist();
 		playlist->clear_changes ();
 		playlist->duplicate_until (r, position, gap, end);
@@ -4024,7 +4024,7 @@ Editor::bounce_range_selection (bool replace, bool enable_processing)
 
 	timepos_t start = selection->time[clicked_selection].start();
 	timepos_t end = selection->time[clicked_selection].end();
-	timecnt_t cnt = end.inclusive_delta (start);
+	timecnt_t cnt = start.distance (end);
 	bool in_command = false;
 
 	for (TrackViewList::iterator i = views.begin(); i != views.end(); ++i) {
@@ -4890,7 +4890,7 @@ Editor::duplicate_some_regions (RegionSelection& regions, float times)
 
 	timepos_t const start = regions.start_time ();
 	timepos_t const end = regions.end_time ();
-	timecnt_t const gap = end.inclusive_delta (start);
+	timecnt_t const gap = start.distance (end);
 
 	begin_reversible_command (Operations::duplicate_region);
 
@@ -4905,7 +4905,7 @@ Editor::duplicate_some_regions (RegionSelection& regions, float times)
 		latest_regionviews.clear ();
 		sigc::connection c = rtv->view()->RegionViewAdded.connect (sigc::mem_fun(*this, &Editor::collect_new_region_view));
 
-		timepos_t position = end + (r->position().inclusive_delta (start));
+		timepos_t position = end + (start.distance (r->position()));
 		playlist = (*i)->region()->playlist();
 		playlist->clear_changes ();
 		playlist->duplicate (r, position, gap, times);
